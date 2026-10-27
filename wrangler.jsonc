@@ -7,7 +7,7 @@
   "keep_vars": true,
   "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": true },
   "d1_databases": [
-    { "binding": "DB", "database_name": "waraqa-db", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "drizzle" }
+    { "binding": "DB", "database_name": "waraqa-db", "database_id": "415ee62f-6c63-484b-8459-473e41f86494", "migrations_dir": "drizzle" }
   ],
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "waraqa-files" }]
 }
