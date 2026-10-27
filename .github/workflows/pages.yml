@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '22'
       - name: Test browser storage
-        run: node tests/local-storage.cjs
+        run: node tests/local-storage.cjs && node tests/camera.cjs
       - name: Build free static website
         run: node scripts/build-pages.mjs
       - uses: actions/configure-pages@v5
