@@ -3,13 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.13.0" },
-  "scripts": {
-    "build": "node scripts/build.mjs",
-    "test": "node tests/external.mjs && node tests/cloud.mjs && node tests/voice.cjs && node tests/student-import.cjs && node tests/question-files.cjs && node tests/grading.cjs",
-    "deploy": "npm run build && wrangler deploy",
-    "dev": "npm run build && wrangler dev"
+  "engines": {
+    "node": ">=22.13.0"
   },
-  "dependencies": { "jose": "6.2.13" },
-  "devDependencies": { "wrangler": "4.92.0" }
+  "scripts": {
+    "build": "node scripts/build-pages.mjs",
+    "test": "node tests/local-storage.cjs && node tests/external.mjs && node tests/cloud.mjs && node tests/voice.cjs && node tests/student-import.cjs && node tests/question-files.cjs && node tests/grading.cjs",
+    "build:cloudflare": "node scripts/build.mjs",
+    "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy",
+    "dev:cloudflare": "npm run build:cloudflare && wrangler dev"
+  },
+  "dependencies": {
+    "jose": "6.2.13"
+  },
+  "devDependencies": {
+    "wrangler": "4.92.0"
+  }
 }
