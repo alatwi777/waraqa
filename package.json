@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "node scripts/build-pages.mjs",
-    "test": "node tests/local-storage.cjs && node tests/camera.cjs && node tests/external.mjs && node tests/cloud.mjs && node tests/voice.cjs && node tests/student-import.cjs && node tests/question-files.cjs && node tests/grading.cjs",
+    "test": "node tests/local-storage.cjs && node tests/camera.cjs && node tests/scan-precision.cjs && node tests/external.mjs && node tests/cloud.mjs && node tests/voice.cjs && node tests/student-import.cjs && node tests/question-files.cjs && node tests/grading.cjs",
     "build:cloudflare": "node scripts/build.mjs",
     "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy",
     "dev:cloudflare": "npm run build:cloudflare && wrangler dev"
