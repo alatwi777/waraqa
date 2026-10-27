@@ -15,6 +15,9 @@ assert.equal(run("studentFromReadings({text:'001234',confidence:76},{text:'00123
 assert.equal(run("studentFromReadings({text:'001234',confidence:74},{text:'001234',confidence:74},roster)"),null);
 assert.equal(run("studentFromReadings({text:'001234',confidence:95},{text:'1234',confidence:95},roster)"),null);
 ctx.roster.push({id:'duplicate',number:'001234'});assert.equal(run("exactStudentMatch('001234',95,roster)"),null);
+assert.equal(run("printedStudentNumber('٠٠١٢ ٣٤٥٦٧٨')"),'0012345678');
+assert.equal(run("numericOCRReading({text:'001234 label',confidence:20,blocks:[{paragraphs:[{lines:[{words:[{text:'001234',confidence:94},{text:'label',confidence:10}]}]}]}]}).confidence"),94);
+run("scanState={canvas:{},orientationReady:false,version:8,corners:[]}");assert.equal(run('studentNumberCrop(scanState)'),null);
 // A bowed sheet with independently shifted rows, including the one aggregate essay row.
 const g=copy('paperGeometry(8)'),c=new Canvas(g.width,g.height);c.data=new Uint8ClampedArray(c.width*c.height*4).fill(255);
 const put=(x,y,v)=>{const n=(Math.round(y)*c.width+Math.round(x))*4;if(n<0||n>=c.data.length)return;c.data[n]=c.data[n+1]=c.data[n+2]=v};
