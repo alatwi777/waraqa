@@ -1,12 +1,15 @@
 'use strict';
 // Camera frames and student papers stay in the browser; no network recognition service.
-let PaperCamera=null,PaperCameraGeneration=0;
+let PaperCamera=null,PaperCameraGeneration=0,PaperCameraAudio=null;
+function unlockPaperCameraAudio(){try{const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)return null;PaperCameraAudio??=new AudioContextClass();PaperCameraAudio.resume?.().catch(()=>{});return PaperCameraAudio}catch{return null}}
+function playPaperCameraShutter(){const c=PaperCameraAudio;if(!c)return;try{if(c.state==='suspended')c.resume();const t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(1450,t);o.frequency.exponentialRampToValueAtTime(720,t+.075);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+.11);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.115);navigator.vibrate?.(24)}catch{}}
 function cameraExamReady(){const e=getExam();if(!e||!e.questions.length){toast('اختر اختبارًا يحتوي على أسئلة أولًا');return false}if(e.questions.some(q=>q.type!=='essay'&&(q.answer===null||q.answer===undefined))){toast('أكمل مفتاح الإجابة أولًا');return false}return true}
 async function openPaperCamera(documentScan=false){
  if(!cameraExamReady())return;
  if(!navigator.mediaDevices?.getUserMedia){toast('الكاميرا المباشرة غير متاحة هنا. استخدم زر الكاميرا العادية.');return}
  stopPaperCamera();
- modal(documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب',`<div class="camera-intro">${documentScan?'أظهر الورقة كاملة وثبّت الهاتف. سنقص الخلفية ونصحح الميل والإضاءة بعد الالتقاط، دون علامات خضراء.':'أظهر المربعات السوداء الأربع داخل الصورة. عند ثباتها ووضوح الورقة يُلتقط التصوير تلقائيًا.'}</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true" ${documentScan?'hidden':''}></canvas><div id="paper-camera-start">جارٍ فتح الكاميرا…</div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div><label class="switch-row note"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note">خيارات العدسة والتصغير تعتمد على ما يتيحه هاتفك للمتصفح. إن لم تتسع الورقة، أدر الهاتف أفقيًا أو استخدم الكاميرا العادية.</p>`);
+ unlockPaperCameraAudio();
+ modal(documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب',`<div class="camera-intro">وجّه الهاتف حتى تظهر المربعات السوداء الأربع داخل الإطارات. تلتقط الكاميرا الورقة تلقائيًا فور ثباتها ووضوحها.</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true"></canvas><div id="paper-camera-start">جارٍ فتح الكاميرا…</div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div class="camera-camera-controls"><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div></div><label class="switch-row note camera-auto-row"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note camera-footnote">يظهر اسم الطالب ودرجاته بعد الالتقاط. لن تُحفظ الإطارات الخضراء على الصورة.</p>`);
  $('#modal').classList.add('paper-camera-modal');
  const state=PaperCamera={documentScan,generation:++PaperCameraGeneration,stream:null,timer:null,canvas:document.createElement('canvas'),previous:null,stableSince:0,busy:false,detected:false};
  await connectPaperCamera(state);
@@ -65,14 +68,14 @@ function stablePaperFrame(s,points,now,ready){
  if(!ready){s.previous=null;s.stableSince=0;return 0}
  const scale=Math.max(s.canvas.width,s.canvas.height),movement=s.previous?Math.max(...points.map((p,i)=>Math.hypot(p.x-s.previous[i].x,p.y-s.previous[i].y)))/scale:Infinity;
  if(movement>.008||!s.stableSince)s.stableSince=now;
- s.previous=points.map(p=>({...p}));return Math.min(1,(now-s.stableSince)/1200);
+ s.previous=points.map(p=>({...p}));return Math.min(1,(now-s.stableSince)/720);
 }
 function drawCameraGuides(s,points,ready){
- const c=$('#paper-camera-overlay');if(!c||s.documentScan)return;c.width=s.canvas.width;c.height=s.canvas.height;const ctx=c.getContext('2d'),w=c.width,h=c.height;
+ const c=$('#paper-camera-overlay');if(!c)return;c.width=s.canvas.width;c.height=s.canvas.height;const ctx=c.getContext('2d'),w=c.width,h=c.height;
  const guides=points||[{x:w*.08,y:h*.08},{x:w*.92,y:h*.08},{x:w*.92,y:h*.92},{x:w*.08,y:h*.92}];
- ctx.strokeStyle=ready?'#4dff96':'#67e89b';ctx.lineWidth=Math.max(2,w/220);ctx.lineCap='round';
- guides.forEach((p,i)=>{const a=w*.035,sx=i===0||i===3?1:-1,sy=i<2?1:-1;ctx.beginPath();ctx.moveTo(p.x+sx*a,p.y);ctx.lineTo(p.x,p.y);ctx.lineTo(p.x,p.y+sy*a);ctx.stroke()});
- if(points&&ready){ctx.strokeStyle='#4dff9666';ctx.lineWidth=1;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.stroke()}
+ ctx.strokeStyle=points?(ready?'#31df7b':'#a9f2c7'):'#d8f0df';ctx.lineWidth=Math.max(3,w/180);ctx.lineCap='round';
+ guides.forEach((p,i)=>{const a=Math.max(12,w*.018),sx=i===0||i===3?1:-1,sy=i<2?1:-1;ctx.strokeRect(p.x-a*.58,p.y-a*.58,a*1.16,a*1.16);ctx.beginPath();ctx.moveTo(p.x+sx*a*1.7,p.y);ctx.lineTo(p.x,p.y);ctx.lineTo(p.x,p.y+sy*a*1.7);ctx.stroke()});
+ if(points&&ready){ctx.strokeStyle='#31df7b99';ctx.lineWidth=Math.max(1,w/650);ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.stroke()}
 }
 function analysePaperFrame(s){
  if(!cameraActive(s)||s.busy)return;
@@ -87,7 +90,7 @@ function analysePaperFrame(s){
 async function capturePaperFrame(automatic=false){
  const s=PaperCamera,v=$('#paper-camera-video');if(!s||s.busy||!v?.videoWidth||v.readyState<2)return;if(automatic&&!s.detected)return;
  s.busy=true;clearTimeout(s.timer);$('#paper-camera-capture').disabled=true;
- try{const c=document.createElement('canvas'),k=Math.min(1,2400/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);const url=c.toDataURL('image/jpeg',.95);closePaperCamera();scanQueue=[{name:s.documentScan?'مسح ضوئي للهاتف':'تصوير الهاتف',url,documentScan:s.documentScan}];scanIndex=0;await openScan();toast('تم التصوير. تجري قراءة رقم الطالب والإجابات تلقائيًا.')}catch{s.busy=false;if(cameraActive(s)){$('#paper-camera-capture').disabled=false;s.timer=setTimeout(()=>analysePaperFrame(s),240)}toast('تعذر التقاط الصورة. أعد المحاولة.')}
+ try{const c=document.createElement('canvas'),k=Math.min(1,2400/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);playPaperCameraShutter();const url=c.toDataURL('image/jpeg',.95);closePaperCamera();scanQueue=[{name:s.documentScan?'مسح ضوئي للهاتف':'تصوير الهاتف',url,documentScan:s.documentScan,cameraScan:true}];scanIndex=0;await openScan();toast('تم التصوير. تجري قراءة رقم الطالب والإجابات تلقائيًا.')}catch{s.busy=false;if(cameraActive(s)){$('#paper-camera-capture').disabled=false;s.timer=setTimeout(()=>analysePaperFrame(s),240)}toast('تعذر التقاط الصورة. أعد المحاولة.')}
 }
 // Compare printed bubble rings across all rotations, rather than inferring orientation from aspect alone.
 function paperOrientation(c,exam,version=8){
