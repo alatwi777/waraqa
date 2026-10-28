@@ -71,7 +71,7 @@ function stablePaperFrame(s,points,now,ready){
  s.previous=points.map(p=>({...p}));return Math.min(1,(now-s.stableSince)/720);
 }
 function drawCameraGuides(s,points,ready){
- const c=$('#paper-camera-overlay');if(!c)return;c.width=s.canvas.width;c.height=s.canvas.height;const ctx=c.getContext('2d'),w=c.width,h=c.height;
+ const c=$('#paper-camera-overlay');if(!c||!s.canvas)return;c.width=s.canvas.width;c.height=s.canvas.height;const ctx=c.getContext('2d'),w=c.width,h=c.height;
  const guides=points||[{x:w*.08,y:h*.08},{x:w*.92,y:h*.08},{x:w*.92,y:h*.92},{x:w*.08,y:h*.92}];
  ctx.strokeStyle=points?(ready?'#31df7b':'#a9f2c7'):'#d8f0df';ctx.lineWidth=Math.max(3,w/180);ctx.lineCap='round';
  guides.forEach((p,i)=>{const a=Math.max(12,w*.018),sx=i===0||i===3?1:-1,sy=i<2?1:-1;ctx.strokeRect(p.x-a*.58,p.y-a*.58,a*1.16,a*1.16);ctx.beginPath();ctx.moveTo(p.x+sx*a*1.7,p.y);ctx.lineTo(p.x,p.y);ctx.lineTo(p.x,p.y+sy*a*1.7);ctx.stroke()});
