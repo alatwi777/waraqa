@@ -149,6 +149,7 @@ async function correctAllPending() {
   const progress = document.querySelector('#batch-progress'); let done = 0, failed = [];
   for (scanIndex = 0; scanIndex < scanQueue.length; scanIndex++) {
     try {
+      scanState = null;
       await originalOpenScan();
       const s = scanState, e = db.exams.find(x => x.id === s?.exam);
       if (!s || !e) throw new Error('تعذر قراءة صفحة الاختبار');
