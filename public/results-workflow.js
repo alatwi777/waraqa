@@ -320,11 +320,11 @@ async function openLargeResultPreview(id, p) {
     const image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay'), placeholder = document.querySelector('#large-result-placeholder');
     const showMissing = message => { if (placeholder) { placeholder.textContent = message; placeholder.hidden = false; } if (image) image.hidden = true; if (overlay) overlay.hidden = true; };
     if (!url || !image || !overlay) { showMissing('لا توجد صورة محفوظة لهذه الورقة. أعد رفع الورقة من قسم التصحيح.'); return; }
-    image.onload = () => { image.hidden = false; if (placeholder) placeholder.hidden = true; if (overlay) overlay.hidden = false; fitLargeResultImage(image); requestAnimationFrame(() => requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay))); };
+    image.onload = () => { image.hidden = false; if (placeholder) placeholder.hidden = true; if (overlay) overlay.hidden = false; requestAnimationFrame(() => { fitLargeResultImage(image); requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay)); }); };
     image.onerror = () => showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
     image.hidden = false; overlay.hidden = false; image.src = url;
     if (image.complete) {
-      if (image.naturalWidth) { if (placeholder) placeholder.hidden = true; fitLargeResultImage(image); requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay)); }
+      if (image.naturalWidth) { if (placeholder) placeholder.hidden = true; requestAnimationFrame(() => { fitLargeResultImage(image); requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay)); }); }
       else showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
     }
   } catch { const placeholder = document.querySelector('#large-result-placeholder'); if (placeholder) { placeholder.textContent = 'تعذر استرجاع الصورة من هذا الجهاز. أعد رفع الورقة من قسم التصحيح.'; placeholder.hidden = false; } toast('تعذر استرجاع صورة الورقة'); }
