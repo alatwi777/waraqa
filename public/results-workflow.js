@@ -132,6 +132,101 @@ function issueCounts(r, p = null) {
   return out;
 }
 
+function answerSheetsExportModal() {
+  const available = db.results.filter(r => Object.keys(r.pages || {}).length);
+  if (!available.length) return toast('لا توجد أوراق محفوظة للتصدير');
+  const exams = [...new Map(available.map(r => { const e = resultExam(r); return [e?.id || r.exam, e]; }).filter(([, e]) => e).map(([id, e]) => [id, e])).values()];
+  modal('تصدير أوراق إجابات الطلاب', `<p class="note">يُجهّز ملف طباعة متعدد الصفحات بصور أوراق الطلاب، مع علامات إجاباتهم فقط. لن تظهر دوائر إجابة المعلم الصفراء. بعد فتح المعاينة اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p><label class="field">الاختبار<select id="answer-export-exam"><option value="all">جميع الاختبارات</option>${options(exams.map(e => [e.id, e.title]))}</select></label>${btn('تجهيز الأوراق','exportAnswerSheets()')}`);
+}
+
+function makeStudentAnswerSheetImage(source, r, p) {
+  return new Promise(async (resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const width = image.naturalWidth, height = image.naturalHeight;
+        if (!width || !height) throw new Error('الصورة بلا أبعاد');
+        const holder = document.createElement('div');
+        holder.setAttribute('aria-hidden', 'true');
+        Object.assign(holder.style, { position: 'fixed', left: '-20000px', top: '0', width: `${width}px`, height: `${height}px`, opacity: '0', pointerEvents: 'none', overflow: 'hidden' });
+        image.style.display = 'block'; image.style.width = `${width}px`; image.style.height = `${height}px`;
+        const overlay = document.createElement('canvas');
+        overlay.style.width = `${width}px`; overlay.style.height = `${height}px`;
+        holder.append(image, overlay); document.body.append(holder);
+        // Use only the original student-mark renderer; the wrapper renderer adds
+        // the teacher's yellow answer circle, which is intentionally excluded.
+        originalDrawResultOverlay(r, p, image, overlay);
+        const output = document.createElement('canvas'); output.width = width; output.height = height;
+        const ctx = output.getContext('2d'); ctx.drawImage(image, 0, 0); ctx.drawImage(overlay, 0, 0);
+        const data = output.toDataURL('image/jpeg', 0.94);
+        holder.remove(); output.width = output.height = 1;
+        resolve(data);
+      } catch (error) { reject(error); }
+    };
+    image.onerror = () => reject(new Error('تعذر تحميل صورة الورقة'));
+    image.src = source;
+  });
+}
+
+async function exportAnswerSheets() {
+  const popup = window.open('', '_blank');
+  if (!popup) return toast('اسمح بفتح نافذة التصدير في إعدادات Safari');
+  popup.document.write('<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>تصدير أوراق الإجابات</title><body style="font:18px Tahoma,Arial,sans-serif;padding:32px;text-align:center">جارٍ تجهيز أوراق الطلاب… اترك النافذة مفتوحة.</body></html>');
+  popup.document.close();
+  const examId = document.querySelector('#answer-export-exam')?.value || 'all';
+  const records = db.results.filter(r => (examId === 'all' || r.exam === examId || resultExam(r)?.id === examId) && Object.keys(r.pages || {}).length);
+  const pages = [], skipped = [];
+  for (const r of records) {
+    const e = resultExam(r);
+    for (const p of Object.keys(r.pages || {}).sort((a,b) => Number(a)-Number(b))) {
+      try {
+        const source = await fileGet(r.pages[p]);
+        if (!source) throw new Error('الصورة غير موجودة');
+        const image = await makeStudentAnswerSheetImage(source, r, Number(p));
+        pages.push(`<section class="sheet"><img src="${image}" alt="ورقة إجابات ${esc(r.name || 'الطالب')}"></section>`);
+      } catch { skipped.push(`${r.number || r.name || 'طالب'} — ${Number(p)+1}`); }
+    }
+  }
+  if (!pages.length) { popup.close(); return toast('لم نتمكن من تجهيز أي ورقة؛ تحقق من توفر صور النتائج'); }
+  const note = skipped.length ? `<p class="warning">تعذر تضمين ${ar(skipped.length)} صفحة لعدم توفر صورتها.</p>` : '';
+  popup.document.open();
+  popup.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>أوراق إجابات الطلاب</title><style>@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Tahoma,Arial,sans-serif}.sheet{height:196mm;width:100%;display:grid;place-items:center;page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}.sheet img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}.warning{padding:14px;color:#8a4b00;background:#fff5df}@media screen{body{padding:14px;background:#eef2ed}.sheet{margin:0 auto 14px;max-width:1100px;height:70vh;background:#fff;box-shadow:0 2px 14px #0002}.sheet img{max-height:68vh}.warning{text-align:center}}</style></head><body>${note}${pages.join('')}<script>window.addEventListener('load',()=>setTimeout(()=>{window.focus();window.print()},500))<\/script></body></html>`);
+  popup.document.close(); closeModal();
+  toast(`تم تجهيز ${ar(pages.length)} صفحة${skipped.length ? ` · تعذر ${ar(skipped.length)}` : ''}`);
+}
+
+async function exportResultsExcel() {
+  if (!db.results.length) return toast('لا توجد نتائج للتصدير');
+  try {
+    const XLSX = await loadStudentSheetLibrary();
+    const safe = value => { const text = String(value ?? ''); return /^[=+\-@]/.test(text) ? `'${text}` : text; };
+    const gradeRows = [['رقم الطالب','اسم الطالب','المجموعة','الاختبار','الدرجة','الدرجة الكلية','درجة المقالي','تاريخ الرصد'], ...db.results.map(r => {
+      const e = resultExam(r), essay = r.snapshot?.paperVersion >= 6 ? Number(r.essay?.[-1] || 0) : Object.entries(r.essay || {}).filter(([key]) => key !== '-1').reduce((sum,[,value]) => sum + Number(value || 0), 0);
+      return [safe(r.number), safe(r.name), safe(r.group), safe(e?.title), score(r), e ? total(e) : 0, essay, r.updated || r.date || ''];
+    })];
+    const answerRows = [['رقم الطالب','اسم الطالب','الاختبار','نوع السؤال','رقم السؤال','إجابة الطالب','إجابة المفتاح','الحالة','الدرجة'], ...db.results.flatMap(r => {
+      const e = resultExam(r); if (!e) return [];
+      return e.questions.map((q,i) => {
+        const p = Number(Object.keys(r.pages || {}).sort((a,b)=>Number(a)-Number(b))[0] || 0);
+        const status = q.type === 'essay' ? 'مقالي' : resultAnswerStatus(r,q,i,p);
+        const answer = q.type === 'essay' ? (r.snapshot?.paperVersion >= 6 ? 'ضمن مجموع المقالي' : Number(r.essay?.[i] || 0)) : (r.answers?.[i] == null ? 'متروك' : q.type === 'tf' ? (Number(r.answers[i]) ? 'خطأ' : 'صح') : safe(q.options?.[Number(r.answers[i])] || letters[Number(r.answers[i])]));
+        const key = q.type === 'essay' ? '—' : q.answer === null || q.answer === undefined ? 'لم يُحدد' : q.type === 'tf' ? (Number(q.answer) ? 'خطأ' : 'صح') : safe(q.options?.[Number(q.answer)] || letters[Number(q.answer)] || '');
+        const statusText = ({correct:'صحيحة',wrong:'خاطئة',double:'تظليل مزدوج',blank:'متروكة',unresolved:'تحتاج مراجعة'})[status] || status;
+        return [safe(r.number),safe(r.name),safe(e.title),q.type==='mcq'?'اختياري':q.type==='tf'?'صح وخطأ':'مقالي',questionNumber(e,i),answer,key,statusText,Number(q.points || 0)];
+      });
+    })];
+    const workbook = XLSX.utils.book_new();
+    const grades = XLSX.utils.aoa_to_sheet(gradeRows), answers = XLSX.utils.aoa_to_sheet(answerRows);
+    grades['!cols'] = [{wch:18},{wch:30},{wch:24},{wch:36},{wch:12},{wch:14},{wch:14},{wch:22}];
+    answers['!cols'] = [{wch:18},{wch:30},{wch:36},{wch:14},{wch:12},{wch:34},{wch:34},{wch:20},{wch:12}];
+    for (const sheet of [grades,answers]) if (sheet['!ref']) sheet['!autofilter'] = { ref: sheet['!ref'] };
+    XLSX.utils.book_append_sheet(workbook, grades, 'الدرجات');
+    XLSX.utils.book_append_sheet(workbook, answers, 'الإجابات');
+    XLSX.writeFile(workbook, `ورقة-النتائج-${new Date().toISOString().slice(0,10)}.xlsx`, { compression: true });
+    toast('تم تصدير ملف Excel');
+  } catch (error) { console.error(error); toast('تعذر إنشاء ملف Excel؛ حدّث الصفحة وأعد المحاولة'); }
+}
+
 results = function () {
   if (currentResult && db.results.some(r => r.id === currentResult)) return reviewResult(currentResult);
   const pendingList = bulkWaiting && scanQueue.length ? `<div class="bulk-file-list" aria-label="الأوراق المضافة">${scanQueue.map((f,i)=>`<span><b>${ar(i+1)}</b> ${esc(f.name)} <small>بانتظار التصحيح</small></span>`).join('')}</div>` : '';
@@ -140,7 +235,7 @@ results = function () {
     const e = resultExam(r), complete = Object.keys(r.pages || {}).length >= resultPageCount(r), c = issueCounts(r);
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${r.batchAuto ? 'تصحيح آلي — راجع الحالات' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
-  $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('↓ تصدير CSV','exportResults()','light')) + base + `<section class="panel"><div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${!db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : ''}</section>`;
+  $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')+btn('تصدير Excel','exportResultsExcel()','light')+btn('تصدير CSV','exportResults()','light')) + base + `<section class="panel"><div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${!db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : ''}</section>`;
 };
 
 function startBatchReview() { if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
