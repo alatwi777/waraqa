@@ -73,6 +73,14 @@ dialog.paper-camera-modal[open]{position:fixed;inset:0;margin:0;padding:0;width:
 .issue-chip.double{border-color:#e8bd7d;background:#fff6e6;color:#90530d}.issue-chip.blank{border-color:#a9d5f4;background:#edf7ff;color:#17689f}.issue-chip.wrong{border-color:#efb2b2;background:#fff1f1;color:#b92f32}.issue-chip.correct{border-color:#a8d8b8;background:#eff9f1;color:#13723e}
 .result-edit-hint{margin-top:8px;text-align:center}
 #result-overlay{pointer-events:auto;cursor:crosshair;touch-action:manipulation}
+.result-paper-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+dialog.result-preview-modal{width:min(1500px,98vw);max-height:96dvh}
+dialog.result-preview-modal .modal-content{max-height:calc(96dvh - 65px);overflow:auto;padding:12px}
+.large-result-scroll{max-height:calc(96dvh - 130px);overflow:auto;background:#edf0e9;padding:10px;border-radius:10px}
+.large-result-scroll .result-page-image-wrap{width:100%;margin:auto}
+.large-result-scroll .result-page-image-wrap .scan-preview{width:auto;max-width:100%;height:auto;max-height:calc(90dvh - 150px);cursor:crosshair}
+#large-result-overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:auto;cursor:crosshair;touch-action:manipulation}
+html[data-theme="dark"] .large-result-scroll{background:#081b36}
 @media(max-width:600px){.scan-top-actions,.answers-top-save{gap:5px;padding:7px}.scan-top-actions .btn,.answers-top-save .btn{padding:7px 9px;font-size:11px}.bulk-batch-panel{align-items:flex-start}.bulk-batch-panel .actions{width:100%}}
 @media(max-height:700px){.paper-camera-modal .camera-intro{font-size:11px}.paper-camera-modal .camera-footnote{display:none}.paper-camera-modal .modal-content{gap:5px}.paper-camera-modal .camera-actions .btn{min-height:42px}.paper-camera-modal .camera-auto-row{font-size:11px}}
 @media(max-width:600px){.paper-camera-modal .modal-content{padding:9px;gap:6px}.paper-camera-modal .modal-head{min-height:46px;padding:8px 12px}.paper-camera-modal .camera-camera-controls{display:block;max-height:88px}.paper-camera-modal .camera-lens-field{margin-bottom:6px}.paper-camera-stage{border-radius:7px}.scan-status-legend{gap:6px 10px;font-size:10px;padding:8px}.scan-status-tag{font-size:9px}}

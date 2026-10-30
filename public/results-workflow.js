@@ -4,6 +4,7 @@ let bulkReviewActive = false;
 let batchProcessing = false;
 let batchRunId = '';
 let resultHitContext = null;
+let largeResultPreview = null;
 
 const originalOpenScan = openScan;
 const originalRenderScan = renderScan;
@@ -183,7 +184,7 @@ reviewResult = async function (id, p = 0) {
   const imagePanel = document.querySelector('.review-layout > section:first-child');
   if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط فقاعة الإجابة لتعديلها، أو فقاعة مجموع المقالي أعلى الورقة لرصد الدرجة. النقر على الفقاعة المحددة يمسحها.</p>');
   const imageToolbar = imagePanel?.querySelector('.toolbar');
-  if (imageToolbar && !imageToolbar.querySelector('.next-result-paper')) imageToolbar.insertAdjacentHTML('beforeend', `<button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button>`);
+  if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة أكبر</button></div>`);
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
     if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
@@ -201,11 +202,10 @@ reviewResult = async function (id, p = 0) {
   if (scorePanel) scorePanel.insertAdjacentHTML('afterend', `<div class="result-issue-summary">${[['double','تظليل مزدوج'],['blank','متروك'],['wrong','إجابة خاطئة'],['correct','صحيحة']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n}: ${ar(counts[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة: ${ar(counts.essayPending)}</span></div>`);
 };
 
-drawResultOverlay = function (r, p) {
-  originalDrawResultOverlay(r, p);
-  const canvas = document.querySelector('#result-overlay');
-  if (canvas) { canvas.style.pointerEvents = 'auto'; canvas.style.cursor = 'crosshair'; canvas.onclick = ev => handleResultPaperClick(ev, r.id, p); }
-  resultHitContext = getResultHitContext(r, p);
+drawResultOverlay = function (r, p, im = document.querySelector('#result-image'), canvas = document.querySelector('#result-overlay')) {
+  originalDrawResultOverlay(r, p, im, canvas);
+  if (canvas) { canvas.style.pointerEvents = 'auto'; canvas.style.cursor = 'crosshair'; canvas.onclick = ev => handleResultPaperClick(ev, r.id, p, getResultHitContext(r, p, im, canvas)); }
+  resultHitContext = getResultHitContext(r, p, im, canvas);
   const grade = resultHitContext?.plan.items.find(v => v.i === -1 && v.q.type === 'essay');
   const value = Number(r.essay?.[-1]);
   if (grade && value > 0) {
@@ -218,8 +218,7 @@ drawResultOverlay = function (r, p) {
   }
 };
 
-function getResultHitContext(r, p) {
-  const im = document.querySelector('#result-image'), c = document.querySelector('#result-overlay');
+function getResultHitContext(r, p, im = document.querySelector('#result-image'), c = document.querySelector('#result-overlay')) {
   if (!im?.complete || !im.naturalWidth || !c?.width) return null;
   const tmp = document.createElement('canvas'); tmp.width = im.naturalWidth; tmp.height = im.naturalHeight; tmp.getContext('2d').drawImage(im, 0, 0);
   const corners = findMarkers(tmp); if (!corners) return null;
@@ -230,8 +229,8 @@ function getResultHitContext(r, p) {
   } catch { return null; }
 }
 
-function handleResultPaperClick(ev, id, p) {
-  const ctx = resultHitContext, r = db.results.find(x => x.id === id);
+function handleResultPaperClick(ev, id, p, context = null) {
+  const r = db.results.find(x => x.id === id), ctx = context || getResultHitContext(r, p);
   if (!ctx || !r) return;
   const rect = ctx.c.getBoundingClientRect(), x = (ev.clientX - rect.left - ctx.ox) / ctx.scale, y = (ev.clientY - rect.top - ctx.oy) / ctx.scale;
   let best = null;
@@ -242,13 +241,36 @@ function handleResultPaperClick(ev, id, p) {
   if (!best) return;
   if (best.i === -1) {
     const grade = Number(r.essay?.[-1]) === Number(best.value) ? null : Number(best.value);
-    r.essay ??= {}; r.essay[-1] = grade; r.updated = new Date().toISOString(); save(); reviewResult(id, p);
+    r.essay ??= {}; r.essay[-1] = grade; r.updated = new Date().toISOString(); save(); refreshResultAndLargePreview(r, p, ctx);
     toast(grade === null ? 'أُلغي رصد مجموع المقالي' : `تم رصد ${ar(grade)} درجة للمقالي`); return;
   }
   const q = resultExam(r).questions[best.i], value = r.answers[best.i] === best.value ? null : best.value;
   r.answers[best.i] = value; r.reviewed[best.i] = true; r.markings ??= {}; r.markings[p] ??= {};
   r.markings[p][best.i] = { status: value === null ? 'blank' : value === q.answer ? 'correct' : 'wrong', marked: value === null ? [] : [value] };
-  r.updated = new Date().toISOString(); save(); reviewResult(id, p); toast('تم تعديل الإجابة من الورقة وحفظ الدرجة');
+  r.updated = new Date().toISOString(); save(); refreshResultAndLargePreview(r, p, ctx); toast('تم تعديل الإجابة من الورقة وحفظ الدرجة');
+}
+
+function refreshResultAndLargePreview(r, p, ctx) {
+  const isLarge = ctx?.c?.id === 'large-result-overlay';
+  reviewResult(r.id, p).then(() => {
+    if (!isLarge) return;
+    const image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay');
+    if (image?.complete && image.naturalWidth && overlay) drawResultOverlay(r, p, image, overlay);
+  });
+}
+
+async function openLargeResultPreview(id, p) {
+  const r = db.results.find(x => x.id === id); if (!r) return;
+  largeResultPreview = { id, p };
+  modal('معاينة أكبر — ' + (r.name || 'ورقة الطالب'), `<div class="large-result-scroll"><div class="result-page-image-wrap"><img id="large-result-image" class="scan-preview" alt="معاينة مكبّرة لورقة الطالب"><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة"></canvas></div></div><p class="note">اضغط فقاعة الإجابة أو درجة المقالي على الصورة لتعديلها مباشرة. تُحفظ التغييرات فورًا.</p>`);
+  $('#modal').classList.add('result-preview-modal');
+  try {
+    const url = await fileGet(r.pages[p]), image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay');
+    if (!url || !image || !overlay) return toast('تعذر فتح صورة الورقة');
+    image.onload = () => drawResultOverlay(r, p, image, overlay);
+    image.src = url;
+    if (image.complete) drawResultOverlay(r, p, image, overlay);
+  } catch { toast('تعذر استرجاع صورة الورقة'); }
 }
 
 function nextResultPaper(id) {
@@ -257,6 +279,14 @@ function nextResultPaper(id) {
   if (sameExam.length < 2) return toast('لا توجد ورقة طالب تالية لهذا الاختبار');
   const index = sameExam.findIndex(x => x.id === id), next = sameExam[(index + 1) % sameExam.length];
   reviewResult(next.id);
+}
+
+function previousResultPaper(id) {
+  const current = db.results.find(x => x.id === id); if (!current) return;
+  const sameExam = db.results.filter(x => x.exam === current.exam).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  if (sameExam.length < 2) return toast('لا توجد ورقة طالب سابقة لهذا الاختبار');
+  const index = sameExam.findIndex(x => x.id === id), previous = sameExam[(index - 1 + sameExam.length) % sameExam.length];
+  reviewResult(previous.id);
 }
 
 function assignBatchStudent(id, studentId) {
@@ -268,3 +298,8 @@ function assignBatchStudent(id, studentId) {
 
 const originalLoadScans = loadScans;
 loadScans = async function (files) { bulkWaiting = true; bulkReviewActive = false; return originalLoadScans(files); };
+
+$('#modal')?.addEventListener('close', () => {
+  $('#modal')?.classList.remove('result-preview-modal');
+  largeResultPreview = null;
+});
