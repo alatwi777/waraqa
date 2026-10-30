@@ -280,22 +280,39 @@ function renderLargeResultPanels(r, p) {
   if (info) info.innerHTML = `<div class="result-preview-student-card"><span>الطالب</span><strong>${esc(r.name || 'غير محدد')}</strong><small>رقم الطالب: ${esc(r.number || '—')}</small><small>المجموعة: ${esc(r.group || '—')}</small></div><div class="result-preview-exam-card"><span>معلومات الاختبار</span><strong>${esc(e.title || 'اختبار')}</strong><small>المادة: ${esc(e.subject || '—')}</small><small>الصف / المجموعة: ${esc(e.group || '—')}</small><small>المدة: ${e.duration ? ar(e.duration) + ' دقيقة' : '—'}</small></div><div class="result-preview-score-card"><span>الدرجة الكلية</span><strong>${ar(score(r))} <small>/ ${ar(total(e))}</small></strong></div>${essayMaximum(e) ? `<div class="result-preview-essay-card"><span>درجة المقالي</span><strong>${ar(r.essay?.[-1] ?? Object.entries(r.essay || {}).filter(([k])=>k!=='-1').reduce((sum,[,v])=>sum+Number(v||0),0))} <small>/ ${ar(essayMaximum(e))}</small></strong></div>` : ''}`;
 }
 
+function fitLargeResultImage(image) {
+  const scroll = image?.closest('.large-result-scroll'), wrap = image?.parentElement;
+  if (!scroll || !wrap || !image.naturalWidth || !image.naturalHeight) return;
+  const maxWidth = Math.max(1, scroll.clientWidth - 16), maxHeight = Math.max(1, scroll.clientHeight - 16);
+  const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1);
+  wrap.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
+  wrap.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
+}
+
 async function openLargeResultPreview(id, p) {
   const r = db.results.find(x => x.id === id); if (!r) return;
   largeResultPreview = { id, p };
   const e = resultExam(r), pageKeys = Object.keys(r.pages || {});
   if (!r.pages?.[p]) p = Number(pageKeys[0] || 0);
   largeResultPreview.p = p;
-  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><span>${esc(r.name || 'ورقة الطالب')} · ${esc(e?.title || 'الاختبار')}</span><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div><div class="result-preview-grid"><div class="result-preview-side result-preview-left" role="complementary" aria-label="أسئلة الاختبار ومفتاح الإجابة"><h3>أسئلة الاختبار ومفتاح الإجابة</h3><div id="result-preview-questions" class="result-preview-question-list"></div></div><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب"><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة"></canvas></div></div><p class="note">اضغط فقاعة الإجابة أو درجة المقالي على الورقة لتعديلها مباشرة. تُحفظ التغييرات فورًا.</p></section><div class="result-preview-side result-preview-right" role="complementary" aria-label="معلومات الطالب والاختبار"><h3>معلومات الطالب والاختبار</h3><div id="result-preview-info"></div></div></div>`);
+  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><span>${esc(r.name || 'ورقة الطالب')} · ${esc(e?.title || 'الاختبار')}</span><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div><div class="result-preview-grid"><div class="result-preview-side result-preview-left" role="complementary" aria-label="أسئلة الاختبار ومفتاح الإجابة"><h3>أسئلة الاختبار ومفتاح الإجابة</h3><div id="result-preview-questions" class="result-preview-question-list"></div></div><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><div id="large-result-placeholder" class="result-preview-placeholder">جارٍ تحميل صورة الورقة...</div><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب"><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة"></canvas></div></div><p class="note">اضغط فقاعة الإجابة أو درجة المقالي على الورقة لتعديلها مباشرة. تُحفظ التغييرات فورًا.</p></section><div class="result-preview-side result-preview-right" role="complementary" aria-label="معلومات الطالب والاختبار"><h3>معلومات الطالب والاختبار</h3><div id="result-preview-info"></div></div></div>`);
   $('#modal').classList.add('result-preview-modal');
   renderLargeResultPanels(r, p);
   try {
-    const url = await fileGet(r.pages[p]), image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay');
-    if (!url || !image || !overlay) return toast('تعذر فتح صورة الورقة');
-    image.onload = () => drawResultOverlay(r, p, image, overlay);
-    image.src = url;
-    if (image.complete) drawResultOverlay(r, p, image, overlay);
-  } catch { toast('تعذر استرجاع صورة الورقة'); }
+    let url; try { url = await fileGet(r.pages[p]); } catch {}
+    const originalImage = document.querySelector('#result-image');
+    if (!url && originalImage?.complete && originalImage.naturalWidth) url = originalImage.currentSrc || originalImage.src;
+    const image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay'), placeholder = document.querySelector('#large-result-placeholder');
+    const showMissing = message => { if (placeholder) { placeholder.textContent = message; placeholder.hidden = false; } if (image) image.hidden = true; if (overlay) overlay.hidden = true; };
+    if (!url || !image || !overlay) { showMissing('لا توجد صورة محفوظة لهذه الورقة. أعد رفع الورقة من قسم التصحيح.'); return; }
+    image.onload = () => { image.hidden = false; if (placeholder) placeholder.hidden = true; if (overlay) overlay.hidden = false; fitLargeResultImage(image); requestAnimationFrame(() => requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay))); };
+    image.onerror = () => showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
+    image.hidden = false; overlay.hidden = false; image.src = url;
+    if (image.complete) {
+      if (image.naturalWidth) { if (placeholder) placeholder.hidden = true; fitLargeResultImage(image); requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay)); }
+      else showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
+    }
+  } catch { const placeholder = document.querySelector('#large-result-placeholder'); if (placeholder) { placeholder.textContent = 'تعذر استرجاع الصورة من هذا الجهاز. أعد رفع الورقة من قسم التصحيح.'; placeholder.hidden = false; } toast('تعذر استرجاع صورة الورقة'); }
 }
 
 async function navigateLargeResultPreview(direction) {
