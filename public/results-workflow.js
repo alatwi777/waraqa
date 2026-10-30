@@ -184,7 +184,7 @@ reviewResult = async function (id, p = 0) {
   const imagePanel = document.querySelector('.review-layout > section:first-child');
   if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط فقاعة الإجابة لتعديلها، أو فقاعة مجموع المقالي أعلى الورقة لرصد الدرجة. النقر على الفقاعة المحددة يمسحها.</p>');
   const imageToolbar = imagePanel?.querySelector('.toolbar');
-  if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة أكبر</button></div>`);
+  if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button></div>`);
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
     if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
@@ -255,15 +255,39 @@ function refreshResultAndLargePreview(r, p, ctx) {
   reviewResult(r.id, p).then(() => {
     if (!isLarge) return;
     const image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay');
+    renderLargeResultPanels(r, p);
     if (image?.complete && image.naturalWidth && overlay) drawResultOverlay(r, p, image, overlay);
   });
+}
+
+function resultPreviewChoice(q, index) {
+  if (q.type === 'essay') return 'يُصحح يدويًا';
+  const answer = q.answer;
+  if (answer === null || answer === undefined || answer === '') return 'لم يُحدد المفتاح';
+  return q.type === 'tf' ? (Number(answer) ? 'خطأ' : 'صح') : (q.options?.[Number(answer)] || letters[Number(answer)] || '—');
+}
+
+function renderLargeResultPanels(r, p) {
+  const e = resultExam(r); if (!e) return;
+  const questions = document.querySelector('#result-preview-questions');
+  if (questions) questions.innerHTML = e.questions.map((q, i) => {
+    const status = resultAnswerStatus(r, q, i, p), answer = r.answers?.[i];
+    const studentAnswer = q.type === 'essay' ? (r.snapshot?.paperVersion >= 6 ? 'ضمن مجموع المقالي الموحد' : `الدرجة: ${ar(r.essay?.[i] ?? 0)} / ${ar(q.points)}`) : answer == null ? 'إجابة الطالب: متروك' : `إجابة الطالب: ${q.type === 'tf' ? (Number(answer) ? 'خطأ' : 'صح') : (q.options?.[Number(answer)] || letters[Number(answer)])}`;
+    return `<article class="result-preview-q state-card-${status}"><b>${ar(questionNumber(e, i))}. ${esc(q.text || 'سؤال بلا نص')}</b><span class="result-preview-key">المفتاح: ${esc(resultPreviewChoice(q, i))}</span><span class="result-preview-student">${esc(studentAnswer)}</span><small>${esc(({correct:'صحيحة',wrong:'خاطئة',double:'تظليل مزدوج',blank:'متروكة',unresolved:'غير مراجعة'})[status] || 'غير مراجعة')}</small></article>`;
+  }).join('') || '<p class="note">لا توجد أسئلة في الاختبار.</p>';
+  const info = document.querySelector('#result-preview-info');
+  if (info) info.innerHTML = `<div class="result-preview-student-card"><span>الطالب</span><strong>${esc(r.name || 'غير محدد')}</strong><small>رقم الطالب: ${esc(r.number || '—')}</small><small>المجموعة: ${esc(r.group || '—')}</small></div><div class="result-preview-exam-card"><span>معلومات الاختبار</span><strong>${esc(e.title || 'اختبار')}</strong><small>المادة: ${esc(e.subject || '—')}</small><small>الصف / المجموعة: ${esc(e.group || '—')}</small><small>المدة: ${e.duration ? ar(e.duration) + ' دقيقة' : '—'}</small></div><div class="result-preview-score-card"><span>الدرجة الكلية</span><strong>${ar(score(r))} <small>/ ${ar(total(e))}</small></strong></div>${essayMaximum(e) ? `<div class="result-preview-essay-card"><span>درجة المقالي</span><strong>${ar(r.essay?.[-1] ?? Object.entries(r.essay || {}).filter(([k])=>k!=='-1').reduce((sum,[,v])=>sum+Number(v||0),0))} <small>/ ${ar(essayMaximum(e))}</small></strong></div>` : ''}`;
 }
 
 async function openLargeResultPreview(id, p) {
   const r = db.results.find(x => x.id === id); if (!r) return;
   largeResultPreview = { id, p };
-  modal('معاينة أكبر — ' + (r.name || 'ورقة الطالب'), `<div class="large-result-scroll"><div class="result-page-image-wrap"><img id="large-result-image" class="scan-preview" alt="معاينة مكبّرة لورقة الطالب"><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة"></canvas></div></div><p class="note">اضغط فقاعة الإجابة أو درجة المقالي على الصورة لتعديلها مباشرة. تُحفظ التغييرات فورًا.</p>`);
+  const e = resultExam(r), pageKeys = Object.keys(r.pages || {});
+  if (!r.pages?.[p]) p = Number(pageKeys[0] || 0);
+  largeResultPreview.p = p;
+  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><span>${esc(r.name || 'ورقة الطالب')} · ${esc(e?.title || 'الاختبار')}</span><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div><div class="result-preview-grid"><aside class="result-preview-side result-preview-left"><h3>أسئلة الاختبار ومفتاح الإجابة</h3><div id="result-preview-questions" class="result-preview-question-list"></div></aside><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب"><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة"></canvas></div></div><p class="note">اضغط فقاعة الإجابة أو درجة المقالي على الورقة لتعديلها مباشرة. تُحفظ التغييرات فورًا.</p></section><aside class="result-preview-side result-preview-right"><h3>معلومات الطالب والاختبار</h3><div id="result-preview-info"></div></aside></div>`);
   $('#modal').classList.add('result-preview-modal');
+  renderLargeResultPanels(r, p);
   try {
     const url = await fileGet(r.pages[p]), image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay');
     if (!url || !image || !overlay) return toast('تعذر فتح صورة الورقة');
@@ -271,6 +295,18 @@ async function openLargeResultPreview(id, p) {
     image.src = url;
     if (image.complete) drawResultOverlay(r, p, image, overlay);
   } catch { toast('تعذر استرجاع صورة الورقة'); }
+}
+
+async function navigateLargeResultPreview(direction) {
+  const current = db.results.find(x => x.id === largeResultPreview?.id); if (!current) return;
+  const sameExam = db.results.filter(x => x.exam === current.exam).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  if (sameExam.length < 2) return toast('لا توجد أوراق أخرى لهذا الاختبار');
+  const at = sameExam.findIndex(x => x.id === current.id), step = direction === 'previous' ? -1 : 1;
+  const next = sameExam[(at + step + sameExam.length) % sameExam.length], oldPage = largeResultPreview.p;
+  const page = next.pages?.[oldPage] ? oldPage : Number(Object.keys(next.pages || {})[0] || 0);
+  closeModal();
+  await reviewResult(next.id, page);
+  await openLargeResultPreview(next.id, page);
 }
 
 function nextResultPaper(id) {

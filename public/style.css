@@ -183,3 +183,33 @@ body.paper-camera-open{overflow:hidden!important;overscroll-behavior:none!import
 .camera-shell .camera-actions{position:relative;z-index:10;flex:none;display:flex;justify-content:center;gap:10px;margin:0}.camera-shell .camera-actions .btn{min-width:126px;min-height:46px;justify-content:center;border-radius:14px;background:linear-gradient(120deg,#13ed72,#08ca61)!important;color:#032615!important;font-weight:700}.camera-shell .camera-actions .btn.light{background:#10233b!important;border:1px solid #ffffff50;color:#fff!important}
 @media(max-width:600px){.camera-shell-content{gap:6px;padding:calc(env(safe-area-inset-top,0px) + 54px) 8px calc(env(safe-area-inset-bottom,0px) + 8px)}.camera-shell-head{min-height:48px;padding:6px 10px}.camera-shell-head h2{font-size:14px}.camera-shell-close{width:36px;height:36px}.camera-shell .camera-camera-controls{display:flex;max-height:84px;padding:5px}.camera-shell .camera-camera-controls .field{font-size:9px}.camera-shell .camera-status{font-size:10px;min-height:26px;padding:5px 8px}.camera-shell .camera-auto-row{font-size:10px}.camera-shell .camera-actions .btn{min-width:116px;min-height:42px;padding:7px 12px}}
 @media(max-height:520px){.camera-shell .camera-camera-controls{max-height:58px}.camera-shell .camera-auto-row{padding:4px 9px}.camera-shell .camera-actions .btn{min-height:38px}.camera-shell-content{gap:4px}}
+
+/* Three-panel result preview: editable paper centered between answer key and student details. */
+dialog.result-preview-modal{width:min(1780px,99vw);height:min(96dvh,1100px);max-height:96dvh;overflow:hidden}
+dialog.result-preview-modal .modal-head{min-height:52px;padding:10px 18px}
+dialog.result-preview-modal .modal-content{height:calc(100% - 52px);max-height:none;overflow:hidden;padding:12px;display:flex;flex-direction:column;gap:10px}
+.result-preview-toolbar{flex:none;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:2px 4px}
+.result-preview-toolbar>span{text-align:center;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.result-preview-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(240px,.88fr) minmax(390px,1.65fr) minmax(235px,.84fr);grid-template-areas:"left paper right";gap:12px;direction:ltr}
+.result-preview-side,.result-preview-paper{min-width:0;min-height:0;direction:rtl;border:1px solid var(--line);border-radius:13px;background:var(--white);padding:13px;overflow:hidden}
+.result-preview-side{display:flex;flex-direction:column;gap:10px}
+.result-preview-side h3{flex:none;padding:0 0 8px;border-bottom:1px solid var(--line);font-size:14px}
+.result-preview-left{grid-area:left}.result-preview-paper{grid-area:paper;display:flex;flex-direction:column;gap:8px}.result-preview-right{grid-area:right}
+.result-preview-question-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:1px 3px 1px 1px}
+.result-preview-q{display:grid;gap:5px;margin:0 0 7px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--white);line-height:1.55}
+.result-preview-q b{font-size:11px;font-weight:600}.result-preview-q span,.result-preview-q small{font-size:10px;color:var(--muted)}
+.result-preview-q .result-preview-key{color:var(--green);font-weight:700}.result-preview-q small{justify-self:start;padding:2px 7px;border-radius:10px;background:#f1f4ef}
+.result-preview-student-card,.result-preview-exam-card,.result-preview-score-card,.result-preview-essay-card{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--white)}
+.result-preview-student-card>span,.result-preview-exam-card>span,.result-preview-score-card>span,.result-preview-essay-card>span{font-size:10px;color:var(--muted)}
+.result-preview-student-card strong,.result-preview-exam-card strong{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.result-preview-student-card small,.result-preview-exam-card small{font-size:10px;color:var(--muted)}
+.result-preview-score-card strong,.result-preview-essay-card strong{font-size:24px;color:var(--green);font-weight:600}.result-preview-score-card strong small,.result-preview-essay-card strong small{font-size:13px;color:var(--muted);font-weight:400}
+.result-preview-paper .large-result-scroll{flex:1;min-height:100px;max-height:none;display:grid;place-items:center;overflow:auto;padding:8px}
+.result-preview-paper .result-page-image-wrap{width:max-content;max-width:100%;margin:auto}
+.result-preview-paper .result-page-image-wrap .scan-preview{width:auto;max-width:100%;height:auto;max-height:calc(91dvh - 190px);cursor:crosshair}
+.result-preview-paper>.note{flex:none;font-size:10px;text-align:center}
+#large-result-overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:auto;cursor:crosshair;touch-action:manipulation}
+html[data-theme="dark"] .result-preview-side,html[data-theme="dark"] .result-preview-paper,html[data-theme="dark"] .result-preview-q,html[data-theme="dark"] .result-preview-student-card,html[data-theme="dark"] .result-preview-exam-card,html[data-theme="dark"] .result-preview-score-card,html[data-theme="dark"] .result-preview-essay-card{background:#071b35;border-color:#17436a}
+html[data-theme="dark"] .result-preview-q small{background:#112e4a}
+@media(max-width:1050px){.result-preview-grid{grid-template-columns:minmax(200px,.8fr) minmax(320px,1.4fr);grid-template-areas:"paper right" "paper left"}.result-preview-left,.result-preview-right{max-height:calc((96dvh - 125px)/2)}.result-preview-paper .result-page-image-wrap .scan-preview{max-height:calc(88dvh - 165px)}}
+@media(max-width:680px){dialog.result-preview-modal{width:100vw;height:100dvh;max-height:100dvh;border-radius:0}.result-preview-grid{grid-template-columns:1fr;grid-template-rows:minmax(260px,1fr) auto auto;grid-template-areas:"paper" "right" "left";overflow:auto}.result-preview-side{max-height:260px}.result-preview-paper{min-height:300px}.result-preview-paper .result-page-image-wrap .scan-preview{max-height:48dvh}.result-preview-toolbar{gap:6px}.result-preview-toolbar>span{font-size:10px}.result-preview-toolbar .btn{padding:7px 9px;font-size:11px}}
