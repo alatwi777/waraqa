@@ -204,6 +204,21 @@ reviewResult = async function (id, p = 0) {
 
 drawResultOverlay = function (r, p, im = document.querySelector('#result-image'), canvas = document.querySelector('#result-overlay')) {
   originalDrawResultOverlay(r, p, im, canvas);
+  const e = resultExam(r), context = getResultHitContext(r, p, im, canvas);
+  if (context && e) {
+    const ctx = canvas.getContext('2d');
+    context.plan.items.forEach(item => {
+      if (item.q.type === 'essay' || resultAnswerStatus(r, item.q, item.i, p) !== 'wrong') return;
+      const key = Number(item.q.answer);
+      const bubble = item.bubbles.find(candidate => Number(candidate.value) === key);
+      if (!bubble) return;
+      const pointMap = typeof bubblePointMap === 'function' ? bubblePointMap(context.state, context.map, item.i, bubble) : context.map;
+      const point = pointMap(bubble.x, bubble.y), edge = pointMap(bubble.x + bubble.r, bubble.y);
+      const radius = Math.hypot(edge.x - point.x, edge.y - point.y) * context.scale;
+      ctx.save(); ctx.strokeStyle = '#f4bd16'; ctx.lineWidth = Math.max(3, context.im.naturalWidth / 420); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 2;
+      ctx.beginPath(); ctx.arc(context.ox + point.x * context.scale, context.oy + point.y * context.scale, radius + 3, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    });
+  }
   if (canvas) { canvas.style.pointerEvents = 'auto'; canvas.style.cursor = 'crosshair'; canvas.onclick = ev => handleResultPaperClick(ev, r.id, p, getResultHitContext(r, p, im, canvas)); }
   resultHitContext = getResultHitContext(r, p, im, canvas);
   const grade = resultHitContext?.plan.items.find(v => v.i === -1 && v.q.type === 'essay');
@@ -269,13 +284,6 @@ function resultPreviewChoice(q, index) {
 
 function renderLargeResultPanels(r, p) {
   const e = resultExam(r); if (!e) return;
-  const questions = document.querySelector('#result-preview-questions');
-  if (questions) questions.innerHTML = e.questions.map((q, i) => {
-    const status = resultAnswerStatus(r, q, i, p), answer = r.answers?.[i];
-    const studentAnswer = q.type === 'essay' ? (r.snapshot?.paperVersion >= 6 ? 'ضمن مجموع المقالي الموحد' : `الدرجة: ${ar(r.essay?.[i] ?? 0)} / ${ar(q.points)}`) : answer == null ? 'إجابة الطالب: متروك' : `إجابة الطالب: ${q.type === 'tf' ? (Number(answer) ? 'خطأ' : 'صح') : (q.options?.[Number(answer)] || letters[Number(answer)])}`;
-    const choices = q.type === 'essay' ? '' : `<div class="result-preview-options">${(q.options || []).map((option, j) => `<span class="${Number(q.answer) === j ? 'is-key' : ''}"><b>${q.type === 'tf' ? (j ? 'خ' : 'ص') : letters[j]}</b>${esc(option)}</span>`).join('')}</div>`;
-    return `<article class="result-preview-q state-card-${status}"><b>${ar(questionNumber(e, i))}. ${esc(q.text || 'سؤال بلا نص')}</b>${choices}<span class="result-preview-key">إجابة المعلم: ${esc(resultPreviewChoice(q, i))}</span><span class="result-preview-student">${esc(studentAnswer)}</span><small>${esc(({correct:'صحيحة',wrong:'خاطئة',double:'تظليل مزدوج',blank:'متروكة',unresolved:'غير مراجعة'})[status] || 'غير مراجعة')}</small></article>`;
-  }).join('') || '<p class="note">لا توجد أسئلة في الاختبار.</p>';
   const info = document.querySelector('#result-preview-info');
   if (info) info.innerHTML = `<strong class="result-preview-name">${esc(r.name || 'غير محدد')}</strong>${essayMaximum(e) ? `<span class="result-preview-score-chip"><small>درجة المقالي</small><b>${ar(r.essay?.[-1] ?? Object.entries(r.essay || {}).filter(([k])=>k!=='-1').reduce((sum,[,v])=>sum+Number(v||0),0))} / ${ar(essayMaximum(e))}</b></span>` : ''}<span class="result-preview-score-chip"><small>الدرجة الكلية</small><b>${ar(score(r))} / ${ar(total(e))}</b></span>`;
 }
@@ -295,7 +303,7 @@ async function openLargeResultPreview(id, p) {
   const e = resultExam(r), pageKeys = Object.keys(r.pages || {});
   if (!r.pages?.[p]) p = Number(pageKeys[0] || 0);
   largeResultPreview.p = p;
-  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><div class="result-preview-top-info"><div id="result-preview-info"></div><small>${esc(e?.title || 'الاختبار')}</small></div><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div><div class="result-preview-grid"><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><div id="large-result-placeholder" class="result-preview-placeholder">جارٍ تحميل صورة الورقة...</div><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب" hidden><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة" hidden></canvas></div></div><p class="note">اضغط فقاعة الإجابة أو درجة المقالي على الورقة لتعديلها مباشرة. تُحفظ التغييرات فورًا.</p></section><div class="result-preview-side result-preview-right" role="complementary" aria-label="أسئلة الاختبار ومفتاح الإجابة"><h3>أسئلة الاختبار ومفتاح الإجابة</h3><div id="result-preview-questions" class="result-preview-question-list"></div></div></div>`);
+  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><div class="result-preview-top-info"><div id="result-preview-info"></div><small>${esc(e?.title || 'الاختبار')}</small></div><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div><div class="result-preview-grid"><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><div id="large-result-placeholder" class="result-preview-placeholder">جارٍ تحميل صورة الورقة...</div><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب" hidden><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة" hidden></canvas></div></div><p class="note">الإجابة الخاطئة تظهر بالأحمر، وإجابة المعلم الصحيحة تظهر بالأصفر. اضغط أي فقاعة أو درجة المقالي لتعديلها؛ تُحدّث الدرجة أعلاه فورًا.</p></section></div>`);
   $('#modal').classList.add('result-preview-modal');
   renderLargeResultPanels(r, p);
   try {
