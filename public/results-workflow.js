@@ -5,6 +5,7 @@ let batchProcessing = false;
 let batchRunId = '';
 let resultHitContext = null;
 let largeResultPreview = null;
+let largeResultResizeObserver = null;
 
 const originalOpenScan = openScan;
 const originalRenderScan = renderScan;
@@ -293,15 +294,35 @@ function fitLargeResultImage(image) {
   if (!scroll || !wrap || !image.naturalWidth || !image.naturalHeight) return;
   // Fit to the viewer width while keeping the paper's natural proportions.
   // Tall sheets remain at a readable size and scroll inside this viewer.
-  const maxWidth = Math.max(1, scroll.clientWidth - 18);
+  const maxWidth = scroll.clientWidth - 18;
+  // A dialog can report zero width during its first paint (notably on Safari).
+  // Do not collapse the paper to a 1px strip; wait for ResizeObserver instead.
+  if (maxWidth < 120) return false;
   const scale = Math.min(maxWidth / image.naturalWidth, 1);
   const width = Math.max(1, Math.floor(image.naturalWidth * scale));
   const height = Math.max(1, Math.floor(image.naturalHeight * scale));
+  wrap.style.display = 'block';
   wrap.style.width = `${width}px`;
   wrap.style.height = `${height}px`;
   image.style.width = `${width}px`;
   image.style.height = `${height}px`;
   scroll.scrollTop = 0;
+  return true;
+}
+
+function layoutLargeResultImage(image, overlay, placeholder, r, p) {
+  if (!image?.naturalWidth) return false;
+  if (!fitLargeResultImage(image)) {
+    image.hidden = true;
+    if (overlay) overlay.hidden = true;
+    if (placeholder) { placeholder.textContent = 'جارٍ تجهيز معاينة الورقة…'; placeholder.hidden = false; }
+    return false;
+  }
+  image.hidden = false;
+  if (overlay) overlay.hidden = false;
+  if (placeholder) placeholder.hidden = true;
+  requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay));
+  return true;
 }
 
 async function openLargeResultPreview(id, p) {
@@ -320,11 +341,26 @@ async function openLargeResultPreview(id, p) {
     const image = document.querySelector('#large-result-image'), overlay = document.querySelector('#large-result-overlay'), placeholder = document.querySelector('#large-result-placeholder');
     const showMissing = message => { if (placeholder) { placeholder.textContent = message; placeholder.hidden = false; } if (image) image.hidden = true; if (overlay) overlay.hidden = true; };
     if (!url || !image || !overlay) { showMissing('لا توجد صورة محفوظة لهذه الورقة. أعد رفع الورقة من قسم التصحيح.'); return; }
-    image.onload = () => { image.hidden = false; if (placeholder) placeholder.hidden = true; if (overlay) overlay.hidden = false; requestAnimationFrame(() => { fitLargeResultImage(image); requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay)); }); };
+    largeResultResizeObserver?.disconnect();
+    const scroll = image.closest('.large-result-scroll');
+    if (scroll && 'ResizeObserver' in window) {
+      largeResultResizeObserver = new ResizeObserver(() => layoutLargeResultImage(image, overlay, placeholder, r, p));
+      largeResultResizeObserver.observe(scroll);
+    }
+    image.onload = () => {
+      // The image may load before the dialog's first layout. Retry briefly as
+      // a fallback and let ResizeObserver finish once the viewer has a width.
+      let attempts = 0;
+      const retryLayout = () => {
+        if (layoutLargeResultImage(image, overlay, placeholder, r, p) || attempts++ >= 12) return;
+        requestAnimationFrame(retryLayout);
+      };
+      requestAnimationFrame(retryLayout);
+    };
     image.onerror = () => showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
-    image.hidden = false; overlay.hidden = false; image.src = url;
+    image.src = url;
     if (image.complete) {
-      if (image.naturalWidth) { if (placeholder) placeholder.hidden = true; requestAnimationFrame(() => { fitLargeResultImage(image); requestAnimationFrame(() => drawResultOverlay(r, p, image, overlay)); }); }
+      if (image.naturalWidth) layoutLargeResultImage(image, overlay, placeholder, r, p);
       else showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
     }
   } catch { const placeholder = document.querySelector('#large-result-placeholder'); if (placeholder) { placeholder.textContent = 'تعذر استرجاع الصورة من هذا الجهاز. أعد رفع الورقة من قسم التصحيح.'; placeholder.hidden = false; } toast('تعذر استرجاع صورة الورقة'); }
@@ -369,6 +405,8 @@ const originalLoadScans = loadScans;
 loadScans = async function (files) { bulkWaiting = true; bulkReviewActive = false; return originalLoadScans(files); };
 
 $('#modal')?.addEventListener('close', () => {
+  largeResultResizeObserver?.disconnect();
+  largeResultResizeObserver = null;
   $('#modal')?.classList.remove('result-preview-modal');
   largeResultPreview = null;
 });

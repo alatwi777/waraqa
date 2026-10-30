@@ -8,6 +8,8 @@ await cp(resolve(root,'runtime/local.js'),resolve(dist,'local.js'));
 await rm(resolve(dist,'cloud.js'),{force:true});
 let html=await readFile(resolve(root,'site/index.html'),'utf8');
 html=html.replace('<script src="cloud.js"></script>','<script src="local.js"></script>').replace('حساب ChatGPT · حفظ سحابي','هذا المتصفح · حفظ محلي').replace('☁ بيانات مرتبطة بحسابك','◉ بيانات على جهازك').replace('جارٍ فتح حسابك…','جارٍ فتح بيانات هذا المتصفح…');
+// Avoid a cached copy of the previous result-preview script on GitHub Pages.
+html=html.replace('results-workflow.js?v=result-preview-layout-scrollfix-20261030','results-workflow.js?v=result-preview-layout-observer-20261030');
 await writeFile(resolve(dist,'index.html'),html);
 const appPath=resolve(dist,'app.js');let app=await readFile(appPath,'utf8');
 app=app.replace("indexedDB.open('waraqa-files',1)","indexedDB.open('waraqa-pages-files:'+new URL('.',location.href).pathname,1)");
