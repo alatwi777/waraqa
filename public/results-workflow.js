@@ -162,7 +162,9 @@ async function correctAllPending() {
       await filePut(pageKey, s.url);
       const r = { id, exam: e.id, student: student?.id || '', name: student?.name || `طالب غير معروف — ${s.name}`, number: student?.number || '', group: student?.group || '', snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: { [page]: pageKey }, reviewed: {}, markings: { [page]: {} }, date: new Date().toISOString(), updated: new Date().toISOString(), batchAuto: true, batchRunId };
       for (const { i, q } of plan.items) {
-        r.answers[i] = s.answers[i] ?? null; r.essay[i] = q.type === 'essay' ? null : 0; r.reviewed[i] = true;
+        r.answers[i] = s.answers[i] ?? null;
+        r.essay[i] = q.type === 'essay' ? (i === -1 ? (s.essay?.[-1] ?? null) : (s.essay?.[i] ?? null)) : 0;
+        r.reviewed[i] = true;
         if (q.type !== 'essay') { const status = scanAnswerStatus(q, i, s); r.markings[page][i] = { status, marked: scanMarkedValues(i, s, status) }; }
       }
       db.results.push(r); save(); done++;
@@ -179,7 +181,9 @@ reviewResult = async function (id, p = 0) {
   await originalReviewResult(id, p);
   const r = db.results.find(x => x.id === id); if (!r) return;
   const imagePanel = document.querySelector('.review-layout > section:first-child');
-  if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط على فقاعة الإجابة في الورقة لتغييرها مباشرةً. النقر على الاختيار نفسه يمسحه.</p>');
+  if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط فقاعة الإجابة لتعديلها، أو فقاعة مجموع المقالي أعلى الورقة لرصد الدرجة. النقر على الفقاعة المحددة يمسحها.</p>');
+  const imageToolbar = imagePanel?.querySelector('.toolbar');
+  if (imageToolbar && !imageToolbar.querySelector('.next-result-paper')) imageToolbar.insertAdjacentHTML('beforeend', `<button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button>`);
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
     if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
@@ -202,6 +206,16 @@ drawResultOverlay = function (r, p) {
   const canvas = document.querySelector('#result-overlay');
   if (canvas) { canvas.style.pointerEvents = 'auto'; canvas.style.cursor = 'crosshair'; canvas.onclick = ev => handleResultPaperClick(ev, r.id, p); }
   resultHitContext = getResultHitContext(r, p);
+  const grade = resultHitContext?.plan.items.find(v => v.i === -1 && v.q.type === 'essay');
+  const value = Number(r.essay?.[-1]);
+  if (grade && value > 0) {
+    const b = grade.bubbles.find(x => Number(x.value) === value);
+    if (b) {
+      const ctx = resultHitContext, bm = typeof bubblePointMap === 'function' ? bubblePointMap(ctx.state, ctx.map, -1, b) : ctx.map;
+      const pt = bm(b.x, b.y), edge = bm(b.x + b.r, b.y), radius = Math.hypot(edge.x - pt.x, edge.y - pt.y) * ctx.scale;
+      const x = canvas.getContext('2d'); x.strokeStyle = '#16834f'; x.lineWidth = Math.max(2, ctx.im.naturalWidth / 550); x.beginPath(); x.arc(ctx.ox + pt.x * ctx.scale, ctx.oy + pt.y * ctx.scale, radius + 2, 0, Math.PI * 2); x.stroke();
+    }
+  }
 };
 
 function getResultHitContext(r, p) {
@@ -221,15 +235,28 @@ function handleResultPaperClick(ev, id, p) {
   if (!ctx || !r) return;
   const rect = ctx.c.getBoundingClientRect(), x = (ev.clientX - rect.left - ctx.ox) / ctx.scale, y = (ev.clientY - rect.top - ctx.oy) / ctx.scale;
   let best = null;
-  for (const v of ctx.plan.items) { if (v.q.type === 'essay') continue; for (const b of v.bubbles) {
+  for (const v of ctx.plan.items) { if (v.q.type === 'essay' && v.i !== -1) continue; for (const b of v.bubbles) {
     const bm = typeof bubblePointMap === 'function' ? bubblePointMap(ctx.state, ctx.map, v.i, b) : ctx.map, pt = bm(b.x, b.y), edge = bm(b.x + b.r, b.y), radius = Math.hypot(edge.x - pt.x, edge.y - pt.y);
     const d = Math.hypot(pt.x - x, pt.y - y); if (d <= Math.max(radius * 1.55, 11) && (!best || d < best.d)) best = { i: v.i, value: b.value, d };
   }}
   if (!best) return;
+  if (best.i === -1) {
+    const grade = Number(r.essay?.[-1]) === Number(best.value) ? null : Number(best.value);
+    r.essay ??= {}; r.essay[-1] = grade; r.updated = new Date().toISOString(); save(); reviewResult(id, p);
+    toast(grade === null ? 'أُلغي رصد مجموع المقالي' : `تم رصد ${ar(grade)} درجة للمقالي`); return;
+  }
   const q = resultExam(r).questions[best.i], value = r.answers[best.i] === best.value ? null : best.value;
   r.answers[best.i] = value; r.reviewed[best.i] = true; r.markings ??= {}; r.markings[p] ??= {};
   r.markings[p][best.i] = { status: value === null ? 'blank' : value === q.answer ? 'correct' : 'wrong', marked: value === null ? [] : [value] };
   r.updated = new Date().toISOString(); save(); reviewResult(id, p); toast('تم تعديل الإجابة من الورقة وحفظ الدرجة');
+}
+
+function nextResultPaper(id) {
+  const current = db.results.find(x => x.id === id); if (!current) return;
+  const sameExam = db.results.filter(x => x.exam === current.exam).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  if (sameExam.length < 2) return toast('لا توجد ورقة طالب تالية لهذا الاختبار');
+  const index = sameExam.findIndex(x => x.id === id), next = sameExam[(index + 1) % sameExam.length];
+  reviewResult(next.id);
 }
 
 function assignBatchStudent(id, studentId) {
