@@ -33,8 +33,9 @@ openScan = async function () {
 };
 
 renderScan = function () {
+  if (batchProcessing) return;
   originalRenderScan();
-  if (!scanState || batchProcessing) return;
+  if (!scanState) return;
   const layout = document.querySelector('.review-layout');
   if (!layout) return;
   const cards = layout.querySelectorAll(':scope > section');
@@ -146,6 +147,8 @@ async function cancelPendingBatch() { if (!confirm('إلغاء الدفعة ال
 async function correctAllPending() {
   if (!scanQueue.length || batchProcessing) return toast('لا توجد دفعة جاهزة للتصحيح');
   batchProcessing = true; batchRunId = uid(); bulkReviewActive = false; scanIndex = 0; currentResult = null; results();
+  const runButton = document.querySelector('.bulk-batch-panel .btn.gold');
+  if (runButton) { runButton.disabled = true; runButton.textContent = 'جارٍ التصحيح…'; }
   const progress = document.querySelector('#batch-progress'); let done = 0, failed = [];
   for (scanIndex = 0; scanIndex < scanQueue.length; scanIndex++) {
     try {
