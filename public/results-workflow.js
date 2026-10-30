@@ -291,10 +291,17 @@ function renderLargeResultPanels(r, p) {
 function fitLargeResultImage(image) {
   const scroll = image?.closest('.large-result-scroll'), wrap = image?.parentElement;
   if (!scroll || !wrap || !image.naturalWidth || !image.naturalHeight) return;
-  const maxWidth = Math.max(1, scroll.clientWidth - 16), maxHeight = Math.max(1, scroll.clientHeight - 16);
-  const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1);
-  wrap.style.width = `${Math.floor(image.naturalWidth * scale)}px`;
-  wrap.style.height = `${Math.floor(image.naturalHeight * scale)}px`;
+  // Fit to the viewer width while keeping the paper's natural proportions.
+  // Tall sheets remain at a readable size and scroll inside this viewer.
+  const maxWidth = Math.max(1, scroll.clientWidth - 18);
+  const scale = Math.min(maxWidth / image.naturalWidth, 1);
+  const width = Math.max(1, Math.floor(image.naturalWidth * scale));
+  const height = Math.max(1, Math.floor(image.naturalHeight * scale));
+  wrap.style.width = `${width}px`;
+  wrap.style.height = `${height}px`;
+  image.style.width = `${width}px`;
+  image.style.height = `${height}px`;
+  scroll.scrollTop = 0;
 }
 
 async function openLargeResultPreview(id, p) {
