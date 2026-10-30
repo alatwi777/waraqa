@@ -3,19 +3,20 @@
 let PaperCamera=null,PaperCameraGeneration=0,PaperCameraAudio=null;
 function unlockPaperCameraAudio(){try{const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)return null;PaperCameraAudio??=new AudioContextClass();PaperCameraAudio.resume?.().catch(()=>{});return PaperCameraAudio}catch{return null}}
 function playPaperCameraShutter(){const c=PaperCameraAudio;if(!c)return;try{if(c.state==='suspended')c.resume();const t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(1450,t);o.frequency.exponentialRampToValueAtTime(720,t+.075);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+.11);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.115);navigator.vibrate?.(24)}catch{}}
-function cameraExamReady(){const e=getExam();if(!e||!e.questions.length){toast('اختر اختبارًا يحتوي على أسئلة أولًا');return false}if(e.questions.some(q=>q.type!=='essay'&&(q.answer===null||q.answer===undefined))){toast('أكمل مفتاح الإجابة أولًا');return false}return true}
+function cameraExamReady(){const e=getExam();if(!e||!e.questions.length){toast('اختر اختبارًا يحتوي على أسئلة أولًا');return false}if(e.questions.some(q=>q.type!=='essay'&&(q.answer===null||q.answer===undefined)))toast('التقط الورقة الآن، وأكمل مفتاح الإجابة قبل اعتماد التصحيح.');return true}
 async function openPaperCamera(documentScan=false){
  if(!cameraExamReady())return;
  if(!navigator.mediaDevices?.getUserMedia){toast('الكاميرا المباشرة غير متاحة هنا. استخدم زر الكاميرا العادية.');return}
  stopPaperCamera();
  unlockPaperCameraAudio();
  modal(documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب',`<div class="camera-intro">وجّه الهاتف حتى تظهر المربعات السوداء الأربع داخل الإطارات. تلتقط الكاميرا الورقة تلقائيًا فور ثباتها ووضوحها.</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true"></canvas><div id="paper-camera-start">جارٍ فتح الكاميرا…</div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div class="camera-camera-controls"><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div></div><label class="switch-row note camera-auto-row"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note camera-footnote">يظهر اسم الطالب ودرجاته بعد الالتقاط. لن تُحفظ الإطارات الخضراء على الصورة.</p>`);
- $('#modal').classList.add('paper-camera-modal');
+ $('#modal').classList.add('paper-camera-modal');document.body.classList.add('paper-camera-open');
+ const dialog=$('#modal');if(typeof dialog.requestFullscreen==='function'){try{const request=dialog.requestFullscreen({navigationUI:'hide'});request?.catch(()=>{})}catch{}}
  const state=PaperCamera={documentScan,generation:++PaperCameraGeneration,stream:null,timer:null,canvas:document.createElement('canvas'),previous:null,stableSince:0,busy:false,detected:false};
  await connectPaperCamera(state);
 }
 function cameraActive(s){return PaperCamera===s&&$('#modal')?.open}
-function stopPaperCamera(){const s=PaperCamera;PaperCamera=null;PaperCameraGeneration++;if(s){clearTimeout(s.timer);s.stream?.getTracks().forEach(t=>t.stop())}const v=$('#paper-camera-video');if(v)v.srcObject=null;$('#modal')?.classList.remove('paper-camera-modal')}
+function stopPaperCamera(){const s=PaperCamera;PaperCamera=null;PaperCameraGeneration++;if(s){clearTimeout(s.timer);s.stream?.getTracks().forEach(t=>t.stop())}const v=$('#paper-camera-video');if(v)v.srcObject=null;const dialog=$('#modal');dialog?.classList.remove('paper-camera-modal');document.body.classList.remove('paper-camera-open');if(document.fullscreenElement===dialog)document.exitFullscreen?.().catch(()=>{})}
 function closePaperCamera(){stopPaperCamera();closeModal()}
 function resetCameraStability(){if(!PaperCamera)return;PaperCamera.previous=null;PaperCamera.stableSince=0;const p=$('#paper-camera-progress');if(p)p.style.width='0%'}
 function cameraMessage(message){const p=$('#paper-camera-status');if(p&&p.textContent!==message)p.textContent=message}
@@ -73,7 +74,7 @@ function stablePaperFrame(s,points,now,ready){
 function drawCameraGuides(s,points,ready){
  const c=$('#paper-camera-overlay');if(!c||!s.canvas)return;c.width=s.canvas.width;c.height=s.canvas.height;const ctx=c.getContext('2d'),w=c.width,h=c.height;
  const guides=points||[{x:w*.08,y:h*.08},{x:w*.92,y:h*.08},{x:w*.92,y:h*.92},{x:w*.08,y:h*.92}];
- ctx.strokeStyle=points?(ready?'#31df7b':'#a9f2c7'):'#d8f0df';ctx.lineWidth=Math.max(3,w/180);ctx.lineCap='round';
+ ctx.strokeStyle=ready?'#21f36a':points?'#b6f566':'#21f36a';ctx.lineWidth=Math.max(3,w/180);ctx.lineCap='round';
  guides.forEach((p,i)=>{const a=Math.max(12,w*.018),sx=i===0||i===3?1:-1,sy=i<2?1:-1;ctx.strokeRect(p.x-a*.58,p.y-a*.58,a*1.16,a*1.16);ctx.beginPath();ctx.moveTo(p.x+sx*a*1.7,p.y);ctx.lineTo(p.x,p.y);ctx.lineTo(p.x,p.y+sy*a*1.7);ctx.stroke()});
  if(points&&ready){ctx.strokeStyle='#31df7b99';ctx.lineWidth=Math.max(1,w/650);ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.stroke()}
 }
