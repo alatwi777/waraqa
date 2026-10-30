@@ -9,14 +9,13 @@ async function openPaperCamera(documentScan=false){
  if(!navigator.mediaDevices?.getUserMedia){toast('الكاميرا المباشرة غير متاحة هنا. استخدم زر الكاميرا العادية.');return}
  stopPaperCamera();
  unlockPaperCameraAudio();
- modal(documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب',`<div class="camera-intro">وجّه الهاتف حتى تظهر المربعات السوداء الأربع داخل الإطارات. تلتقط الكاميرا الورقة تلقائيًا فور ثباتها ووضوحها.</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true"></canvas><div id="paper-camera-start">جارٍ فتح الكاميرا…</div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div class="camera-camera-controls"><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div></div><label class="switch-row note camera-auto-row"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note camera-footnote">يظهر اسم الطالب ودرجاته بعد الالتقاط. لن تُحفظ الإطارات الخضراء على الصورة.</p>`);
+ modal(documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب',`<div class="camera-intro">وجّه الهاتف حتى تظهر المربعات السوداء الأربع داخل الإطارات. تلتقط الكاميرا الورقة تلقائيًا فور ثباتها ووضوحها.</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true"></canvas><div id="paper-camera-start"><span>جارٍ تشغيل الكاميرا…</span></div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div class="camera-camera-controls"><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div></div><label class="switch-row note camera-auto-row"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note camera-footnote">يظهر اسم الطالب ودرجاته بعد الالتقاط. لن تُحفظ الإطارات الخضراء على الصورة.</p>`);
  $('#modal').classList.add('paper-camera-modal');document.body.classList.add('paper-camera-open');
- const dialog=$('#modal');if(typeof dialog.requestFullscreen==='function'){try{const request=dialog.requestFullscreen({navigationUI:'hide'});request?.catch(()=>{})}catch{}}
  const state=PaperCamera={documentScan,generation:++PaperCameraGeneration,stream:null,timer:null,canvas:document.createElement('canvas'),previous:null,stableSince:0,busy:false,detected:false};
  await connectPaperCamera(state);
 }
 function cameraActive(s){return PaperCamera===s&&$('#modal')?.open}
-function stopPaperCamera(){const s=PaperCamera;PaperCamera=null;PaperCameraGeneration++;if(s){clearTimeout(s.timer);s.stream?.getTracks().forEach(t=>t.stop())}const v=$('#paper-camera-video');if(v)v.srcObject=null;const dialog=$('#modal');dialog?.classList.remove('paper-camera-modal');document.body?.classList?.remove('paper-camera-open');if(dialog&&document.fullscreenElement===dialog)document.exitFullscreen?.().catch(()=>{})}
+function stopPaperCamera(){const s=PaperCamera;PaperCamera=null;PaperCameraGeneration++;if(s){clearTimeout(s.timer);s.stream?.getTracks().forEach(t=>t.stop())}const v=$('#paper-camera-video');if(v)v.srcObject=null;$('#modal')?.classList.remove('paper-camera-modal');document.body?.classList?.remove('paper-camera-open')}
 function closePaperCamera(){stopPaperCamera();closeModal()}
 function resetCameraStability(){if(!PaperCamera)return;PaperCamera.previous=null;PaperCamera.stableSince=0;const p=$('#paper-camera-progress');if(p)p.style.width='0%'}
 function cameraMessage(message){const p=$('#paper-camera-status');if(p&&p.textContent!==message)p.textContent=message}
@@ -25,7 +24,7 @@ async function connectPaperCamera(s,deviceId){
  try{
   const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{...(deviceId?{deviceId:{exact:deviceId}}:{facingMode:{ideal:'environment'}}),width:{ideal:2560},height:{ideal:1920}}});
   if(!active()){stream.getTracks().forEach(t=>t.stop());return}
-  s.stream=stream;const track=stream.getVideoTracks()[0],v=$('#paper-camera-video');v.srcObject=stream;await v.play();
+  s.stream=stream;const track=stream.getVideoTracks()[0],v=$('#paper-camera-video');v.muted=true;v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');v.srcObject=stream;await v.play();await waitForPaperCameraFrame(v);
   if(!active())return;
   const settings=track.getSettings?.()||{},caps=track.getCapabilities?.()||{};
   if(caps.zoom&&Number.isFinite(caps.zoom.min)){try{await track.applyConstraints({advanced:[{zoom:caps.zoom.min}]})}catch{}}
@@ -37,10 +36,12 @@ async function connectPaperCamera(s,deviceId){
   s.timer=setTimeout(()=>analysePaperFrame(s),200);
  }catch(error){
   if(!active())return;s.stream?.getTracks().forEach(t=>t.stop());s.stream=null;
-  const msg=error.name==='NotAllowedError'?'لم يُسمح باستخدام الكاميرا. فعّل إذن الكاميرا لهذا الموقع من إعدادات Safari، أو استخدم الكاميرا العادية.':error.name==='NotFoundError'?'لم نجد كاميرا متاحة. استخدم رفع الصور أو الكاميرا العادية.':'تعذر فتح هذه الكاميرا. جرّب عدسة أخرى أو زر الكاميرا العادية.';
-  cameraMessage(msg);$('#paper-camera-start').textContent='الكاميرا غير متاحة';$('#paper-camera-capture').disabled=true;
+  const msg=error.name==='NotAllowedError'?'لم يُسمح باستخدام الكاميرا. فعّل إذن الكاميرا لهذا الموقع من إعدادات Safari.':error.name==='NotFoundError'?'لم نجد كاميرا متاحة على هذا الجهاز.':error.name==='NotReadableError'?'الكاميرا مستخدمة من تطبيق آخر. أغلق التطبيق الآخر ثم أعد المحاولة.':error.name==='OverconstrainedError'?'تعذر تشغيل إعدادات الكاميرا المطلوبة. أعد المحاولة لاستخدام الإعداد الافتراضي.':error.name==='PaperCameraFrameTimeout'?'وصلنا إلى الكاميرا، لكن Safari لم يعرض صورة المعاينة. أعد تشغيل الكاميرا.':'تعذر تشغيل الكاميرا ('+(error.name||'خطأ غير معروف')+'). تحقق من إذن Safari ثم أعد المحاولة.';
+  cameraMessage(msg);$('#paper-camera-start').innerHTML=`<div class="camera-start-card"><span>${esc(msg)}</span><button class="btn" type="button" onclick="retryPaperCamera()">إعادة المحاولة</button></div>`;$('#paper-camera-capture').disabled=true;
  }
 }
+function waitForPaperCameraFrame(video){return new Promise((resolve,reject)=>{let done=false,timeout;const events=['loadeddata','playing','resize'];const finish=error=>{if(done)return;if(!error&&(!video.videoWidth||!video.videoHeight||video.readyState<2))return;done=true;clearTimeout(timeout);events.forEach(name=>video.removeEventListener(name,check));if(error)reject(error);else resolve()};const check=()=>finish();events.forEach(name=>video.addEventListener(name,check));timeout=setTimeout(()=>{const error=new Error('Camera preview timed out');error.name='PaperCameraFrameTimeout';finish(error)},6000);check()})}
+async function retryPaperCamera(){const s=PaperCamera;if(!s)return;const start=$('#paper-camera-start');start.innerHTML='<span>جارٍ تشغيل الكاميرا…</span>';start.hidden=false;$('#paper-camera-capture').disabled=true;await connectPaperCamera(s)}
 async function switchPaperLens(id){const s=PaperCamera;if(!s||s.busy)return;$('#paper-camera-capture').disabled=true;await connectPaperCamera(s,id)}
 function renderCameraZoom(track){
  const host=$('#paper-camera-zoom'),cap=track.getCapabilities?.().zoom;
