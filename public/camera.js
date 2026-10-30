@@ -16,7 +16,7 @@ async function openPaperCamera(documentScan=false){
  await connectPaperCamera(state);
 }
 function cameraActive(s){return PaperCamera===s&&$('#modal')?.open}
-function stopPaperCamera(){const s=PaperCamera;PaperCamera=null;PaperCameraGeneration++;if(s){clearTimeout(s.timer);s.stream?.getTracks().forEach(t=>t.stop())}const v=$('#paper-camera-video');if(v)v.srcObject=null;const dialog=$('#modal');dialog?.classList.remove('paper-camera-modal');document.body.classList.remove('paper-camera-open');if(document.fullscreenElement===dialog)document.exitFullscreen?.().catch(()=>{})}
+function stopPaperCamera(){const s=PaperCamera;PaperCamera=null;PaperCameraGeneration++;if(s){clearTimeout(s.timer);s.stream?.getTracks().forEach(t=>t.stop())}const v=$('#paper-camera-video');if(v)v.srcObject=null;const dialog=$('#modal');dialog?.classList.remove('paper-camera-modal');document.body?.classList?.remove('paper-camera-open');if(dialog&&document.fullscreenElement===dialog)document.exitFullscreen?.().catch(()=>{})}
 function closePaperCamera(){stopPaperCamera();closeModal()}
 function resetCameraStability(){if(!PaperCamera)return;PaperCamera.previous=null;PaperCamera.stableSince=0;const p=$('#paper-camera-progress');if(p)p.style.width='0%'}
 function cameraMessage(message){const p=$('#paper-camera-status');if(p&&p.textContent!==message)p.textContent=message}
