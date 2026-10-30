@@ -112,15 +112,17 @@ async function saveScan(advance = true) {
     if (!advance) { renderScan(); toast('تم حفظ الورقة'); return; }
     scanIndex++;
     if (scanIndex < scanQueue.length) { await openScan(); toast('حُفظت الصفحة. انتقلت إلى الورقة التالية.'); }
-    else { scanState = null; scanQueue = []; bulkWaiting = false; currentResult = r.id; location.hash = 'results'; results(); toast('تم حفظ النتائج والمراجعة'); }
+    else { scanState = null; scanQueue = []; bulkWaiting = false; bulkReviewActive = false; currentResult = r.id; location.hash = 'results'; results(); toast('تم حفظ النتائج والمراجعة'); }
   } catch { toast('تعذر حفظ الصورة. تحقق من مساحة الجهاز وأعد المحاولة.'); }
 }
 
 function issueCounts(r, p = null) {
-  const e = resultExam(r), out = { double: 0, blank: 0, wrong: 0, correct: 0, unresolved: 0 };
+  const e = resultExam(r), out = { double: 0, blank: 0, wrong: 0, correct: 0, unresolved: 0, essayPending: 0 };
   if (!e) return out;
+  if (r.snapshot?.paperVersion >= 6) out.essayPending = essayMaximum(e) > 0 && (r.essay?.[-1] === null || r.essay?.[-1] === undefined) ? 1 : 0;
   for (const [i, q] of e.questions.entries()) {
-    if (q.type === 'essay' || (p !== null && !r.reviewed?.[i])) continue;
+    if (q.type === 'essay') { if (r.snapshot?.paperVersion < 6 && (r.essay?.[i] === null || r.essay?.[i] === undefined)) out.essayPending++; continue; }
+    if (p !== null && !r.reviewed?.[i]) continue;
     const state = resultAnswerStatus(r, q, i, p ?? Number(Object.keys(r.pages || {})[0] || 0));
     if (out[state] !== undefined) out[state]++;
   }
@@ -133,7 +135,7 @@ results = function () {
   const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة أُضيفت إلى النتائج، جاهزة للمعالجة.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div><div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}<p id="batch-progress" class="note" aria-live="polite"></p></section>`;
   const rows = db.results.slice().reverse().map(r => {
     const e = resultExam(r), complete = Object.keys(r.pages || {}).length >= resultPageCount(r), c = issueCounts(r);
-    return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${r.batchAuto ? 'تصحيح آلي — راجع الحالات' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}</div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button></td></tr>`;
+    return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${r.batchAuto ? 'تصحيح آلي — راجع الحالات' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button></td></tr>`;
   }).join('');
   $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('↓ تصدير CSV','exportResults()','light')) + base + `<section class="panel"><div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${!db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : ''}</section>`;
 };
@@ -156,7 +158,7 @@ async function correctAllPending() {
       await filePut(pageKey, s.url);
       const r = { id, exam: e.id, student: student?.id || '', name: student?.name || `طالب غير معروف — ${s.name}`, number: student?.number || '', group: student?.group || '', snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: { [page]: pageKey }, reviewed: {}, markings: { [page]: {} }, date: new Date().toISOString(), updated: new Date().toISOString(), batchAuto: true, batchRunId };
       for (const { i, q } of plan.items) {
-        r.answers[i] = s.answers[i] ?? null; r.essay[i] = q.type === 'essay' ? (s.essay[i] ?? 0) : 0; r.reviewed[i] = true;
+        r.answers[i] = s.answers[i] ?? null; r.essay[i] = q.type === 'essay' ? null : 0; r.reviewed[i] = true;
         if (q.type !== 'essay') { const status = scanAnswerStatus(q, i, s); r.markings[page][i] = { status, marked: scanMarkedValues(i, s, status) }; }
       }
       db.results.push(r); save(); done++;
@@ -188,7 +190,7 @@ reviewResult = async function (id, p = 0) {
   const counts = issueCounts(r, p);
   const scorePanel = document.querySelector('.result-score');
   document.querySelector('.result-issue-summary')?.remove();
-  if (scorePanel) scorePanel.insertAdjacentHTML('afterend', `<div class="result-issue-summary">${[['double','تظليل مزدوج'],['blank','متروك'],['wrong','إجابة خاطئة'],['correct','صحيحة']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n}: ${ar(counts[k])}</button>`).join('')}</div>`);
+  if (scorePanel) scorePanel.insertAdjacentHTML('afterend', `<div class="result-issue-summary">${[['double','تظليل مزدوج'],['blank','متروك'],['wrong','إجابة خاطئة'],['correct','صحيحة']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n}: ${ar(counts[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة: ${ar(counts.essayPending)}</span></div>`);
 };
 
 drawResultOverlay = function (r, p) {
