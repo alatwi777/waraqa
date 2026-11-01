@@ -368,6 +368,7 @@ reviewResult = async function (id, p = 0) {
   const imagePanel = document.querySelector('.review-layout > section:first-child');
   if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط فقاعة الإجابة لتعديلها، أو فقاعة مجموع المقالي أعلى الورقة لرصد الدرجة. النقر على الفقاعة المحددة يمسحها.</p>');
   const imageToolbar = imagePanel?.querySelector('.toolbar');
+  if (imageToolbar && !imageToolbar.querySelector('.result-page-number-nav')) imageToolbar.insertAdjacentHTML('afterbegin', resultPageButtons(r, p));
   if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button></div>`);
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
@@ -459,6 +460,14 @@ function refreshResultAndLargePreview(r, p, ctx) {
   });
 }
 
+function resultPageButtons(r, selected, large = false) {
+  const pages = Object.keys(r.pages || {}).sort((a,b)=>Number(a)-Number(b));
+  if (pages.length < 2) return '';
+  const className = large ? 'large-result-page-nav' : 'result-page-number-nav';
+  const buttons = pages.map(page => `<button type="button" class="btn ${Number(page) === Number(selected) ? 'gold' : 'light'} small" title="صفحة ${ar(Number(page)+1)}" aria-label="الانتقال إلى الصفحة ${ar(Number(page)+1)}" ${Number(page) === Number(selected) ? 'aria-current="page"' : ''} onclick="${large ? `switchLargeResultPage('${r.id}',${Number(page)})` : `reviewResult('${r.id}',${Number(page)})`}">${ar(Number(page)+1)}</button>`).join('');
+  return `<div class="${className}" role="group" aria-label="صفحات ورقة الطالب" style="display:flex;align-items:center;gap:8px;margin:8px 0;justify-content:center"><span class="note">الصفحة</span>${buttons}</div>`;
+}
+
 function resultPreviewChoice(q, index) {
   if (q.type === 'essay') return 'يُصحح يدويًا';
   const answer = q.answer;
@@ -514,7 +523,7 @@ async function openLargeResultPreview(id, p) {
   const e = resultExam(r), pageKeys = Object.keys(r.pages || {});
   if (!r.pages?.[p]) p = Number(pageKeys[0] || 0);
   largeResultPreview.p = p;
-  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><div class="result-preview-top-info"><div id="result-preview-info"></div><small>${esc(e?.title || 'الاختبار')}</small></div><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div><div class="result-preview-grid"><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><div id="large-result-placeholder" class="result-preview-placeholder">جارٍ تحميل صورة الورقة...</div><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب" hidden><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة" hidden></canvas></div></div><p class="note">الإجابة الخاطئة تظهر بالأحمر، وإجابة المعلم الصحيحة تظهر بالأصفر. اضغط أي فقاعة أو درجة المقالي لتعديلها؛ تُحدّث الدرجة أعلاه فورًا.</p></section></div>`);
+  modal('معاينة ورقة الطالب', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="navigateLargeResultPreview('previous')">→ السابق</button><div class="result-preview-top-info"><div id="result-preview-info"></div><small>${esc(e?.title || 'الاختبار')}</small></div><button type="button" class="btn gold small" onclick="navigateLargeResultPreview('next')">التالي ←</button></div>${resultPageButtons(r, p, true)}<div class="result-preview-grid"><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><div id="large-result-placeholder" class="result-preview-placeholder">جارٍ تحميل صورة الورقة...</div><img id="large-result-image" class="scan-preview" alt="معاينة ورقة الطالب" hidden><canvas id="large-result-overlay" aria-label="اضغط فقاعة لتعديل الإجابة" hidden></canvas></div></div><p class="note">الإجابة الخاطئة تظهر بالأحمر، وإجابة المعلم الصحيحة تظهر بالأصفر. اضغط أي فقاعة أو درجة المقالي لتعديلها؛ تُحدّث الدرجة أعلاه فورًا.</p></section></div>`);
   $('#modal').classList.add('result-preview-modal');
   renderLargeResultPanels(r, p);
   try {
@@ -547,6 +556,49 @@ async function openLargeResultPreview(id, p) {
       else showMissing('تعذر تحميل الصورة. أعد رفع الورقة من قسم التصحيح.');
     }
   } catch { const placeholder = document.querySelector('#large-result-placeholder'); if (placeholder) { placeholder.textContent = 'تعذر استرجاع الصورة من هذا الجهاز. أعد رفع الورقة من قسم التصحيح.'; placeholder.hidden = false; } toast('تعذر استرجاع صورة الورقة'); }
+}
+
+async function switchLargeResultPage(id, p) {
+  const r = db.results.find(x => x.id === id);
+  if (!r?.pages?.[p]) return;
+  largeResultPreview = { id, p };
+  const nav = document.querySelector('.large-result-page-nav');
+  if (nav) nav.outerHTML = resultPageButtons(r, p, true);
+  renderLargeResultPanels(r, p);
+  const image = document.querySelector('#large-result-image');
+  const overlay = document.querySelector('#large-result-overlay');
+  const placeholder = document.querySelector('#large-result-placeholder');
+  if (!image || !overlay || !placeholder) return;
+  image.hidden = true; overlay.hidden = true;
+  placeholder.textContent = 'جارٍ تحميل صورة الصفحة...'; placeholder.hidden = false;
+  try {
+    const url = await fileGet(r.pages[p]);
+    if (largeResultPreview?.id !== id || Number(largeResultPreview?.p) !== Number(p)) return;
+    if (!url) throw new Error('missing page image');
+    largeResultResizeObserver?.disconnect();
+    const scroll = image.closest('.large-result-scroll');
+    if (scroll && 'ResizeObserver' in window) {
+      largeResultResizeObserver = new ResizeObserver(() => layoutLargeResultImage(image, overlay, placeholder, r, p));
+      largeResultResizeObserver.observe(scroll);
+    }
+    image.onload = () => {
+      let attempts = 0;
+      const retryLayout = () => {
+        if (largeResultPreview?.id !== id || Number(largeResultPreview?.p) !== Number(p)) return;
+        if (layoutLargeResultImage(image, overlay, placeholder, r, p) || attempts++ >= 12) return;
+        requestAnimationFrame(retryLayout);
+      };
+      requestAnimationFrame(retryLayout);
+    };
+    image.onerror = () => { placeholder.textContent = 'تعذر تحميل صورة الصفحة.'; placeholder.hidden = false; };
+    image.src = url;
+    if (image.complete && image.naturalWidth) layoutLargeResultImage(image, overlay, placeholder, r, p);
+  } catch {
+    if (largeResultPreview?.id === id && Number(largeResultPreview?.p) === Number(p)) {
+      placeholder.textContent = 'تعذر استرجاع صورة الصفحة من هذا الجهاز.';
+      placeholder.hidden = false;
+    }
+  }
 }
 
 async function navigateLargeResultPreview(direction) {
