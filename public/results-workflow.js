@@ -13,6 +13,70 @@ const originalResults = results;
 const originalReviewResult = reviewResult;
 const originalDrawResultOverlay = drawResultOverlay;
 
+let resultsExamFilter = '';
+
+function resultNumberKey(value) {
+  const digits = String(value ?? '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g, '');
+  return digits;
+}
+function resultStudentKey(r) {
+  const st = db.students.find(x => x.id === r.student);
+  const number = resultNumberKey(r.number || st?.number);
+  return number ? 'number:' + number : (r.student ? 'student:' + r.student : '');
+}
+function resultMatchesStudent(r, st, examId = currentExam) {
+  if (examId && r.exam !== examId) return false;
+  const a = resultNumberKey(r.number || db.students.find(x => x.id === r.student)?.number);
+  const b = resultNumberKey(st?.number);
+  return (a && b && a === b) || (!!st?.id && r.student === st.id);
+}
+function mergeDuplicateStudentResults() {
+  const groups = new Map();
+  for (const r of db.results) {
+    const identity = resultStudentKey(r);
+    if (!r.exam || !identity) continue;
+    const key = r.exam + '|' + identity;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  let changed = false;
+  const remove = new Set();
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    list.sort((a,b) => String(a.date || '').localeCompare(String(b.date || '')));
+    const base = list[0];
+    base.pages ||= {}; base.markings ||= {}; base.reviewed ||= {}; base.answers ||= {}; base.essay ||= {};
+    for (const source of list.slice(1)) {
+      const sourcePages = Object.entries(source.pages || {}).sort((a,b) => Number(a[0])-Number(b[0]));
+      const remap = {};
+      for (const [oldPage, key] of sourcePages) {
+        let target = Number(oldPage);
+        if (base.pages[target]) {
+          const expected = Math.max(1, resultPageCount(base));
+          target = Array.from({length: expected}, (_,i)=>i).find(i => !base.pages[i]);
+          if (target === undefined) target = Math.max(-1, ...Object.keys(base.pages).map(Number)) + 1;
+        }
+        base.pages[target] = key; remap[oldPage] = target;
+        if (source.markings?.[oldPage]) base.markings[target] = { ...(base.markings[target] || {}), ...source.markings[oldPage] };
+      }
+      for (const [i, value] of Object.entries(source.answers || {})) if (source.reviewed?.[i] || !Object.hasOwn(base.answers, i)) base.answers[i] = value;
+      for (const [i, value] of Object.entries(source.essay || {})) if (value !== null && value !== undefined || !Object.hasOwn(base.essay, i)) base.essay[i] = value;
+      base.reviewed = { ...base.reviewed, ...(source.reviewed || {}) };
+      base.name = source.name || base.name; base.number = source.number || base.number; base.group = source.group || base.group; base.student = source.student || base.student;
+      base.batchAuto = !!(base.batchAuto || source.batchAuto);
+      base.updated = [base.updated, source.updated, source.date].filter(Boolean).sort().at(-1) || base.updated;
+      remove.add(source.id); changed = true;
+    }
+  }
+  if (changed) { db.results = db.results.filter(r => !remove.has(r.id)); save(); }
+  return changed;
+}
+function setResultsExamFilter(value) {
+  resultsExamFilter = value || '';
+  currentResult = null;
+  results();
+}
+
 score = function (r) {
   const e = resultExam(r); if (!e) return 0;
   const essayScore = r.snapshot?.paperVersion >= 6 ? Math.min(essayMaximum(e), Math.max(0, Number(r.essay?.[-1] || 0))) : 0;
@@ -96,7 +160,7 @@ async function saveScan(advance = true) {
   if (plan.items.some(v => v.q.type === 'essay' && (s.essay[v.i] === null || s.essay[v.i] === undefined || !Number.isFinite(s.essay[v.i]) || s.essay[v.i] < 0 || s.essay[v.i] > v.q.points))) return toast('حدّد درجة المقالي المطلوبة قبل الحفظ. استخدم ٠ للدرجة الصفرية، ولا تتركها فارغة.');
   const st = db.students.find(x => x.id === s.student);
   if (!st) return toast('تعذر العثور على بيانات الطالب');
-  let r = db.results.find(x => x.exam === e.id && x.student === st.id);
+  let r = db.results.find(x => x.exam === e.id && resultMatchesStudent(x, st));
   if (r && r.pages[s.p] && !s.savedThisVisit && !confirm('هذه الصفحة محفوظة. هل تريد استبدالها؟')) return;
   try {
     if (!r) r = { id: uid(), exam: e.id, student: st.id, name: st.name, number: st.number, group: st.group, snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: {}, reviewed: {}, date: new Date().toISOString() };
@@ -228,14 +292,21 @@ async function exportResultsExcel() {
 }
 
 results = function () {
+  mergeDuplicateStudentResults();
   if (currentResult && db.results.some(r => r.id === currentResult)) return reviewResult(currentResult);
   const pendingList = bulkWaiting && scanQueue.length ? `<div class="bulk-file-list" aria-label="الأوراق المضافة">${scanQueue.map((f,i)=>`<span><b>${ar(i+1)}</b> ${esc(f.name)} <small>بانتظار التصحيح</small></span>`).join('')}</div>` : '';
   const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة أُضيفت إلى النتائج، جاهزة للمعالجة.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div><div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}<p id="batch-progress" class="note" aria-live="polite"></p></section>`;
-  const rows = db.results.slice().reverse().map(r => {
+  const examIds = [...new Set(db.results.map(r => r.exam).filter(Boolean))];
+  if (!resultsExamFilter || !examIds.includes(resultsExamFilter)) resultsExamFilter = examIds.at(-1) || 'all';
+  const examItems = examIds.map(id => { const e = db.exams.find(x => x.id === id) || db.results.find(x => x.exam === id)?.snapshot; return e ? [id, e.title || 'اختبار'] : null; }).filter(Boolean);
+  const filtered = resultsExamFilter === 'all' ? db.results : db.results.filter(r => r.exam === resultsExamFilter);
+  const filterBar = `<div class="toolbar results-exam-filter"><label class="field">اختر الاختبار<select aria-label="تصفية النتائج حسب الاختبار" onchange="setResultsExamFilter(this.value)"><option value="all" ${resultsExamFilter === 'all' ? 'selected' : ''}>جميع الاختبارات</option>${options(examItems, resultsExamFilter)}</select></label><span class="note">عدد أوراق الطلاب: ${ar(filtered.length)}</span></div>`;
+  const rows = filtered.slice().reverse().map(r => {
     const e = resultExam(r), complete = Object.keys(r.pages || {}).length >= resultPageCount(r), c = issueCounts(r);
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${r.batchAuto ? 'تصحيح آلي — راجع الحالات' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
-  $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')+btn('تصدير Excel','exportResultsExcel()','light')+btn('تصدير CSV','exportResults()','light')) + base + `<section class="panel"><div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${!db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : ''}</section>`;
+  const noResults = !db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : empty('لا توجد نتائج لهذا الاختبار','اختر اختبارًا آخر من القائمة أعلاه.');
+  $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')+btn('تصدير Excel','exportResultsExcel()','light')+btn('تصدير CSV','exportResults()','light')) + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
 };
 
 function startBatchReview() { if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
@@ -255,20 +326,37 @@ async function correctAllPending() {
       if (!s || !e) throw new Error('تعذر قراءة صفحة الاختبار');
       if (typeof identifyScanStudent === 'function') await identifyScanStudent(s, true);
       const student = db.students.find(x => x.id === s.student);
-      const plan = scanPlan(s, e), page = Number(s.p || 0), id = uid(), pageKey = id + '-' + page + '-' + uid();
+      if (!student) throw new Error('تعذر التعرف على رقم الطالب');
+      let r = db.results.find(x => x.exam === e.id && resultMatchesStudent(x, student, e.id));
+      let page = Number(s.p || 0);
+      if (r?.pages?.[page]) {
+        const expected = Math.max(1, resultPageCount(r));
+        const nextPage = Array.from({length: expected}, (_,i)=>i).find(i => !r.pages[i]);
+        if (nextPage !== undefined) page = nextPage;
+      }
+      if (Number(s.p || 0) !== page) { s.p = page; detectAndRead(); }
+      const plan = scanPlan(s, e), id = r?.id || uid(), pageKey = id + '-' + page + '-' + uid();
       await filePut(pageKey, s.url);
-      const r = { id, exam: e.id, student: student?.id || '', name: student?.name || `طالب غير معروف — ${s.name}`, number: student?.number || '', group: student?.group || '', snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: { [page]: pageKey }, reviewed: {}, markings: { [page]: {} }, date: new Date().toISOString(), updated: new Date().toISOString(), batchAuto: true, batchRunId };
+      if (!r) {
+        r = { id, exam: e.id, student: student.id, name: student.name, number: student.number, group: student.group, snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: {}, reviewed: {}, markings: {}, date: new Date().toISOString(), batchAuto: true, batchRunId };
+        db.results.push(r);
+      }
+      r.pages ||= {}; r.markings ||= {}; r.pages[page] = pageKey; r.markings[page] = {};
       for (const { i, q } of plan.items) {
         r.answers[i] = s.answers[i] ?? null;
-        r.essay[i] = q.type === 'essay' ? (i === -1 ? (s.essay?.[-1] ?? null) : (s.essay?.[i] ?? null)) : 0;
+        if (q.type === 'essay') {
+          const grade = i === -1 ? s.essay?.[-1] : s.essay?.[i];
+          if (grade !== null && grade !== undefined) r.essay[i] = grade;
+        }
         r.reviewed[i] = true;
         if (q.type !== 'essay') { const status = scanAnswerStatus(q, i, s); r.markings[page][i] = { status, marked: scanMarkedValues(i, s, status) }; }
       }
-      db.results.push(r); save(); done++;
+      r.batchAuto = true; r.batchRunId = batchRunId; r.updated = new Date().toISOString();
+      save(); done++;
     } catch (err) { failed.push(scanQueue[scanIndex]?.name || `ورقة ${scanIndex + 1}`); }
     if (progress) progress.textContent = `تم تصحيح ${ar(done)} من ${ar(scanQueue.length)}${failed.length ? ` · تعذر فتح ${ar(failed.length)} ورقة` : ''}`;
   }
-  batchProcessing = false; bulkWaiting = false; scanQueue = []; scanState = null; scanIndex = 0; save(); results();
+  batchProcessing = false; bulkWaiting = false; scanQueue = []; scanState = null; scanIndex = 0; if (db.results.length) resultsExamFilter = db.results.at(-1).exam || resultsExamFilter; save(); results();
   toast(`اكتمل التصحيح الآلي: ${ar(done)} ورقة${failed.length ? `، وتعذر معالجة ${ar(failed.length)}` : ''}`);
 }
 
