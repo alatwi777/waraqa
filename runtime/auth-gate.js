@@ -111,11 +111,10 @@ window.WaraqaAuthorized = false;
     $("#wa-form").hidden = true;
     showGate("الاشتراك غير متاح");
     setMessage(license.reason + " تبقى بياناتك المحلية محفوظة.", "error");
-    const actions = gate.querySelector(".wa-actions");
     if (!$("#wa-logout")) {
       const button = document.createElement("button");
       button.id = "wa-logout"; button.type = "button"; button.className = "wa-button alt"; button.textContent = "تسجيل الخروج";
-      actions.appendChild(button);
+      $("#wa-form").after(button);
     }
     $("#wa-logout").onclick = () => firebase.signOut(auth);
   }
