@@ -13,7 +13,7 @@ html=html.replace('<script src="cloud.js"></script>','<script src="auth-gate.js"
 html=html.replace('results-workflow.js?v=result-preview-layout-scrollfix-20261030','results-workflow.js?v=results-export-answers-excel-20261030');
 await writeFile(resolve(dist,'index.html'),html);
 const appPath=resolve(dist,'app.js');let app=await readFile(appPath,'utf8');
-app=app.replace("indexedDB.open('waraqa-files',1)","indexedDB.open('waraqa-pages-files:'+new URL('.',location.href).pathname,1)");
+app=app.replace("indexedDB.open('waraqa-files',1)","indexedDB.open('waraqa-pages-files:'+new URL('.',location.href).pathname+(localStorage.getItem('waraqa-pages-owner:'+new URL('.',location.href).pathname)===window.WaraqaFirebaseUid?'':':'+window.WaraqaFirebaseUid),1)");
 app=app.replace('البيانات والصور مرتبطة بحساب ChatGPT وتُزامن بين أجهزتك. انتظر ظهور «محفوظ في حسابك» قبل الانتقال. انقل البيانات القديمة من المتصفح الأصلي مرة واحدة، واحتفظ بنسخة احتياطية.','البيانات والصور محفوظة في هذا المتصفح فقط. لن تظهر على جهاز أو متصفح آخر تلقائيًا. انقلها بالنسخ الاحتياطي والاستعادة، واحتفظ بنسخة قبل مسح بيانات الموقع.');
 await writeFile(appPath,app);await writeFile(resolve(dist,'.nojekyll'),'');
 console.log('Built GitHub Pages site in dist/; local browser storage, no server or paid storage required.');
