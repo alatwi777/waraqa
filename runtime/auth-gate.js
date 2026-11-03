@@ -16,7 +16,7 @@ window.WaraqaAuthorized = false;
   gate.setAttribute("aria-live", "polite");
   gate.innerHTML = `
     <style>
-      #waraqa-auth-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:rgba(10,25,22,.74);backdrop-filter:blur(8px);direction:rtl;font-family:inherit;color:#163b32}
+      #waraqa-auth-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:#e9f0ec;direction:rtl;font-family:inherit;color:#163b32}
       #waraqa-auth-gate[hidden]{display:none}
       #waraqa-auth-gate *{box-sizing:border-box}
       .wa-card{width:min(440px,100%);padding:30px;background:#fff;border:1px solid #dce8df;border-radius:24px;box-shadow:0 28px 90px #0004}
@@ -96,6 +96,11 @@ window.WaraqaAuthorized = false;
     const license = await checkLicense(user);
     if (license.valid) {
       $("#wa-logout")?.remove();
+      if (window.WaraqaLoadedUid && window.WaraqaLoadedUid !== user.uid) { location.reload(); return; }
+      window.WaraqaFirebaseUid = user.uid;
+      const sitePath = new URL(".", location.href).pathname;
+      const ownerKey = "waraqa-pages-owner:" + sitePath;
+      if (!localStorage.getItem(ownerKey)) localStorage.setItem(ownerKey, user.uid);
       window.WaraqaAuthorized = true;
       gate.hidden = true;
       setMessage("");
