@@ -4,7 +4,7 @@ window.WaraqaAuthorized = false;
 
 (async () => {
   const firebaseConfig = {
-    apiKey: "AIzaSyCosJv8S0atz72MLwRv8K0kdE1wyxEy6Nc",
+    apiKey: "AIzaSyCosJv8S0atz72MlwRv8K0kdE1wyxEy6Nc",
     authDomain: "waraqa-9b563.firebaseapp.com",
     projectId: "waraqa-9b563",
     storageBucket: "waraqa-9b563.firebasestorage.app",
