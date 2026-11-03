@@ -87,6 +87,7 @@ window.WaraqaAuthorized = false;
     if (!user) {
       $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
+      $("#wa-form").hidden = false;
       showGate();
       addAccountChip("", async () => {});
       setMessage("أدخل بيانات حسابك للمتابعة.");
@@ -107,6 +108,7 @@ window.WaraqaAuthorized = false;
       return;
     }
     window.WaraqaAuthorized = false;
+    $("#wa-form").hidden = true;
     showGate("الاشتراك غير متاح");
     setMessage(license.reason + " تبقى بياناتك المحلية محفوظة.", "error");
     const actions = gate.querySelector(".wa-actions");
