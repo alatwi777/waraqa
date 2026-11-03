@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only the signed-in owner can read an active, unexpired license.
+    match /licenses/{uid} {
+      allow get: if request.auth != null
+        && request.auth.uid == uid
+        && resource.data.active == true
+        && resource.data.expiresAt is timestamp
+        && resource.data.expiresAt > request.time;
+      allow list, create, update, delete: if false;
+    }
+
+    // Student records stay in browser storage; no other Firestore access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
