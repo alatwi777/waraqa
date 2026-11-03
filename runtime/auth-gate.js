@@ -85,6 +85,7 @@ window.WaraqaAuthorized = false;
   }
   async function authorize(user) {
     if (!user) {
+      $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
       showGate();
       addAccountChip("", async () => {});
@@ -93,6 +94,7 @@ window.WaraqaAuthorized = false;
     }
     const license = await checkLicense(user);
     if (license.valid) {
+      $("#wa-logout")?.remove();
       window.WaraqaAuthorized = true;
       gate.hidden = true;
       setMessage("");
