@@ -23,7 +23,7 @@ window.WaraqaAuthorized = false;
       .wa-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}.wa-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#0a7058;color:#fff;font-size:24px}.wa-brand b{font-size:23px}.wa-brand small{display:block;color:#74847d;font-size:13px}
       .wa-card h1{margin:0 0 8px;font-size:22px}.wa-intro{margin:0 0 20px;color:#687a72;line-height:1.8}
       .wa-field{display:block;margin:13px 0;color:#304b42;font-weight:700;font-size:14px}.wa-field input{display:block;width:100%;margin-top:6px;padding:12px 13px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit;direction:ltr;text-align:left}
-      .wa-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.wa-button{border:0;border-radius:11px;padding:12px 16px;background:#0a7058;color:#fff;font:700 14px inherit;cursor:pointer}.wa-button.alt{border:1px solid #d0ded6;background:#fff;color:#245548}.wa-button:disabled{opacity:.6;cursor:wait}
+      .wa-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.wa-button{border:0;border-radius:11px;padding:12px 16px;background:#0a7058;color:#fff;font:700 14px system-ui,sans-serif;cursor:pointer}.wa-button.alt{border:1px solid #d0ded6;background:#fff;color:#245548}.wa-button:disabled{opacity:.6;cursor:wait}
       .wa-message{min-height:26px;margin:14px 0 0;color:#526a60;line-height:1.7}.wa-message.error{color:#a42e2e}.wa-message.ok{color:#08734d}
       .wa-switch{border:0;background:none;color:#116a55;text-decoration:underline;cursor:pointer;font:inherit;padding:0}.wa-small{margin-top:12px;font-size:13px;color:#6c7d75}.wa-local{margin-top:18px;padding:12px 14px;border-radius:12px;background:#f2f6f3;color:#53665c;font-size:13px;line-height:1.8}
       .waraqa-account-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #d7e3dc;border-radius:999px;background:#f8fbf9;color:#174b3e;font-size:12px;max-width:250px}.waraqa-account-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer}
@@ -54,9 +54,12 @@ window.WaraqaAuthorized = false;
     const target = document.querySelector(".header-left");
     if (!target) return;
     let chip = document.getElementById("waraqa-account-chip");
+    if (!email) { chip?.remove(); return; }
     if (!chip) { chip = document.createElement("div"); chip.id = "waraqa-account-chip"; chip.className = "waraqa-account-chip"; target.prepend(chip); }
-    chip.innerHTML = `<span title="${email.replace(/[&<>"']/g, "")}">${email.replace(/[&<>"']/g, "")}</span><button type="button">خروج</button>`;
-    chip.querySelector("button").addEventListener("click", logout);
+    chip.replaceChildren();
+    const label = document.createElement("span"); label.title = email; label.textContent = email;
+    const button = document.createElement("button"); button.type = "button"; button.textContent = "خروج";
+    button.addEventListener("click", logout); chip.append(label, button);
   }
   function expirationValue(data) {
     const raw = data?.expiresAt;
