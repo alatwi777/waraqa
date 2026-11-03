@@ -48,6 +48,21 @@ window.WaraqaAuthorized = false;
   let auth, db, firebase;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
+  function authErrorText(error, action) {
+    const code = error?.code || "unknown";
+    const messages = {
+      "auth/invalid-email": "صيغة البريد الإلكتروني غير صحيحة. راجع العنوان ثم حاول مجددًا.",
+      "auth/user-not-found": "لا يوجد حساب بهذا البريد في Firebase Authentication. تأكد أنك تستخدم بريد الحساب نفسه.",
+      "auth/too-many-requests": "أوقف Firebase المحاولات مؤقتًا لكثرتها. انتظر قليلًا ثم حاول مجددًا.",
+      "auth/network-request-failed": "تعذر الاتصال بخدمة Firebase. تحقق من الإنترنت ثم أعد المحاولة.",
+      "auth/unauthorized-domain": "نطاق الموقع غير معتمد في Firebase. أضف alatwi777.github.io ضمن Authentication ثم Settings ثم Authorized domains.",
+      "auth/operation-not-allowed": "تسجيل البريد وكلمة المرور غير مفعّل في Firebase Authentication.",
+      "auth/invalid-api-key": "مفتاح Firebase غير صالح لهذا المشروع.",
+      "auth/api-key-not-valid": "مفتاح Firebase غير صالح لهذا المشروع."
+    };
+    if (action === "login" && code === "auth/invalid-credential") return "البريد أو كلمة المرور غير صحيحة. استخدم رابط إعادة التعيين إذا نسيت كلمة المرور.";
+    return messages[code] || `تعذر ${action === "reset" ? "إرسال رابط إعادة التعيين" : "تسجيل الدخول"} (رمز Firebase: ${code}).`;
+  }
   function setBusy(value) { $("#wa-submit").disabled = value; $("#wa-create").disabled = value; }
   function showGate(title = "تسجيل الدخول") { gate.hidden = false; $("#wa-title").textContent = title; }
   function addAccountChip(email, logout) {
@@ -137,7 +152,7 @@ window.WaraqaAuthorized = false;
     $("#wa-form").addEventListener("submit", async (event) => {
       event.preventDefault(); setBusy(true); setMessage("جارٍ تسجيل الدخول…");
       try { await authSdk.signInWithEmailAndPassword(auth, $("#wa-email").value.trim(), $("#wa-password").value); }
-      catch (error) { setMessage(error?.code === "auth/invalid-credential" ? "البريد أو كلمة المرور غير صحيحة." : "تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.", "error"); }
+      catch (error) { setMessage(authErrorText(error, "login"), "error"); }
       finally { setBusy(false); }
     });
     $("#wa-create").addEventListener("click", async () => {
@@ -152,7 +167,7 @@ window.WaraqaAuthorized = false;
       const email = $("#wa-email").value.trim();
       if (!email) { setMessage("اكتب البريد الإلكتروني أولًا.", "error"); return; }
       try { await authSdk.sendPasswordResetEmail(auth, email); setMessage("أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك.", "ok"); }
-      catch { setMessage("تعذر إرسال الرابط. تحقق من البريد وحاول مرة أخرى.", "error"); }
+      catch (error) { setMessage(authErrorText(error, "reset"), "error"); }
     });
     authSdk.onAuthStateChanged(auth, authorize);
   } catch (error) {
