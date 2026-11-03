@@ -22,7 +22,7 @@ window.WaraqaAuthorized = false;
       .wa-card{width:min(440px,100%);padding:30px;background:#fff;border:1px solid #dce8df;border-radius:24px;box-shadow:0 28px 90px #0004}
       .wa-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}.wa-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#0a7058;color:#fff;font-size:24px}.wa-brand b{font-size:23px}.wa-brand small{display:block;color:#74847d;font-size:13px}
       .wa-card h1{margin:0 0 8px;font-size:22px}.wa-intro{margin:0 0 20px;color:#687a72;line-height:1.8}
-      .wa-field{display:block;margin:13px 0;color:#304b42;font-weight:700;font-size:14px}.wa-field input{display:block;width:100%;margin-top:6px;padding:12px 13px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit;direction:ltr;text-align:left}
+      .wa-field{display:block;margin:13px 0;color:#304b42;font-weight:700;font-size:14px}.wa-field input{display:block;width:100%;margin-top:6px;padding:12px 13px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit;direction:ltr;text-align:left}.wa-password-wrap{position:relative;margin-top:6px}.wa-password-wrap input{margin-top:0;padding-right:82px}.wa-password-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);border:0;border-radius:7px;padding:7px 9px;background:transparent;color:#116a55;font:700 13px system-ui,sans-serif;cursor:pointer}
       .wa-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.wa-button{border:0;border-radius:11px;padding:12px 16px;background:#0a7058;color:#fff;font:700 14px system-ui,sans-serif;cursor:pointer}.wa-button.alt{border:1px solid #d0ded6;background:#fff;color:#245548}.wa-button:disabled{opacity:.6;cursor:wait}
       .wa-message{min-height:26px;margin:14px 0 0;color:#526a60;line-height:1.7}.wa-message.error{color:#a42e2e}.wa-message.ok{color:#08734d}
       .wa-switch{border:0;background:none;color:#116a55;text-decoration:underline;cursor:pointer;font:inherit;padding:0}.wa-small{margin-top:12px;font-size:13px;color:#6c7d75}.wa-local{margin-top:18px;padding:12px 14px;border-radius:12px;background:#f2f6f3;color:#53665c;font-size:13px;line-height:1.8}
@@ -35,7 +35,7 @@ window.WaraqaAuthorized = false;
       <p class="wa-intro">سجّل الدخول بحساب ورقة للتحقق من صلاحية الاشتراك. بيانات الطلاب والاختبارات تبقى محفوظة على هذا الجهاز.</p>
       <form id="wa-form">
         <label class="wa-field">البريد الإلكتروني<input id="wa-email" type="email" autocomplete="username" required></label>
-        <label class="wa-field">كلمة المرور<input id="wa-password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <div class="wa-field"><label for="wa-password">كلمة المرور</label><div class="wa-password-wrap"><input id="wa-password" type="password" autocomplete="current-password" minlength="6" required><button class="wa-password-toggle" id="wa-password-toggle" type="button" aria-controls="wa-password" aria-pressed="false" aria-label="إظهار كلمة المرور">إظهار</button></div></div>
         <div class="wa-actions"><button class="wa-button" id="wa-submit" type="submit">دخول</button><button class="wa-button alt" id="wa-create" type="button">إنشاء حساب</button></div>
       </form>
       <p class="wa-message" id="wa-message" role="status"></p>
@@ -45,6 +45,15 @@ window.WaraqaAuthorized = false;
   document.body.appendChild(gate);
   const $ = (selector) => gate.querySelector(selector);
   const message = $("#wa-message");
+  const passwordInput = $("#wa-password");
+  const passwordToggle = $("#wa-password-toggle");
+  passwordToggle.addEventListener("click", () => {
+    const reveal = passwordInput.type === "password";
+    passwordInput.type = reveal ? "text" : "password";
+    passwordToggle.textContent = reveal ? "إخفاء" : "إظهار";
+    passwordToggle.setAttribute("aria-pressed", String(reveal));
+    passwordToggle.setAttribute("aria-label", reveal ? "إخفاء كلمة المرور" : "إظهار كلمة المرور");
+  });
   let auth, db, firebase;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
