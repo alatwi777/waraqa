@@ -9,4 +9,9 @@ function cloudDetails(){modal('الحفظ على جهازك',`<p class="sub">ه�
 function exportUnreadableLocalData(){download('waraqa-recovery.txt',localStorage.getItem(LocalStore.key)||'','text/plain;charset=utf-8');}
 function startLocal(){const boot=$('#cloud-boot');try{const record=readLocalRecord();if(record){db=record.data;LocalStore.revision=record.revision;}const privacy=$('#cloud-privacy');if(privacy)privacy.innerHTML='◉ حفظ محلي على جهازك<small>بدون اشتراك تخزين</small>';const account=$('#cloud-account');if(account)account.textContent='هذا المتصفح · حفظ محلي';route();if(boot)boot.hidden=true;localStatus();}catch(e){LocalStore.blocked=true;localStatus('تعذر قراءة البيانات الموجودة. لن نستبدلها ببيانات فارغة.');if(boot)boot.innerHTML='<div><h2>تعذر فتح البيانات المحفوظة</h2><p>احتفظ بنسخة من البيانات الموجودة قبل متابعة الاستعادة أو الإصلاح.</p><button class="btn" onclick="exportUnreadableLocalData()">تنزيل بيانات الاسترداد</button></div>';}}
 window.addEventListener('storage',event=>{if(event.key===LocalStore.key){LocalStore.blocked=true;localStatus('تغيرت البيانات في نافذة أخرى. نزّل نسخة من عملك ثم أعد تحميل الصفحة.');}});
-startLocal();
+if (window.WaraqaAuthGate) {
+  if (window.WaraqaAuthorized) startLocal();
+  else window.addEventListener('waraqa-authorized', startLocal, { once: true });
+} else {
+  startLocal();
+}
