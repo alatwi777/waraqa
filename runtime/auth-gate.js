@@ -21,7 +21,7 @@ window.WaraqaAuthorized = false;
       #waraqa-auth-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:#e9f0ec;direction:rtl;font-family:inherit;color:#163b32}
       #waraqa-auth-gate[hidden]{display:none}
       #waraqa-auth-gate *{box-sizing:border-box}
-      .wa-card{width:min(1080px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:32px;background:#fff;border:1px solid #dce8df;border-radius:28px;box-shadow:0 28px 90px #0004}.wa-page-heading{text-align:center;margin:0 auto 24px;max-width:720px}.wa-page-heading h1{margin:0 0 8px;font-size:clamp(26px,3vw,36px);color:#153e32}.wa-page-heading p{margin:0;color:#718179;line-height:1.8}.wa-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}.wa-section{padding:24px;border:1px solid #e0eae4;border-radius:22px;background:#fff;box-shadow:0 12px 32px #173b2d0a}.wa-section h2{margin:0 0 6px;font-size:22px;color:#173d32}.wa-section-intro{margin:0 0 16px;color:#718179;line-height:1.7;font-size:14px}.wa-brand{margin-bottom:12px}.wa-section .wa-brand{margin-bottom:16px}.wa-price-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:16px;border-radius:16px;background:linear-gradient(135deg,#f5efe1,#fff9ec);border:1px solid #ead9b5}.wa-price-card small{display:block;color:#697a71}.wa-price-value{font-size:28px;font-weight:900;color:#a36a16;white-space:nowrap}.wa-price-value small{display:inline;color:#8a6b39;font-size:13px;font-weight:700}.wa-transfer{margin-top:16px;padding:16px;border:1px dashed #b6c8bd;border-radius:16px;background:#f7faf8}.wa-transfer-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-weight:900;color:#244b3e}.wa-setup-badge{padding:4px 9px;border-radius:999px;background:#fff0ce;color:#835b13;font-size:11px;white-space:nowrap}.wa-transfer p{margin:7px 0;color:#687b72;font-size:13px;line-height:1.8}.wa-plan-submit{width:100%;margin-top:15px;padding:13px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#0a7058,#14866b);color:#fff;font:800 15px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 18px #0a70582b}.wa-plan-submit:hover{filter:brightness(1.05);transform:translateY(-1px)}.wa-plan-note{margin:10px 0 0;color:#718179;font-size:12px;text-align:center;line-height:1.7}.wa-login-section{background:linear-gradient(150deg,#fff,#f8fbf9)}.wa-login-section .wa-brand{margin-bottom:14px}.wa-login-section .wa-field{margin:14px 0}.wa-login-section .wa-actions .wa-button{flex:1}.wa-section .wa-message{min-height:26px}@media(max-width:760px){#waraqa-auth-gate{padding:12px}.wa-card{padding:22px 18px;max-height:calc(100vh - 24px);border-radius:22px}.wa-columns{grid-template-columns:1fr;gap:12px}.wa-section{padding:19px}.wa-page-heading{margin-bottom:18px}.wa-section h2{font-size:20px}}
+      .wa-card{width:min(1080px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:32px;background:#fff;border:1px solid #dce8df;border-radius:28px;box-shadow:0 28px 90px #0004}.wa-page-heading{text-align:center;margin:0 auto 24px;max-width:720px}.wa-page-heading h1{margin:0 0 8px;font-size:clamp(26px,3vw,36px);color:#153e32}.wa-page-heading p{margin:0;color:#718179;line-height:1.8}.wa-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}.wa-section{padding:24px;border:1px solid #e0eae4;border-radius:22px;background:#fff;box-shadow:0 12px 32px #173b2d0a}.wa-section h2{margin:0 0 6px;font-size:22px;color:#173d32}.wa-section-intro{margin:0 0 16px;color:#718179;line-height:1.7;font-size:14px}.wa-brand{margin-bottom:12px}.wa-section .wa-brand{margin-bottom:16px}.wa-price-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:16px;border-radius:16px;background:linear-gradient(135deg,#f5efe1,#fff9ec);border:1px solid #ead9b5}.wa-price-card small{display:block;color:#697a71}.wa-price-value{font-size:28px;font-weight:900;color:#a36a16;white-space:nowrap}.wa-price-value small{display:inline;color:#8a6b39;font-size:13px;font-weight:700}.wa-transfer{margin-top:16px;padding:16px;border:1px dashed #b6c8bd;border-radius:16px;background:#f7faf8}.wa-transfer-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-weight:900;color:#244b3e}.wa-setup-badge{padding:4px 9px;border-radius:999px;background:#fff0ce;color:#835b13;font-size:11px;white-space:nowrap}.wa-transfer p{margin:7px 0;color:#687b72;font-size:13px;line-height:1.8}.wa-plan-submit{width:100%;margin-top:15px;padding:13px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#0a7058,#14866b);color:#fff;font:800 15px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 18px #0a70582b}.wa-plan-submit:hover{filter:brightness(1.05);transform:translateY(-1px)}.wa-plan-note{margin:10px 0 0;color:#718179;font-size:12px;text-align:center;line-height:1.7}.wa-plan-select{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit}.wa-transfer .wa-field{margin-bottom:0}.wa-login-section{background:linear-gradient(150deg,#fff,#f8fbf9)}.wa-login-section .wa-brand{margin-bottom:14px}.wa-login-section .wa-field{margin:14px 0}.wa-login-section .wa-actions .wa-button{flex:1}.wa-section .wa-message{min-height:26px}@media(max-width:760px){#waraqa-auth-gate{padding:12px}.wa-card{padding:22px 18px;max-height:calc(100vh - 24px);border-radius:22px}.wa-columns{grid-template-columns:1fr;gap:12px}.wa-section{padding:19px}.wa-page-heading{margin-bottom:18px}.wa-section h2{font-size:20px}}
       .wa-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}.wa-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#0a7058;color:#fff;font-size:24px}.wa-brand b{font-size:23px}.wa-brand small{display:block;color:#74847d;font-size:13px}
       .wa-card h1{margin:0 0 8px;font-size:22px}.wa-intro{margin:0 0 20px;color:#687a72;line-height:1.8}
       .wa-field{display:block;margin:13px 0;color:#304b42;font-weight:700;font-size:14px}.wa-field input{display:block;width:100%;margin-top:6px;padding:12px 13px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit;direction:ltr;text-align:left}.wa-password-wrap{position:relative;margin-top:6px}.wa-password-wrap input{margin-top:0;padding-right:82px}.wa-password-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);border:0;border-radius:7px;padding:7px 9px;background:transparent;color:#116a55;font:700 13px system-ui,sans-serif;cursor:pointer}
@@ -52,17 +52,20 @@ window.WaraqaAuthorized = false;
         </section>
         <section class="wa-section wa-subscribe-section" aria-labelledby="wa-subscribe-title">
           <h2 id="wa-subscribe-title">ابدأ اشتراكك في ورقة</h2>
-          <p class="wa-section-intro">اختر المدة واستخدم البريد الذي ستنشئ به حسابك.</p>
-          <label class="wa-field">البريد الإلكتروني<input id="wa-plan-email" type="email" autocomplete="email" placeholder="name@example.com" required></label>
+          <p class="wa-section-intro">عبّئ بياناتك واختر المدة. أرسل الطلب بعد إنشاء حساب أو تسجيل الدخول بالبريد نفسه.</p>
+          <label class="wa-field">الاسم<input id="wa-plan-name" type="text" autocomplete="name" maxlength="80" placeholder="الاسم الكامل" required></label>
+          <label class="wa-field">البريد الإلكتروني<input id="wa-plan-email" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" required></label>
+          <label class="wa-field">رقم الجوال<input id="wa-plan-phone" type="tel" autocomplete="tel" maxlength="24" placeholder="05xxxxxxxx" required></label>
           <label class="wa-field">مدة الاشتراك<select id="wa-plan-months" class="wa-plan-select"><option value="1">شهر واحد</option><option value="3">3 أشهر</option><option value="6">6 أشهر</option><option value="12">12 شهرًا</option></select></label>
           <div class="wa-price-card"><div><strong>اشتراك ورقة</strong><small id="wa-plan-summary">شهر واحد · 29 ريالًا</small></div><div class="wa-price-value"><span id="wa-plan-total">29</span> <small>ريال</small></div></div>
           <div class="wa-transfer">
-            <div class="wa-transfer-title"><span>بيانات التحويل البنكي</span><span class="wa-setup-badge">قيد الإعداد</span></div>
-            <p>سيُضاف اسم البنك واسم صاحب الحساب والآيبان هنا قبل بدء تجربة الدفع.</p>
-            <p>يتم تفعيل الاشتراك بعد تأكيد وصول مبلغ التحويل.</p>
+            <div class="wa-transfer-title"><span>بيانات الدفع والتحويل</span><span class="wa-setup-badge">تُستكمل لاحقًا</span></div>
+            <p>سيُضاف هنا اسم البنك واسم صاحب الحساب والآيبان بعد تجهيز بياناتك البنكية.</p>
+            <p>أرسل طلبك الآن؛ وبعد التحقق من التحويل يُفعّل الاشتراك من لوحة المالك.</p>
+            <label class="wa-field">رقم مرجع التحويل (اختياري)<input id="wa-plan-reference" type="text" maxlength="80" placeholder="يُضاف بعد التحويل"></label>
           </div>
-          <button class="wa-plan-submit" id="wa-subscribe-button" type="button">متابعة الاشتراك</button>
-          <p class="wa-plan-note" id="wa-plan-message" role="status">بيانات التحويل غير مضافة بعد؛ سنكمل تجربة هذه الخطوة بعد تجهيزها.</p>
+          <button class="wa-plan-submit" id="wa-subscribe-button" type="button">إرسال طلب الاشتراك</button>
+          <p class="wa-plan-note" id="wa-plan-message" role="status">الاشتراك 29 ريالًا للشهر. لا ترسل كلمة مرورك أو بيانات بطاقتك في هذا النموذج.</p>
         </section>
       </div>
     </div>
@@ -78,17 +81,63 @@ window.WaraqaAuthorized = false;
       planSummary.textContent = (months === 1 ? "شهر واحد" : months + " أشهر") + " · 29 ريالًا للشهر";
     }
     planMonths.addEventListener("change", updatePlanPrice);
-    $("#wa-subscribe-button").addEventListener("click", () => {
-      const email = $("#wa-plan-email").value.trim();
+    $("#wa-subscribe-button").addEventListener("click", async (event) => {
       const note = $("#wa-plan-message");
-      if (!email || !$("#wa-plan-email").checkValidity()) {
-        note.textContent = "أدخل بريدًا إلكترونيًا صحيحًا لمتابعة الاشتراك.";
+      const button = event.currentTarget;
+      const name = $("#wa-plan-name").value.trim();
+      const email = $("#wa-plan-email").value.trim().toLowerCase();
+      const phone = $("#wa-plan-phone").value.trim();
+      const months = Number(planMonths.value);
+      const reference = $("#wa-plan-reference").value.trim();
+      if (!name || !email || !phone || !$("#wa-plan-email").checkValidity() || name.length > 80 || phone.length > 24) {
+        note.textContent = "أكمل الاسم والبريد ورقم الجوال بصيغة صحيحة.";
         note.style.color = "#a42e2e";
-        $("#wa-plan-email").focus();
         return;
       }
-      note.textContent = "اختيارك محفوظ في هذه الصفحة. ستظهر بيانات التحويل وخطوة تأكيد الدفع بعد إضافتها.";
-      note.style.color = "#08734d";
+      if (!auth?.currentUser) {
+        note.textContent = "أنشئ حسابًا أو سجّل الدخول من البطاقة الأخرى بالبريد نفسه، ثم أرسل الطلب.";
+        note.style.color = "#a42e2e";
+        $("#wa-email").value = email;
+        $("#wa-email").focus();
+        return;
+      }
+      if (String(auth.currentUser.email || "").trim().toLowerCase() !== email) {
+        note.textContent = "استخدم في الطلب البريد نفسه المسجّل في حساب الدخول.";
+        note.style.color = "#a42e2e";
+        return;
+      }
+      button.disabled = true;
+      note.textContent = "جارٍ إرسال طلب الاشتراك…";
+      note.style.color = "#526a60";
+      try {
+        const ref = firebase.doc(db, "subscriptionRequests", auth.currentUser.uid);
+        const existing = await firebase.getDoc(ref);
+        if (existing.exists() && existing.data().status === "pending") {
+          note.textContent = "لديك طلب قيد المراجعة بالفعل. سيظهر في حساب المالك بعد نشر قواعد Firestore.";
+          note.style.color = "#08734d";
+          return;
+        }
+        await firebase.setDoc(ref, {
+          uid: auth.currentUser.uid,
+          name,
+          email,
+          phone,
+          months,
+          amount: months * 29,
+          reference,
+          status: "pending",
+          createdAt: firebase.serverTimestamp()
+        });
+        note.textContent = "وصل طلبك بنجاح. سيُفعّل الاشتراك بعد التحقق من الدفع.";
+        note.style.color = "#08734d";
+      } catch (error) {
+        note.textContent = error?.code === "permission-denied"
+          ? "تعذر حفظ الطلب لأن قواعد Firestore الجديدة لم تُنشر بعد. انشر ملف firebase/firestore.rules ثم أعد المحاولة."
+          : "تعذر إرسال الطلب. تحقق من الاتصال ثم حاول مرة أخرى.";
+        note.style.color = "#a42e2e";
+      } finally {
+        button.disabled = false;
+      }
     });
     updatePlanPrice();
     const passwordInput = $("#wa-password");
