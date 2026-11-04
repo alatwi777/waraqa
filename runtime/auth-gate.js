@@ -204,7 +204,7 @@ window.WaraqaAuthorized = false;
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><button type="submit">إضافة / تجديد</button></form><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><button type="submit">إضافة / تجديد</button></form><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
@@ -212,6 +212,7 @@ window.WaraqaAuthorized = false;
     }
     overlay.classList.add("open");
     loadAdminLicenses();
+    loadAdminRequests();
   }
   function asDate(value) {
     return value && typeof value.toDate === "function" ? value.toDate() : null;
@@ -272,6 +273,81 @@ window.WaraqaAuthorized = false;
       adminStatus("تم تحميل " + records.length + " سجل اشتراك.");
     } catch (error) {
       adminStatus("تعذر قراءة الاشتراكات. انشر قواعد Firestore المحدّثة من مجلد firebase أولًا.", true);
+    }
+  }
+  async function loadAdminRequests() {
+    if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
+    const body = document.getElementById("wa-admin-request-rows");
+    if (!body) return;
+    body.replaceChildren();
+    try {
+      const snapshot = await firebase.getDocs(firebase.collection(db, "subscriptionRequests"));
+      const requests = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+      requests.sort((a, b) => (asDate(b.data.createdAt)?.getTime() || 0) - (asDate(a.data.createdAt)?.getTime() || 0));
+      for (const request of requests) {
+        const row = document.createElement("tr");
+        setCell(row, request.data.name || "—");
+        setCell(row, request.data.email || "—");
+        setCell(row, request.data.phone || "—");
+        setCell(row, (request.data.months || "—") + " شهر · " + (request.data.amount || "—") + " ريال");
+        setCell(row, request.data.reference || "—");
+        setCell(row, request.data.status === "pending" ? "بانتظار التحقق" : request.data.status === "activated" ? "مفعّل" : "مغلق");
+        const action = document.createElement("td");
+        if (request.data.status === "pending") {
+          const activate = document.createElement("button");
+          activate.type = "button"; activate.className = "wa-admin-form-button"; activate.textContent = "تفعيل بعد التحقق";
+          activate.addEventListener("click", () => activateSubscriptionRequest(request.id));
+          action.appendChild(activate);
+        } else action.textContent = "—";
+        row.appendChild(action);
+        body.appendChild(row);
+      }
+      adminStatus("طلبات الاشتراك: " + requests.filter(r => r.data.status === "pending").length + " بانتظار التحقق.");
+    } catch (error) {
+      adminStatus("تعذر تحميل الطلبات. انشر قواعد Firestore المحدّثة من مجلد firebase أولًا.", true);
+    }
+  }
+  async function activateSubscriptionRequest(uid) {
+    if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
+    if (!window.confirm("هل تحققت من وصول المبلغ؟ سيتم تفعيل الاشتراك الآن.")) return;
+    adminStatus("جارٍ تفعيل الاشتراك…");
+    try {
+      const requestRef = firebase.doc(db, "subscriptionRequests", uid);
+      const requestSnap = await firebase.getDoc(requestRef);
+      if (!requestSnap.exists() || requestSnap.data().status !== "pending") {
+        adminStatus("الطلب غير موجود أو تمت معالجته مسبقًا.", true);
+        await loadAdminRequests();
+        return;
+      }
+      const request = requestSnap.data();
+      const email = String(request.email || "").trim().toLowerCase();
+      const months = Number(request.months);
+      if (!email || !Number.isInteger(months) || ![1, 3, 6, 12].includes(months)) throw new Error("invalid-request");
+      const licenseRef = firebase.doc(db, "licenses", email);
+      const licenseSnap = await firebase.getDoc(licenseRef);
+      const previous = licenseSnap.exists() ? licenseSnap.data() : null;
+      const now = new Date();
+      const priorExpiry = asDate(previous?.expiresAt);
+      const start = previous?.active === true && priorExpiry && priorExpiry > now ? priorExpiry : now;
+      const expiresAt = new Date(start.getTime() + months * 30 * 86400000);
+      const batch = firebase.writeBatch(db);
+      batch.set(licenseRef, {
+        email,
+        active: true,
+        plan: months + (months === 1 ? " شهر" : " أشهر"),
+        createdAt: previous?.createdAt || firebase.Timestamp.now(),
+        expiresAt: firebase.Timestamp.fromDate(expiresAt)
+      }, { merge: true });
+      batch.update(requestRef, {
+        status: "activated",
+        reviewedAt: firebase.serverTimestamp(),
+        activatedUntil: firebase.Timestamp.fromDate(expiresAt)
+      });
+      await batch.commit();
+      adminStatus("تم تفعيل " + email + " حتى " + expiresAt.toLocaleDateString("ar-SA") + ".");
+      await Promise.all([loadAdminLicenses(), loadAdminRequests()]);
+    } catch (error) {
+      adminStatus("تعذر التفعيل. تأكد من نشر القواعد الجديدة، ثم راجع صحة الطلب.", true);
     }
   }
   async function saveAdminLicense(event) {
