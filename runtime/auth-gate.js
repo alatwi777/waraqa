@@ -69,6 +69,7 @@ window.WaraqaAuthorized = false;
         </section>
       </div>
     </div>
+  `;
   document.body.appendChild(gate);
   const $ = (selector) => gate.querySelector(selector);
   const message = $("#wa-message");
