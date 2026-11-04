@@ -456,6 +456,7 @@ window.WaraqaAuthorized = false;
       $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
       $("#wa-form").hidden = false;
+      $("#wa-reset").closest(".wa-small").hidden = false;
       showGate();
       addAccountChip("", async () => {});
       setMessage("أدخل بيانات حسابك أو أنشئ حسابًا جديدًا للمتابعة.");
