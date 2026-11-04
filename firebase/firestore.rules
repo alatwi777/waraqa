@@ -43,6 +43,38 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /subscriptionRequests/{uid} {
+      function validRequest() {
+        let data = request.resource.data;
+        return data.keys().hasOnly([
+            'uid', 'name', 'email', 'phone', 'months', 'amount',
+            'reference', 'status', 'createdAt', 'reviewedAt', 'activatedUntil'
+          ])
+          && data.keys().hasAll([
+            'uid', 'name', 'email', 'phone', 'months', 'amount', 'status', 'createdAt'
+          ])
+          && data.uid == uid
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 80
+          && data.email is string && data.email.size() <= 254
+          && data.phone is string && data.phone.size() > 0 && data.phone.size() <= 24
+          && data.months is int && data.months in [1, 3, 6, 12]
+          && data.amount is int && data.amount == data.months * 29
+          && (!('reference' in data) || (data.reference is string && data.reference.size() <= 80))
+          && data.status == 'pending'
+          && data.createdAt == request.time
+          && signedIn()
+          && request.auth.uid == uid
+          && request.auth.token.email is string
+          && request.auth.token.email.lower() == data.email;
+      }
+
+      // A customer can create and view only their own pending request.
+      allow create: if validRequest();
+      allow get: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      // Only the owner can list, activate, or remove subscription requests.
+      allow list, update, delete: if isAdmin();
+    }
+
     // Student records stay in browser storage; no other Firestore access.
     match /{document=**} {
       allow read, write: if false;
