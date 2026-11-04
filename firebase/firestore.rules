@@ -2,14 +2,45 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only the signed-in owner can read an active, unexpired license.
-    match /licenses/{uid} {
-      allow get: if request.auth != null
-        && request.auth.uid == uid
-        && resource.data.active == true
-        && resource.data.expiresAt is timestamp
-        && resource.data.expiresAt > request.time;
-      allow list, create, update, delete: if false;
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // The owner email is the only account allowed to manage subscription records.
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() == 'aaddaa5400@gmail.com';
+    }
+
+    function validLicense(licenseId) {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['email', 'active', 'plan', 'createdAt', 'expiresAt'])
+        && data.keys().hasAll(['active', 'plan', 'expiresAt'])
+        && data.active is bool
+        && data.plan is string
+        && data.plan.size() <= 64
+        && data.expiresAt is timestamp
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!licenseId.matches('.*@.*')
+          || ('email' in data
+            && data.email is string
+            && data.email.lower() == licenseId));
+    }
+
+    match /licenses/{licenseId} {
+      // A customer can read only their email-keyed or legacy UID-keyed license.
+      // The owner can read any license to administer subscriptions.
+      allow get: if isAdmin()
+        || (signedIn()
+          && (licenseId == request.auth.uid
+            || (request.auth.token.email is string
+              && licenseId == request.auth.token.email.lower())));
+
+      // Only the owner may view the subscriber list or modify licenses.
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && validLicense(licenseId);
+      allow delete: if isAdmin();
     }
 
     // Student records stay in browser storage; no other Firestore access.
