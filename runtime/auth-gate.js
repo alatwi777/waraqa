@@ -28,8 +28,8 @@ window.WaraqaAuthorized = false;
       .wa-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.wa-button{border:0;border-radius:11px;padding:12px 16px;background:#0a7058;color:#fff;font:700 14px system-ui,sans-serif;cursor:pointer}.wa-button.alt{border:1px solid #d0ded6;background:#fff;color:#245548}.wa-button:disabled{opacity:.6;cursor:wait}
       .wa-message{min-height:26px;margin:14px 0 0;color:#526a60;line-height:1.7}.wa-message.error{color:#a42e2e}.wa-message.ok{color:#08734d}
       .wa-switch{border:0;background:none;color:#116a55;text-decoration:underline;cursor:pointer;font:inherit;padding:0}.wa-small{margin-top:12px;font-size:13px;color:#6c7d75}.wa-local{margin-top:18px;padding:12px 14px;border-radius:12px;background:#f2f6f3;color:#53665c;font-size:13px;line-height:1.8}
-      .waraqa-account-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #d7e3dc;border-radius:999px;background:#f8fbf9;color:#174b3e;font-size:12px;max-width:250px}.waraqa-account-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer}.waraqa-account-chip .wa-admin-open{padding:7px 10px;border-radius:9px;background:#0a7058;color:#fff;font-weight:800}.wa-admin-overlay{position:fixed;inset:0;z-index:2147483001;display:none;place-items:center;padding:18px;background:#10211dcc;direction:rtl;color:#17372d}.wa-admin-overlay.open{display:grid}.wa-admin-panel{width:min(1000px,100%);max-height:92vh;overflow:auto;padding:22px;border-radius:22px;background:#f8fbf9;box-shadow:0 24px 80px #0006}.wa-admin-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.wa-admin-head h2{margin:0;font-size:23px}.wa-admin-head p{margin:5px 0 0;color:#60756b}.wa-admin-close{border:0;border-radius:50%;width:38px;height:38px;background:#e5ece8;color:#24473b;font-size:22px;cursor:pointer}.wa-admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}.wa-admin-stat{padding:14px;border-radius:14px;background:#e8f3ee}.wa-admin-stat b{display:block;color:#0a7058;font-size:25px}.wa-admin-form{display:grid;grid-template-columns:minmax(180px,1fr) 150px auto;gap:10px;align-items:end;padding:15px;border:1px solid #dbe8e0;border-radius:16px;background:white}.wa-admin-form label{display:block;font-size:13px;font-weight:800;color:#40594e}.wa-admin-form input{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid #cbd9d1;border-radius:9px;font:inherit}.wa-admin-form button{padding:11px 15px;border:0;border-radius:10px;background:#0a7058;color:white;font-weight:800;cursor:pointer}.wa-admin-message{min-height:26px;margin:10px 2px;color:#08734d}.wa-admin-message.error{color:#a42e2e}.wa-admin-table-wrap{overflow:auto;border:1px solid #dbe8e0;border-radius:14px;background:white}.wa-admin-table{width:100%;border-collapse:collapse;min-width:650px}.wa-admin-table th,.wa-admin-table td{padding:11px;text-align:right;border-bottom:1px solid #e4ece7}.wa-admin-table th{background:#edf4f0;color:#345448}.wa-admin-action{border:0;border-radius:8px;padding:7px 10px;background:#b33b36;color:#fff;font-weight:700;cursor:pointer}.wa-admin-action:disabled,.wa-admin-form button:disabled{opacity:.6;cursor:wait}@media(max-width:640px){.wa-admin-panel{padding:16px}.wa-admin-stats{grid-template-columns:1fr}.wa-admin-form{grid-template-columns:1fr}.wa-admin-head h2{font-size:19px}}
-      @media(max-width:540px){.wa-card{padding:23px 20px}.waraqa-account-chip{max-width:150px}}
+      .waraqa-account-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #d7e3dc;border-radius:999px;background:#f8fbf9;color:#174b3e;font-size:12px;max-width:none;white-space:nowrap;flex-shrink:0}.waraqa-account-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer}.waraqa-account-chip .wa-admin-open{padding:7px 10px;border-radius:9px;background:#0a7058;color:#fff;font-weight:800}.wa-admin-overlay{position:fixed;inset:0;z-index:2147483001;display:none;place-items:center;padding:18px;background:#10211dcc;direction:rtl;color:#17372d}.wa-admin-overlay.open{display:grid}.wa-admin-panel{width:min(1000px,100%);max-height:92vh;overflow:auto;padding:22px;border-radius:22px;background:#f8fbf9;box-shadow:0 24px 80px #0006}.wa-admin-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.wa-admin-head h2{margin:0;font-size:23px}.wa-admin-head p{margin:5px 0 0;color:#60756b}.wa-admin-close{border:0;border-radius:50%;width:38px;height:38px;background:#e5ece8;color:#24473b;font-size:22px;cursor:pointer}.wa-admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}.wa-admin-stat{padding:14px;border-radius:14px;background:#e8f3ee}.wa-admin-stat b{display:block;color:#0a7058;font-size:25px}.wa-admin-form{display:grid;grid-template-columns:minmax(180px,1fr) 150px auto;gap:10px;align-items:end;padding:15px;border:1px solid #dbe8e0;border-radius:16px;background:white}.wa-admin-form label{display:block;font-size:13px;font-weight:800;color:#40594e}.wa-admin-form input{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid #cbd9d1;border-radius:9px;font:inherit}.wa-admin-form button{padding:11px 15px;border:0;border-radius:10px;background:#0a7058;color:white;font-weight:800;cursor:pointer}.wa-admin-message{min-height:26px;margin:10px 2px;color:#08734d}.wa-admin-message.error{color:#a42e2e}.wa-admin-table-wrap{overflow:auto;border:1px solid #dbe8e0;border-radius:14px;background:white}.wa-admin-table{width:100%;border-collapse:collapse;min-width:650px}.wa-admin-table th,.wa-admin-table td{padding:11px;text-align:right;border-bottom:1px solid #e4ece7}.wa-admin-table th{background:#edf4f0;color:#345448}.wa-admin-action{border:0;border-radius:8px;padding:7px 10px;background:#b33b36;color:#fff;font-weight:700;cursor:pointer}.wa-admin-action:disabled,.wa-admin-form button:disabled{opacity:.6;cursor:wait}@media(max-width:640px){.wa-admin-panel{padding:16px}.wa-admin-stats{grid-template-columns:1fr}.wa-admin-form{grid-template-columns:1fr}.wa-admin-head h2{font-size:19px}}
+      @media(max-width:540px){.wa-card{padding:23px 20px}.waraqa-account-chip{gap:5px;padding:6px}.waraqa-account-chip span{max-width:90px}.waraqa-account-chip button{font-size:11px;padding:5px}}
     </style>
     <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="wa-title">
       <div class="wa-page-heading">
@@ -169,24 +169,58 @@ window.WaraqaAuthorized = false;
   }
   function setBusy(value) { $("#wa-submit").disabled = value; $("#wa-create").disabled = value; }
   function showGate(title = "تسجيل الدخول") { gate.hidden = false; $("#wa-title").textContent = title; }
+  function openAccountPanel() {
+    if (auth?.currentUser) {
+      $("#wa-form").hidden = true;
+      $("#wa-reset").closest(".wa-small").hidden = true;
+      $("#wa-plan-email").value = auth.currentUser.email || "";
+      $("#wa-plan-message").textContent = "أنت مسجل الدخول. أكمل بيانات الطلب أو سجّل خروجك لتبديل الحساب.";
+      $("#wa-plan-message").style.color = "#526a60";
+      showGate("الاشتراك والحساب");
+    } else {
+      $("#wa-form").hidden = false;
+      $("#wa-reset").closest(".wa-small").hidden = false;
+      showGate("تسجيل الدخول والاشتراك");
+    }
+  }
   function addAccountChip(email, logout, isAdmin = false) {
     const target = document.querySelector(".header-left");
     if (!target) return;
     let chip = document.getElementById("waraqa-account-chip");
-    if (!email) { chip?.remove(); return; }
-    if (!chip) { chip = document.createElement("div"); chip.id = "waraqa-account-chip"; chip.className = "waraqa-account-chip"; target.prepend(chip); }
+    if (!chip) {
+      chip = document.createElement("div");
+      chip.id = "waraqa-account-chip";
+      chip.className = "waraqa-account-chip";
+      target.prepend(chip);
+    }
     chip.replaceChildren();
-    const label = document.createElement("span"); label.title = email; label.textContent = email;
-    if (isAdmin) {
-      const adminButton = document.createElement("button");
-      adminButton.type = "button"; adminButton.className = "wa-admin-open"; adminButton.textContent = "لوحة التحكم";
-      adminButton.addEventListener("click", openAdminDashboard);
-      chip.append(label, adminButton);
-    } else {
+    if (email) {
+      const label = document.createElement("span");
+      label.title = email;
+      label.textContent = email;
       chip.append(label);
     }
-    const button = document.createElement("button"); button.type = "button"; button.textContent = "خروج";
-    button.addEventListener("click", logout); chip.append(button);
+    const accountButton = document.createElement("button");
+    accountButton.type = "button";
+    accountButton.className = "wa-admin-open";
+    accountButton.textContent = email ? "الاشتراك" : "دخول / اشتراك";
+    accountButton.addEventListener("click", openAccountPanel);
+    chip.append(accountButton);
+    if (email && isAdmin) {
+      const adminButton = document.createElement("button");
+      adminButton.type = "button";
+      adminButton.className = "wa-admin-open";
+      adminButton.textContent = "لوحة التحكم";
+      adminButton.addEventListener("click", openAdminDashboard);
+      chip.append(adminButton);
+    }
+    if (email) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "تسجيل الخروج";
+      button.addEventListener("click", logout);
+      chip.append(button);
+    }
   }
   function adminStatus(text, error = false) {
     const node = document.getElementById("wa-admin-message");
@@ -424,7 +458,7 @@ window.WaraqaAuthorized = false;
       $("#wa-form").hidden = false;
       showGate();
       addAccountChip("", async () => {});
-      setMessage("أدخل بيانات حسابك للمتابعة.");
+      setMessage("أدخل بيانات حسابك أو أنشئ حسابًا جديدًا للمتابعة.");
       return;
     }
     const isAdmin = isAdminAccount(user);
@@ -450,6 +484,11 @@ window.WaraqaAuthorized = false;
     }
     window.WaraqaAuthorized = false;
     $("#wa-form").hidden = true;
+    addAccountChip(user.email || "حساب ورقة", async () => {
+      closeAdminDashboard();
+      await firebase.signOut(auth);
+      window.WaraqaAuthorized = false;
+    }, isAdmin);
     showGate("الاشتراك غير متاح");
     setMessage(license.reason + " تبقى بياناتك المحلية محفوظة.", "error");
     if (!$("#wa-logout")) {
