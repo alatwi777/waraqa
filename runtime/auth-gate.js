@@ -56,7 +56,7 @@ window.WaraqaAuthorized = false;
           <label class="wa-field">الاسم<input id="wa-plan-name" type="text" autocomplete="name" maxlength="80" placeholder="الاسم الكامل" required></label>
           <label class="wa-field">البريد الإلكتروني<input id="wa-plan-email" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" required></label>
           <label class="wa-field">رقم الجوال<input id="wa-plan-phone" type="tel" autocomplete="tel" maxlength="24" placeholder="05xxxxxxxx" required></label>
-          <label class="wa-field">مدة الاشتراك<select id="wa-plan-months" class="wa-plan-select"><option value="1">شهر واحد</option><option value="3">3 أشهر</option><option value="6">6 أشهر</option><option value="12">12 شهرًا</option></select></label>
+          <label class="wa-field">مدة الاشتراك<select id="wa-plan-months" class="wa-plan-select"><option value="1">شهر واحد · 29 ريالًا</option></select></label>
           <div class="wa-price-card"><div><strong>اشتراك ورقة</strong><small id="wa-plan-summary">شهر واحد · 29 ريالًا</small></div><div class="wa-price-value"><span id="wa-plan-total">29</span> <small>ريال</small></div></div>
           <div class="wa-transfer">
             <div class="wa-transfer-title"><span>بيانات الدفع والتحويل</span><span class="wa-setup-badge">تُستكمل لاحقًا</span></div>
@@ -357,7 +357,7 @@ window.WaraqaAuthorized = false;
       const request = requestSnap.data();
       const email = String(request.email || "").trim().toLowerCase();
       const months = Number(request.months);
-      if (!email || !Number.isInteger(months) || ![1, 3, 6, 12].includes(months)) throw new Error("invalid-request");
+      if (!email || !Number.isInteger(months) || ![1].includes(months)) throw new Error("invalid-request");
       const licenseRef = firebase.doc(db, "licenses", email);
       const licenseSnap = await firebase.getDoc(licenseRef);
       const previous = licenseSnap.exists() ? licenseSnap.data() : null;
