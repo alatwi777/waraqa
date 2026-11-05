@@ -77,7 +77,7 @@ window.WaraqaAuthorized = false;
         </section>
         <section class="wa-section wa-subscribe-section" aria-labelledby="wa-subscribe-title">
           <h2 id="wa-subscribe-title">ابدأ اشتراكك في ورقة</h2>
-          <p class="wa-section-intro">عبّئ بياناتك واختر المدة. أرسل الطلب بعد إنشاء حساب أو تسجيل الدخول بالبريد نفسه.</p>
+          <p class="wa-section-intro">اكتب بياناتك وأرسل الطلب مباشرة. أنشئ حساب الدخول بعد تفعيل الاشتراك.</p>
           <label class="wa-field">الاسم<input id="wa-plan-name" type="text" autocomplete="name" maxlength="80" placeholder="الاسم الكامل" required></label>
           <label class="wa-field">البريد الإلكتروني<input id="wa-plan-email" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" required></label>
           <label class="wa-field">رقم الجوال<input id="wa-plan-phone" type="tel" autocomplete="tel" maxlength="24" placeholder="05xxxxxxxx" required></label>
@@ -90,7 +90,7 @@ window.WaraqaAuthorized = false;
             <label class="wa-field">رقم مرجع التحويل (اختياري)<input id="wa-plan-reference" type="text" maxlength="80" placeholder="يُضاف بعد التحويل"></label>
           </div>
           <button class="wa-plan-submit" id="wa-subscribe-button" type="button">إرسال طلب الاشتراك</button>
-          <p class="wa-plan-note" id="wa-plan-message" role="status">الاشتراك 29 ريالًا للشهر. لا ترسل كلمة مرورك أو بيانات بطاقتك في هذا النموذج.</p>
+          <p class="wa-plan-note" id="wa-plan-message" role="status">الاشتراك 29 ريالًا للشهر. لا تحتاج إلى إنشاء حساب قبل إرسال الطلب؛ أنشئه بعد التفعيل.</p>
         </section>
       </div>
     </div>
@@ -110,41 +110,42 @@ window.WaraqaAuthorized = false;
     $("#wa-subscribe-button").addEventListener("click", async (event) => {
       const note = $("#wa-plan-message");
       const button = event.currentTarget;
+      const showFeedback = (text, color = "#08734d") => {
+        note.textContent = text;
+        note.style.color = color;
+        note.classList.add("wa-plan-message-visible");
+        note.scrollIntoView({ behavior: "smooth", block: "center" });
+      };
       const name = $("#wa-plan-name").value.trim();
       const email = $("#wa-plan-email").value.trim().toLowerCase();
       const phone = $("#wa-plan-phone").value.trim();
       const months = Number(planMonths.value);
       const reference = $("#wa-plan-reference").value.trim();
       if (!name || !email || !phone || !$("#wa-plan-email").checkValidity() || name.length > 80 || phone.length > 24) {
-        note.textContent = "أكمل الاسم والبريد ورقم الجوال بصيغة صحيحة.";
-        note.style.color = "#a42e2e";
-        return;
-      }
-      if (!auth?.currentUser) {
-        note.textContent = "أنشئ حسابًا أو سجّل الدخول من البطاقة الأخرى بالبريد نفسه، ثم أرسل الطلب.";
-        note.style.color = "#a42e2e";
-        return;
-      }
-      if (String(auth.currentUser.email || "").trim().toLowerCase() !== email) {
-        note.textContent = "استخدم في الطلب البريد نفسه المسجّل في حساب الدخول.";
-        note.style.color = "#a42e2e";
+        showFeedback("أكمل الاسم والبريد ورقم الجوال بصيغة صحيحة.", "#a42e2e");
         return;
       }
       button.disabled = true;
-      note.textContent = "جارٍ إرسال طلب الاشتراك…";
-      note.style.color = "#526a60";
       try {
-        const ref = firebase.doc(db, "subscriptionRequests", auth.currentUser.uid);
+        let requestUser = auth?.currentUser;
+        if (!requestUser) {
+          showFeedback("جارٍ تجهيز طلبك…");
+          requestUser = (await authSdk.signInAnonymously(auth)).user;
+        }
+        if (!requestUser.isAnonymous &&
+            String(requestUser.email || "").trim().toLowerCase() !== email) {
+          showFeedback("استخدم البريد نفسه المسجّل في الحساب، أو سجّل الخروج لإرسال طلب جديد.", "#a42e2e");
+          return;
+        }
+        showFeedback("جارٍ إرسال طلب الاشتراك…");
+        const ref = firebase.doc(db, "subscriptionRequests", requestUser.uid);
         const existing = await firebase.getDoc(ref);
         if (existing.exists() && existing.data().status === "pending") {
-          note.textContent = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
-          note.style.color = "#08734d";
-          note.classList.add("wa-plan-message-visible");
-          note.scrollIntoView({ behavior: "smooth", block: "center" });
+          showFeedback("الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.");
           return;
         }
         await firebase.setDoc(ref, {
-          uid: auth.currentUser.uid,
+          uid: requestUser.uid,
           name,
           email,
           phone,
@@ -154,15 +155,15 @@ window.WaraqaAuthorized = false;
           status: "pending",
           createdAt: firebase.serverTimestamp()
         });
-        note.textContent = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
-        note.style.color = "#08734d";
-        note.classList.add("wa-plan-message-visible");
-        note.scrollIntoView({ behavior: "smooth", block: "center" });
+        showFeedback("الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.");
       } catch (error) {
-        note.textContent = error?.code === "permission-denied"
-          ? "تعذر حفظ الطلب لأن قواعد Firestore الجديدة لم تُنشر بعد. انشر ملف firebase/firestore.rules ثم أعد المحاولة."
-          : "تعذر إرسال الطلب. تحقق من الاتصال ثم حاول مرة أخرى.";
-        note.style.color = "#a42e2e";
+        const code = error?.code || "";
+        const message = code === "auth/operation-not-allowed" || code === "auth/admin-restricted-operation"
+          ? "فعّل تسجيل الدخول المجهول من Firebase Authentication ثم أعد إرسال الطلب."
+          : code === "permission-denied"
+            ? "تعذر حفظ الطلب. انشر قواعد Firestore المحدّثة من firebase/firestore.rules ثم أعد المحاولة."
+            : "تعذر إرسال الطلب (" + (code || "تحقق من الاتصال") + ").";
+        showFeedback(message, "#a42e2e");
       } finally {
         button.disabled = false;
       }
@@ -513,6 +514,15 @@ window.WaraqaAuthorized = false;
       showGate();
       addAccountChip("", async () => {});
       setMessage("أدخل بيانات حسابك أو أنشئ حسابًا جديدًا للمتابعة.");
+      return;
+    }
+    if (user.isAnonymous) {
+      $("#wa-logout")?.remove();
+      window.WaraqaAuthorized = false;
+      $("#wa-form").hidden = false;
+      $("#wa-reset").closest(".wa-small").hidden = false;
+      showGate("إرسال طلب الاشتراك");
+      setMessage("");
       return;
     }
     const isAdmin = isAdminAccount(user);
