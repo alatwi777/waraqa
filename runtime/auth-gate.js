@@ -54,7 +54,8 @@ window.WaraqaAuthorized = false;
       .wa-page-heading p,.wa-intro{color:#75694f!important}
 
       .wa-card{background:#fffaf0!important;border:2px solid #ef7b22!important;box-shadow:0 10px 0 #c95112,0 24px 54px #71310e45,inset 0 1px 0 #fff!important}
-</style>
+.wa-plan-note.wa-plan-message-visible{padding:12px;border:1px solid #ef7b22;border-radius:12px;background:#21170d;color:#ffcf62!important;font-weight:900;box-shadow:0 5px 0 #c95112}
+      </style>
     <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="wa-title">
       <div class="wa-page-heading">
         <div class="wa-brand wa-brand-centered" style="justify-content:center"><img class="wa-brand-logo" src="data:image/png;base64,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" alt="ورقة"></div>
@@ -136,8 +137,10 @@ window.WaraqaAuthorized = false;
         const ref = firebase.doc(db, "subscriptionRequests", auth.currentUser.uid);
         const existing = await firebase.getDoc(ref);
         if (existing.exists() && existing.data().status === "pending") {
-          note.textContent = "طلبك تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
+          note.textContent = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
           note.style.color = "#08734d";
+          note.classList.add("wa-plan-message-visible");
+          note.scrollIntoView({ behavior: "smooth", block: "center" });
           return;
         }
         await firebase.setDoc(ref, {
@@ -153,6 +156,8 @@ window.WaraqaAuthorized = false;
         });
         note.textContent = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
         note.style.color = "#08734d";
+        note.classList.add("wa-plan-message-visible");
+        note.scrollIntoView({ behavior: "smooth", block: "center" });
       } catch (error) {
         note.textContent = error?.code === "permission-denied"
           ? "تعذر حفظ الطلب لأن قواعد Firestore الجديدة لم تُنشر بعد. انشر ملف firebase/firestore.rules ثم أعد المحاولة."
@@ -173,6 +178,7 @@ window.WaraqaAuthorized = false;
     passwordToggle.setAttribute("aria-label", reveal ? "إخفاء كلمة المرور" : "إظهار كلمة المرور");
   });
   let auth, db, firebase;
+  let adminRequestsUnsubscribe = null;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
   function authErrorText(error, action) {
@@ -253,6 +259,10 @@ window.WaraqaAuthorized = false;
   }
   function closeAdminDashboard() {
     document.getElementById("wa-admin-overlay")?.classList.remove("open");
+    if (adminRequestsUnsubscribe) {
+      adminRequestsUnsubscribe();
+      adminRequestsUnsubscribe = null;
+    }
   }
   function openAdminDashboard() {
     if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
@@ -332,36 +342,56 @@ window.WaraqaAuthorized = false;
       adminStatus("تعذر قراءة الاشتراكات. انشر قواعد Firestore المحدّثة من مجلد firebase أولًا.", true);
     }
   }
-  async function loadAdminRequests() {
+  function loadAdminRequests() {
     if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
     const body = document.getElementById("wa-admin-request-rows");
     if (!body) return;
+    if (adminRequestsUnsubscribe) adminRequestsUnsubscribe();
     body.replaceChildren();
+    adminStatus("جارٍ تحميل الطلبات…");
     try {
-      const snapshot = await firebase.getDocs(firebase.collection(db, "subscriptionRequests"));
-      const requests = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
-      requests.sort((a, b) => (asDate(b.data.createdAt)?.getTime() || 0) - (asDate(a.data.createdAt)?.getTime() || 0));
-      for (const request of requests) {
-        const row = document.createElement("tr");
-        setCell(row, request.data.name || "—");
-        setCell(row, request.data.email || "—");
-        setCell(row, request.data.phone || "—");
-        setCell(row, (request.data.months || "—") + " شهر · " + (request.data.amount || "—") + " ريال");
-        setCell(row, request.data.reference || "—");
-        setCell(row, request.data.status === "pending" ? "بانتظار التحقق" : request.data.status === "activated" ? "مفعّل" : "مغلق");
-        const action = document.createElement("td");
-        if (request.data.status === "pending") {
-          const activate = document.createElement("button");
-          activate.type = "button"; activate.className = "wa-admin-form-button"; activate.textContent = "تفعيل بعد التحقق";
-          activate.addEventListener("click", () => activateSubscriptionRequest(request.id));
-          action.appendChild(activate);
-        } else action.textContent = "—";
-        row.appendChild(action);
-        body.appendChild(row);
-      }
-      adminStatus("طلبات الاشتراك: " + requests.filter(r => r.data.status === "pending").length + " بانتظار التحقق.");
+      adminRequestsUnsubscribe = firebase.onSnapshot(
+        firebase.collection(db, "subscriptionRequests"),
+        (snapshot) => {
+          const requests = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+          requests.sort((a, b) => (asDate(b.data.createdAt)?.getTime() || 0) - (asDate(a.data.createdAt)?.getTime() || 0));
+          body.replaceChildren();
+          if (!requests.length) {
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+            cell.colSpan = 7;
+            cell.textContent = "لا توجد طلبات جديدة بانتظار التحقق.";
+            cell.style.textAlign = "center";
+            row.appendChild(cell);
+            body.appendChild(row);
+          }
+          for (const request of requests) {
+            const row = document.createElement("tr");
+            setCell(row, request.data.name || "—");
+            setCell(row, request.data.email || "—");
+            setCell(row, request.data.phone || "—");
+            setCell(row, (request.data.months || "—") + " شهر · " + (request.data.amount || "—") + " ريال");
+            setCell(row, request.data.reference || "—");
+            setCell(row, request.data.status === "pending" ? "بانتظار التحقق" : request.data.status === "activated" ? "مفعّل" : "مغلق");
+            const action = document.createElement("td");
+            if (request.data.status === "pending") {
+              const activate = document.createElement("button");
+              activate.type = "button"; activate.className = "wa-admin-form-button"; activate.textContent = "تفعيل بعد التحقق";
+              activate.addEventListener("click", () => activateSubscriptionRequest(request.id));
+              action.appendChild(activate);
+            } else action.textContent = "—";
+            row.appendChild(action);
+            body.appendChild(row);
+          }
+          adminStatus("طلبات الاشتراك: " + requests.filter(r => r.data.status === "pending").length + " بانتظار التحقق.");
+        },
+        (error) => {
+          adminRequestsUnsubscribe = null;
+          adminStatus("تعذر تحميل طلبات Firestore (" + (error?.code || "خطأ") + ").", true);
+        }
+      );
     } catch (error) {
-      adminStatus("تعذر تحميل الطلبات. انشر قواعد Firestore المحدّثة من مجلد firebase أولًا.", true);
+      adminStatus("تعذر بدء متابعة طلبات Firestore (" + (error?.code || "خطأ") + ").", true);
     }
   }
   async function activateSubscriptionRequest(uid) {
