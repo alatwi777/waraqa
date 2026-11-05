@@ -64,8 +64,9 @@ service cloud.firestore {
           && data.createdAt == request.time
           && signedIn()
           && request.auth.uid == uid
-          && request.auth.token.email is string
-          && request.auth.token.email.lower() == data.email;
+          && (request.auth.token.firebase.sign_in_provider == 'anonymous'
+            || (request.auth.token.email is string
+              && request.auth.token.email.lower() == data.email));
       }
 
       // A customer can create and view only their own pending request.
