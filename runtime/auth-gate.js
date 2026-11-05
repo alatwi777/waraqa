@@ -46,6 +46,12 @@ window.WaraqaAuthorized = false;
       .wa-button{background:#d4af37!important;color:#111!important}
       .wa-button.alt{background:#111!important;color:#f4ead0!important;border:1px solid #d4af37!important}
       .wa-section .wa-message{color:#f4ead0}
+
+      /* Warm ivory page frame to balance the black and gold form panels */
+      #waraqa-auth-gate{background:linear-gradient(135deg,#f6f0e2 0%,#eee3ca 50%,#f8f3e8 100%)!important;color:#3c321f}
+      .wa-card{background:#fffaf0!important;border:1px solid #d8c48e!important;box-shadow:0 28px 90px #4c391a26!important}
+      .wa-page-heading h1{color:#493618!important}
+      .wa-page-heading p,.wa-intro{color:#75694f!important}
 </style>
     <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="wa-title">
       <div class="wa-page-heading">
