@@ -70,7 +70,7 @@ window.WaraqaAuthorized = false;
           </form>
           <p class="wa-message" id="wa-message" role="status"></p>
           <p class="wa-small"><button class="wa-switch" id="wa-reset" type="button">نسيت كلمة المرور؟ أرسل رابط إعادة التعيين</button></p>
-          <div class="wa-local">الاشتراك للتحقق من الصلاحية فقط. لا تُرفع بيانات الطلاب أو صور الاختبارات إلى Firebase.</div>
+
         </section>
         <section class="wa-section wa-subscribe-section" aria-labelledby="wa-subscribe-title">
           <h2 id="wa-subscribe-title">ابدأ اشتراكك في ورقة</h2>
