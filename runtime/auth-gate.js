@@ -178,7 +178,7 @@ window.WaraqaAuthorized = false;
     passwordToggle.setAttribute("aria-pressed", String(reveal));
     passwordToggle.setAttribute("aria-label", reveal ? "إخفاء كلمة المرور" : "إظهار كلمة المرور");
   });
-  let auth, db, firebase;
+  let auth, db, firebase, authSdk;
   let adminRequestsUnsubscribe = null;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
@@ -564,11 +564,12 @@ window.WaraqaAuthorized = false;
   }
 
   try {
-    const [appSdk, authSdk, storeSdk] = await Promise.all([
+    const [appSdk, authModule, storeSdk] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js"),
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js")
     ]);
+    authSdk = authModule;
     firebase = { ...appSdk, ...authSdk, ...storeSdk };
     const app = appSdk.initializeApp(firebaseConfig);
     auth = authSdk.getAuth(app);
