@@ -52,6 +52,8 @@ window.WaraqaAuthorized = false;
       .wa-card{background:#fffaf0!important;border:1px solid #d8c48e!important;box-shadow:0 28px 90px #4c391a26!important}
       .wa-page-heading h1{color:#493618!important}
       .wa-page-heading p,.wa-intro{color:#75694f!important}
+
+      .wa-card{background:#fffaf0!important;border:2px solid #ef7b22!important;box-shadow:0 10px 0 #c95112,0 24px 54px #71310e45,inset 0 1px 0 #fff!important}
 </style>
     <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="wa-title">
       <div class="wa-page-heading">
@@ -120,8 +122,6 @@ window.WaraqaAuthorized = false;
       if (!auth?.currentUser) {
         note.textContent = "أنشئ حسابًا أو سجّل الدخول من البطاقة الأخرى بالبريد نفسه، ثم أرسل الطلب.";
         note.style.color = "#a42e2e";
-        $("#wa-email").value = email;
-        $("#wa-email").focus();
         return;
       }
       if (String(auth.currentUser.email || "").trim().toLowerCase() !== email) {
@@ -136,7 +136,7 @@ window.WaraqaAuthorized = false;
         const ref = firebase.doc(db, "subscriptionRequests", auth.currentUser.uid);
         const existing = await firebase.getDoc(ref);
         if (existing.exists() && existing.data().status === "pending") {
-          note.textContent = "لديك طلب قيد المراجعة بالفعل. سيظهر في حساب المالك بعد نشر قواعد Firestore.";
+          note.textContent = "طلبك تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
           note.style.color = "#08734d";
           return;
         }
@@ -151,7 +151,7 @@ window.WaraqaAuthorized = false;
           status: "pending",
           createdAt: firebase.serverTimestamp()
         });
-        note.textContent = "وصل طلبك بنجاح. سيُفعّل الاشتراك بعد التحقق من الدفع.";
+        note.textContent = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
         note.style.color = "#08734d";
       } catch (error) {
         note.textContent = error?.code === "permission-denied"
