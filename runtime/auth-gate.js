@@ -162,7 +162,7 @@ window.WaraqaAuthorized = false;
           ? "فعّل تسجيل الدخول المجهول من Firebase Authentication ثم أعد إرسال الطلب."
           : code === "permission-denied"
             ? "تعذر حفظ الطلب. انشر قواعد Firestore المحدّثة من firebase/firestore.rules ثم أعد المحاولة."
-            : "تعذر إرسال الطلب (" + (code || "تحقق من الاتصال") + ").";
+            : "تعذر إرسال الطلب" + (code ? " (رمز Firebase: " + code + ")" : error?.message ? ": " + String(error.message).replace(/\\s+/g, " ").slice(0, 180) : " (تحقق من الاتصال).");
         showFeedback(message, "#a42e2e");
       } finally {
         button.disabled = false;
