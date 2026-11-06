@@ -27,6 +27,7 @@ window.WaraqaAuthorized = false;
       #waraqa-auth-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:#e9f0ec;direction:rtl;font-family:inherit;color:#163b32}
       #waraqa-auth-gate[hidden],#wa-mail-retry[hidden]{display:none!important}
       #waraqa-auth-gate *{box-sizing:border-box}
+      .wa-receipt-button{padding:8px 12px;margin:3px;border:0;border-radius:9px;background:#0a7058;color:#fff;font:700 13px system-ui,sans-serif;cursor:pointer}
       .wa-card{width:min(1080px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:32px;background:#fff;border:1px solid #dce8df;border-radius:28px;box-shadow:0 28px 90px #0004}.wa-page-heading{text-align:center;margin:0 auto 24px;max-width:720px}.wa-page-heading h1{margin:0 0 8px;font-size:clamp(26px,3vw,36px);color:#153e32}.wa-page-heading p{margin:0;color:#718179;line-height:1.8}.wa-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}.wa-section{padding:24px;border:1px solid #e0eae4;border-radius:22px;background:#fff;box-shadow:0 12px 32px #173b2d0a}.wa-section h2{margin:0 0 6px;font-size:22px;color:#173d32}.wa-section-intro{margin:0 0 16px;color:#718179;line-height:1.7;font-size:14px}.wa-brand{margin-bottom:12px}.wa-section .wa-brand{margin-bottom:16px}.wa-price-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:16px;border-radius:16px;background:linear-gradient(135deg,#f5efe1,#fff9ec);border:1px solid #ead9b5}.wa-price-card small{display:block;color:#697a71}.wa-price-value{font-size:28px;font-weight:900;color:#a36a16;white-space:nowrap}.wa-price-value small{display:inline;color:#8a6b39;font-size:13px;font-weight:700}.wa-transfer{margin-top:16px;padding:16px;border:1px dashed #b6c8bd;border-radius:16px;background:#f7faf8}.wa-transfer-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-weight:900;color:#244b3e}.wa-setup-badge{padding:4px 9px;border-radius:999px;background:#fff0ce;color:#835b13;font-size:11px;white-space:nowrap}.wa-transfer p{margin:7px 0;color:#687b72;font-size:13px;line-height:1.8}.wa-plan-submit{width:100%;margin-top:15px;padding:13px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#0a7058,#14866b);color:#fff;font:800 15px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 18px #0a70582b}.wa-plan-submit:hover{filter:brightness(1.05);transform:translateY(-1px)}.wa-plan-note{margin:10px 0 0;color:#718179;font-size:12px;text-align:center;line-height:1.7}.wa-plan-select{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit}.wa-transfer .wa-field{margin-bottom:0}.wa-login-section{background:linear-gradient(150deg,#fff,#f8fbf9)}.wa-login-section .wa-brand{margin-bottom:14px}.wa-login-section .wa-field{margin:14px 0}.wa-login-section .wa-actions .wa-button{flex:1}.wa-section .wa-message{min-height:26px}@media(max-width:760px){#waraqa-auth-gate{padding:12px}.wa-card{padding:22px 18px;max-height:calc(100vh - 24px);border-radius:22px}.wa-columns{grid-template-columns:1fr;gap:12px}.wa-section{padding:19px}.wa-page-heading{margin-bottom:18px}.wa-section h2{font-size:20px}}
       .wa-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}.wa-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#0a7058;color:#fff;font-size:24px}.wa-brand b{font-size:23px}.wa-brand small{display:block;color:#74847d;font-size:13px}
       .wa-card h1{margin:0 0 8px;font-size:22px}.wa-intro{margin:0 0 20px;color:#687a72;line-height:1.8}
@@ -632,13 +633,168 @@ showGate("تسجيل الدخول والاشتراك");
     document.querySelectorAll("#wa-admin-overlay .wa-provision-control, #wa-admin-form input, #wa-admin-form button")
       .forEach(control => control.disabled = value);
   }
+  let receiptDatabasePromise = null;
+  function receiptDatabase() {
+    if (!receiptDatabasePromise) receiptDatabasePromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open("waraqa-owner-messages-v1", 1);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        database.createObjectStore("keys");
+        database.createObjectStore("messages");
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => { receiptDatabasePromise = null; reject(request.error); };
+    });
+    return receiptDatabasePromise;
+  }
+  async function receiptKey(ownerUid) {
+    const database = await receiptDatabase();
+    const candidate = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("keys", "readwrite"), store = transaction.objectStore("keys");
+      let key;
+      const request = store.get(ownerUid);
+      request.onsuccess = () => { key = request.result || candidate; if (!request.result) store.put(key, ownerUid); };
+      transaction.oncomplete = () => resolve(key);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error("receipt-key"));
+    });
+  }
+  async function receiptRecord(ownerUid, email, value, remove = false) {
+    const database = await receiptDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("messages", value || remove ? "readwrite" : "readonly");
+      const store = transaction.objectStore("messages"), id = JSON.stringify([ownerUid, email]);
+      const request = remove ? store.delete(id) : value ? store.put(value, id) : store.get(id);
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error("receipt-record"));
+    });
+  }
+  async function saveOwnerReceipt(email, pin, expiresAt) {
+    if (!pin) return;
+    const ownerUid = requireOwner(), key = await receiptKey(ownerUid);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const context = new TextEncoder().encode(JSON.stringify([ownerUid, email]));
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: context }, key,
+      new TextEncoder().encode(JSON.stringify({ pin, savedAt: Date.now(), expiresAt: expiresAt.getTime() })));
+    requireOwner(ownerUid);
+    await receiptRecord(ownerUid, email, { iv, encrypted });
+  }
+  async function readOwnerReceipt(email) {
+    const ownerUid = requireOwner(), record = await receiptRecord(ownerUid, email);
+    if (!record) return null;
+    const key = await receiptKey(ownerUid);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: record.iv,
+      additionalData: new TextEncoder().encode(JSON.stringify([ownerUid, email])) }, key, record.encrypted);
+    requireOwner(ownerUid);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+  function closeOwnerMessages() {
+    const overlay = document.getElementById("wa-owner-messages");
+    if (overlay) { overlay.classList.remove("open"); overlay.querySelector("tbody")?.replaceChildren(); }
+  }
+  async function openOwnerMessages() {
+    const ownerUid = requireOwner();
+    let overlay = document.getElementById("wa-owner-messages");
+    if (!overlay) {
+      overlay = document.createElement("section"); overlay.id = "wa-owner-messages"; overlay.className = "wa-admin-overlay";
+      overlay.style.zIndex = "2147483002";
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-owner-messages-title"><div class="wa-admin-head"><h2 id="wa-owner-messages-title">رسائل العملاء</h2><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><p>الرموز محفوظة مشفّرة في متصفح المالك هذا فقط. إذا غيّر العميل رمزه لاحقًا، فقد لا يعمل الرمز المحفوظ. الرموز القديمة التي لم تُحفظ هنا غير متاحة.</p><p role="status" id="wa-owner-messages-status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد الإلكتروني</th><th>الرمز المحفوظ</th><th>حالة الاشتراك</th><th>الرسالة</th></tr></thead><tbody></tbody></table></div></div>';
+      overlay.querySelector(".wa-admin-close").onclick = closeOwnerMessages;
+      overlay.onclick = event => { if (event.target === overlay) closeOwnerMessages(); };
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.add("open");
+    const status = overlay.querySelector("#wa-owner-messages-status"), body = overlay.querySelector("tbody");
+    status.textContent = "جارٍ تحميل العملاء…"; body.replaceChildren();
+    try {
+      const snapshot = await firebase.getDocs(firebase.collection(db, "licenses"));
+      requireOwner(ownerUid);
+      if (!overlay.classList.contains("open")) return;
+      const records = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+      records.sort((a,b) => String(a.data.email || a.id).localeCompare(String(b.data.email || b.id)));
+      for (const record of records) {
+        const email = String(record.data.email || record.id).trim().toLowerCase();
+        let saved = null, failed = false;
+        try { saved = await readOwnerReceipt(email); } catch { failed = true; }
+        requireOwner(ownerUid);
+        if (!overlay.classList.contains("open")) return;
+        const row = document.createElement("tr");
+        setCell(row, email);
+        const pinCell = document.createElement("td"), pin = document.createElement("input");
+        pin.type = "password"; pin.readOnly = true; pin.autocomplete = "off";
+        pin.setAttribute("aria-label", "الرمز المحفوظ لـ " + email);
+        pin.style.cssText = "width:90px;padding:8px;border:1px solid #cbd9d1;border-radius:8px;direction:ltr";
+        if (saved?.pin) {
+          pin.value = saved.pin;
+          const reveal = document.createElement("button"); reveal.type = "button"; reveal.className = "wa-receipt-button"; reveal.textContent = "إظهار";
+          reveal.onclick = () => { pin.type = pin.type === "password" ? "text" : "password"; reveal.textContent = pin.type === "password" ? "إظهار" : "إخفاء"; };
+          pinCell.append(pin, reveal);
+        } else pinCell.textContent = failed ? "تعذر فتح الرمز المحفوظ" : "غير محفوظ في هذا المتصفح";
+        row.appendChild(pinCell);
+        const expiry = asDate(record.data.expiresAt);
+        const active = record.data.active === true && expiry?.getTime() > Date.now();
+        setCell(row, active ? "مفعّل" : record.data.active === false ? "موقوف" : "منتهي");
+        const action = document.createElement("td");
+        if (saved?.pin) {
+          const copy = document.createElement("button"); copy.type = "button"; copy.textContent = "نسخ الرسالة"; copy.className = "wa-receipt-button";
+          copy.onclick = async () => {
+            requireOwner(ownerUid);
+            const message = "بيانات حسابك في ورقة:\nالبريد: " + email + "\nرمز الدخول المحفوظ عند التفعيل: " + pin.value +
+              "\nإذا سبق أن غيّرت الرمز، استخدم الرمز الذي اخترته.\nرابط الموقع: https://alatwi777.github.io/waraqa/";
+            try { await navigator.clipboard.writeText(message); copy.textContent = "تم النسخ"; }
+            catch { status.textContent = "تعذر النسخ التلقائي. أظهر الرمز وانسخه يدويًا."; }
+          };
+          action.appendChild(copy);
+        } else action.textContent = "—";
+        row.appendChild(action); body.appendChild(row);
+      }
+      status.textContent = records.length ? "عدد العملاء: " + records.length : "لا توجد اشتراكات مسجلة.";
+    } catch { status.textContent = "تعذر قراءة العملاء. تحقق من الاتصال وحساب المالك."; }
+  }
+  async function deleteInactiveLicense(record, email, button) {
+    const ownerUid = requireOwner();
+    if (!window.confirm("حذف سجل اشتراك " + email + " ورسالته المحفوظة؟ سيبقى حساب الدخول وبيانات العميل المحلية.")) return;
+    button.disabled = true;
+    try {
+      const all = await firebase.getDocs(firebase.collection(db, "licenses"));
+      const related = all.docs.filter(doc => String(doc.data().email || doc.id).trim().toLowerCase() === String(email).trim().toLowerCase());
+      // Re-read related records so a concurrent activation prevents deletion.
+      await firebase.runTransaction(db, async transaction => {
+        requireOwner(ownerUid);
+        const reference = firebase.doc(db, "licenses", record.id), current = await transaction.get(reference);
+        for (const other of related) {
+          if (other.id === record.id) continue;
+          const sibling = await transaction.get(firebase.doc(db, "licenses", other.id));
+          if (sibling.exists() && sibling.data().active === true && asDate(sibling.data().expiresAt)?.getTime() > Date.now()) throw new Error("active-license");
+        }
+        if (!current.exists()) return;
+        const data = current.data(), expiry = asDate(data.expiresAt);
+        if (data.active === true && expiry?.getTime() > Date.now()) throw new Error("active-license");
+        transaction.delete(reference);
+      });
+      requireOwner(ownerUid);
+      try { await receiptRecord(ownerUid, String(email).trim().toLowerCase(), null, true); } catch {}
+      closeOwnerMessages();
+      await loadAdminLicenses();
+      adminStatus("تم حذف سجل الاشتراك. حساب الدخول والبيانات المحلية لم تُحذف.");
+    } catch (error) {
+      button.disabled = false;
+      adminStatus(error?.message === "active-license" ? "الاشتراك مفعّل الآن. أوقفه قبل الحذف." : "تعذر حذف السجل. تحقق من الاتصال وصلاحية حساب المالك.", true);
+    }
+  }
+
   function clearActivationMessage() {
     const box = document.getElementById("wa-activation-message");
     if (box) { box.replaceChildren(); box.hidden = true; }
   }
-  function showActivationMessage(email, pin, expiresAt) {
+  async function showActivationMessage(email, pin, expiresAt) {
     const box = document.getElementById("wa-activation-message");
     if (!box) return;
+    let receiptSaved = false;
+    if (pin) {
+      try { await saveOwnerReceipt(email, pin, expiresAt); receiptSaved = true; }
+      catch { adminStatus("تم التفعيل، لكن تعذر حفظ رسالة العميل في هذا المتصفح. انسخها الآن قبل إغلاقها.", true); }
+    }
     box.replaceChildren(); box.hidden = false;
     const title = document.createElement("strong");
     title.textContent = "تم التفعيل — انسخ الرسالة وأرسلها للعميل بنفسك";
@@ -661,10 +817,16 @@ showGate("تسجيل الدخول والاشتراك");
     const clear = document.createElement("button");
     clear.type = "button"; clear.textContent = "إخفاء الرسالة"; clear.onclick = clearActivationMessage;
     box.append(title, text, copy, clear);
+    if (receiptSaved) {
+      const saved = document.createElement("p"); saved.textContent = "حُفظ الرمز في «رسائل العملاء» على هذا المتصفح."; box.appendChild(saved);
+    } else if (pin) {
+      const warning = document.createElement("p"); warning.textContent = "تعذر حفظ الرسالة في المتصفح. انسخ الرمز الآن قبل إغلاق هذه الرسالة."; warning.style.color = "#a42e2e"; box.appendChild(warning);
+    }
     box.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function closeAdminDashboard() {
+    closeOwnerMessages();
     clearActivationMessage();
     document.querySelectorAll("#wa-admin-overlay [data-wa-pin]").forEach(input => { input.value = ""; input.type = "password"; });
     document.getElementById("wa-admin-overlay")?.classList.remove("open");
@@ -680,11 +842,12 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
       overlay.querySelector("#wa-admin-form").addEventListener("submit", saveAdminLicense);
+      overlay.querySelector("#wa-owner-messages-open").onclick = openOwnerMessages;
       overlay.querySelector("#wa-admin-mail-test").onclick = async event => {
         requireOwner();
         const button = event.currentTarget, status = document.getElementById("wa-admin-mail-status");
@@ -753,7 +916,10 @@ showGate("تسجيل الدخول والاشتراك");
           });
           actionCell.appendChild(stop);
         } else {
-          actionCell.textContent = "—";
+          const remove = document.createElement("button");
+          remove.type = "button"; remove.className = "wa-admin-action"; remove.textContent = "حذف";
+          remove.onclick = () => deleteInactiveLicense(record, email, remove);
+          actionCell.appendChild(remove);
         }
         row.appendChild(actionCell);
         body.appendChild(row);
@@ -873,7 +1039,7 @@ showGate("تسجيل الدخول والاشتراك");
       });
       requireOwner(ownerUid);
       activated = true;
-      showActivationMessage(email, pin, expiresAt);
+      await showActivationMessage(email, pin, expiresAt);
       const receipt = document.getElementById("wa-activation-message");
       if (receipt) receipt.dataset.email = email;
       document.querySelectorAll("[data-wa-request-pin]").forEach(input => { if (input.dataset.requestId === uid) input.value = ""; });
@@ -924,7 +1090,7 @@ showGate("تسجيل الدخول والاشتراك");
       }, { merge: true });
       document.getElementById("wa-admin-email").value = "";
       document.getElementById("wa-admin-new-pin").value = "";
-      showActivationMessage(email, pin, expiresAt);
+      await showActivationMessage(email, pin, expiresAt);
       const receipt = document.getElementById("wa-activation-message");
       if (receipt) receipt.dataset.email = email;
       adminStatus(pin ? "تم إنشاء حساب الدخول وتفعيل الاشتراك." : "تم حفظ الاشتراك فقط؛ يستخدم العميل حسابه ورمزه الحاليين.");
