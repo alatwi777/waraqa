@@ -67,13 +67,10 @@ window.WaraqaAuthorized = false;
           <h2 id="wa-login-title">لديك حساب؟ سجّل الدخول</h2>
           <p class="wa-section-intro">أدخل بيانات حسابك للتحقق من صلاحية الاشتراك والمتابعة إلى ورقة.</p>
           <form id="wa-form">
-            <label class="wa-field">البريد الإلكتروني<input id="wa-email" type="email" autocomplete="username" required></label>
-            <div class="wa-field"><label for="wa-password">كلمة المرور</label><div class="wa-password-wrap"><input id="wa-password" type="password" autocomplete="current-password" minlength="6" required><button class="wa-password-toggle" id="wa-password-toggle" type="button" aria-controls="wa-password" aria-pressed="false" aria-label="إظهار كلمة المرور">إظهار</button></div></div>
-            <div class="wa-actions"><button class="wa-button" id="wa-submit" type="submit">دخول</button><button class="wa-button alt" id="wa-create" type="button">إنشاء حساب</button></div>
+            <label class="wa-field">البريد الإلكتروني<input id="wa-email" type="email" autocomplete="email" required></label>
+            <div class="wa-actions"><button class="wa-button" id="wa-submit" type="submit">دخول</button></div>
           </form>
           <p class="wa-message" id="wa-message" role="status"></p>
-          <p class="wa-small"><button class="wa-switch" id="wa-reset" type="button">نسيت كلمة المرور؟ أرسل رابط إعادة التعيين</button></p>
-
         </section>
         <section class="wa-section wa-subscribe-section" aria-labelledby="wa-subscribe-title">
           <h2 id="wa-subscribe-title">ابدأ اشتراكك في ورقة</h2>
@@ -169,16 +166,10 @@ window.WaraqaAuthorized = false;
       }
     });
     updatePlanPrice();
-    const passwordInput = $("#wa-password");
-  const passwordToggle = $("#wa-password-toggle");
-  passwordToggle.addEventListener("click", () => {
-    const reveal = passwordInput.type === "password";
-    passwordInput.type = reveal ? "text" : "password";
-    passwordToggle.textContent = reveal ? "إخفاء" : "إظهار";
-    passwordToggle.setAttribute("aria-pressed", String(reveal));
-    passwordToggle.setAttribute("aria-label", reveal ? "إخفاء كلمة المرور" : "إظهار كلمة المرور");
-  });
   let auth, db, firebase, authSdk;
+  let completingEmailLink = false;
+  const emailLinkStorageKey = "waraqa-email-link:" + location.pathname;
+  const emailLinkHashKey = "waraqa-email-link-hash:" + location.pathname;
   let adminRequestsUnsubscribe = null;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
@@ -194,23 +185,23 @@ window.WaraqaAuthorized = false;
       "auth/invalid-api-key": "مفتاح Firebase غير صالح لهذا المشروع.",
       "auth/api-key-not-valid": "مفتاح Firebase غير صالح لهذا المشروع."
     };
-    if (action === "login" && code === "auth/invalid-credential") return "البريد أو كلمة المرور غير صحيحة. استخدم رابط إعادة التعيين إذا نسيت كلمة المرور.";
-    return messages[code] || `تعذر ${action === "reset" ? "إرسال رابط إعادة التعيين" : "تسجيل الدخول"} (رمز Firebase: ${code}).`;
+    if (code === "auth/operation-not-allowed") return "تسجيل الدخول برابط البريد غير مفعّل بعد. فعّل Email link ضمن Firebase Authentication ثم أعد المحاولة.";
+    if (code === "auth/expired-action-code" || code === "auth/invalid-action-code") return "انتهت صلاحية رابط الدخول أو استُخدم سابقًا. أدخل بريدك واضغط دخول لإرسال رابط جديد.";
+    if (code === "auth/invalid-credential") return "تعذر التحقق من رابط الدخول. أدخل بريد الحساب واضغط دخول لإرسال رابط جديد.";
+    return messages[code] || `تعذر ${action === "reset" ? "إرسال رابط الدخول" : "تسجيل الدخول"} (رمز Firebase: ${code}).`;
   }
-  function setBusy(value) { $("#wa-submit").disabled = value; $("#wa-create").disabled = value; }
+  function setBusy(value) { $("#wa-submit").disabled = value; }
   function showGate(title = "تسجيل الدخول") { gate.hidden = false; $("#wa-title").textContent = title; }
   function openAccountPanel() {
     if (auth?.currentUser) {
       $("#wa-form").hidden = true;
-      $("#wa-reset").closest(".wa-small").hidden = true;
-      $("#wa-plan-email").value = auth.currentUser.email || "";
+$("#wa-plan-email").value = auth.currentUser.email || "";
       $("#wa-plan-message").textContent = "أنت مسجل الدخول. أكمل بيانات الطلب أو سجّل خروجك لتبديل الحساب.";
       $("#wa-plan-message").style.color = "#526a60";
       showGate("الاشتراك والحساب");
     } else {
       $("#wa-form").hidden = false;
-      $("#wa-reset").closest(".wa-small").hidden = false;
-      showGate("تسجيل الدخول والاشتراك");
+showGate("تسجيل الدخول والاشتراك");
     }
   }
   function addAccountChip(email, logout, isAdmin = false) {
@@ -510,22 +501,21 @@ window.WaraqaAuthorized = false;
       $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
       $("#wa-form").hidden = false;
-      $("#wa-reset").closest(".wa-small").hidden = false;
-      showGate();
+showGate();
       addAccountChip("", async () => {});
-      setMessage("أدخل بيانات حسابك أو أنشئ حسابًا جديدًا للمتابعة.");
+      if (!completingEmailLink) setMessage(authSdk?.isSignInWithEmailLink(auth, location.href) ? "أدخل البريد الذي استقبل رابط الدخول لإكمال تسجيل الدخول." : "أدخل بريدك واضغط دخول؛ سنرسل إليك رابطًا آمنًا لتسجيل الدخول.");
       return;
     }
     if (user.isAnonymous) {
       $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
       $("#wa-form").hidden = false;
-      $("#wa-reset").closest(".wa-small").hidden = false;
-      showGate("إرسال طلب الاشتراك");
+showGate("إرسال طلب الاشتراك");
       setMessage("");
       return;
     }
     const isAdmin = isAdminAccount(user);
+    window.WaraqaIsAdmin = isAdmin;
     const license = isAdmin ? { valid: true } : await checkLicense(user);
     if (license.valid) {
       $("#wa-logout")?.remove();
@@ -575,25 +565,43 @@ window.WaraqaAuthorized = false;
     auth = authSdk.getAuth(app);
     db = storeSdk.getFirestore(app);
     $("#wa-form").addEventListener("submit", async (event) => {
-      event.preventDefault(); setBusy(true); setMessage("جارٍ تسجيل الدخول…");
-      try { await authSdk.signInWithEmailAndPassword(auth, $("#wa-email").value.trim(), $("#wa-password").value); }
-      catch (error) { setMessage(authErrorText(error, "login"), "error"); }
+      event.preventDefault();
+      const email = $("#wa-email").value.trim().toLowerCase();
+      if (!email || !$("#wa-email").checkValidity()) { setMessage("أدخل بريدًا إلكترونيًا صحيحًا.", "error"); return; }
+      setBusy(true);
+      try {
+        if (authSdk.isSignInWithEmailLink(auth, location.href)) {
+          completingEmailLink = true;
+          setMessage("جارٍ التحقق من رابط الدخول…");
+          await authSdk.signInWithEmailLink(auth, email, location.href);
+          const returnHash = localStorage.getItem(emailLinkHashKey) || "#home";
+          localStorage.removeItem(emailLinkStorageKey); localStorage.removeItem(emailLinkHashKey);
+          history.replaceState({}, document.title, location.pathname + returnHash);
+        } else {
+          setMessage("جارٍ إرسال رابط الدخول إلى بريدك…");
+          const returnHash = location.hash || "#home";
+          await authSdk.sendSignInLinkToEmail(auth, email, { url: location.origin + location.pathname + returnHash, handleCodeInApp: true });
+          localStorage.setItem(emailLinkStorageKey, email); localStorage.setItem(emailLinkHashKey, returnHash);
+          setMessage("أرسلنا رابط الدخول إلى بريدك. افتحه لإكمال الدخول؛ وإذا فتحته في متصفح آخر فأدخل البريد نفسه هناك.", "ok");
+        }
+      } catch (error) { completingEmailLink = false; setMessage(authErrorText(error, "login"), "error"); }
       finally { setBusy(false); }
     });
-    $("#wa-create").addEventListener("click", async () => {
-      const email = $("#wa-email").value.trim(), password = $("#wa-password").value;
-      if (!email || password.length < 6) { setMessage("أدخل بريدًا إلكترونيًا وكلمة مرور من ٦ أحرف على الأقل.", "error"); return; }
-      setBusy(true); setMessage("جارٍ إنشاء الحساب…");
-      try { await authSdk.createUserWithEmailAndPassword(auth, email, password); }
-      catch (error) { setMessage(error?.code === "auth/email-already-in-use" ? "هذا البريد مسجل مسبقًا؛ استخدم زر الدخول." : "تعذر إنشاء الحساب. تحقق من البريد وكلمة المرور.", "error"); }
-      finally { setBusy(false); }
-    });
-    $("#wa-reset").addEventListener("click", async () => {
-      const email = $("#wa-email").value.trim();
-      if (!email) { setMessage("اكتب البريد الإلكتروني أولًا.", "error"); return; }
-      try { await authSdk.sendPasswordResetEmail(auth, email); setMessage("أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك.", "ok"); }
-      catch (error) { setMessage(authErrorText(error, "reset"), "error"); }
-    });
+    const savedEmail = localStorage.getItem(emailLinkStorageKey);
+    if (savedEmail) $("#wa-email").value = savedEmail;
+    if (authSdk.isSignInWithEmailLink(auth, location.href)) {
+      showGate("إكمال تسجيل الدخول");
+      setMessage(savedEmail ? "جارٍ إكمال تسجيل الدخول…" : "أدخل البريد الذي استقبل رابط الدخول ثم اضغط دخول.");
+      if (savedEmail) {
+        completingEmailLink = true;
+        try {
+          await authSdk.signInWithEmailLink(auth, savedEmail, location.href);
+          const returnHash = localStorage.getItem(emailLinkHashKey) || "#home";
+          localStorage.removeItem(emailLinkStorageKey); localStorage.removeItem(emailLinkHashKey);
+          history.replaceState({}, document.title, location.pathname + returnHash);
+        } catch (error) { completingEmailLink = false; setMessage(authErrorText(error, "login"), "error"); }
+      }
+    }
     authSdk.onAuthStateChanged(auth, authorize);
   } catch (error) {
     showGate("تعذر تشغيل تسجيل الدخول");
