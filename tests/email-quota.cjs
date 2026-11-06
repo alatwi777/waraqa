@@ -1,0 +1,13 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../runtime/auth-gate.js'),'utf8');
+const code=source.slice(source.indexOf('  function emailQuotaModel('),source.indexOf('  function emailQuotaKey('));const c={Date,Number,Math};vm.createContext(c);vm.runInContext(code,c);
+const now=Date.parse('2026-11-07T12:00:00Z');const sample={limit:200,used:0,updatedAt:now,resetDate:'2026-12-06'};
+let r=c.emailQuotaModel(sample,now);assert.equal(r.remaining,200);assert.equal(r.tone,'normal');
+r=c.emailQuotaModel({...sample,used:160},now);assert.equal(r.tone,'warning');assert.equal(r.remaining,40);
+r=c.emailQuotaModel({...sample,used:190},now);assert.equal(r.tone,'danger');assert.equal(r.remaining,10);
+r=c.emailQuotaModel({...sample,used:250},now);assert.equal(r.remaining,0);assert.equal(r.percent,100);
+r=c.emailQuotaModel(sample,Date.parse('2026-12-05T21:00:00Z'));assert.equal(r.expired,true);assert.equal(r.tone,'unknown');
+r=c.emailQuotaModel({...sample,updatedAt:now-86400001},now);assert.equal(r.stale,true);
+for(const invalid of [null,{}, {...sample,limit:0},{...sample,used:-1},{...sample,used:1.5},{...sample,resetDate:'bad'},{...sample,limit:10000001}])assert.equal(c.emailQuotaModel(invalid,now),null);
+assert(source.includes('حسب آخر تحديث'));assert(source.includes('هذه الأرقام ليست قراءة مباشرة'));assert(!source.includes('accessToken:'));assert(!source.includes('YOUR_PRIVATE_KEY'));
+console.log('PASS: quota unknown state, exact remaining arithmetic, threshold warnings, cycle reset requires new snapshot, stale snapshot warning, invalid values rejected and no private-key integration.');

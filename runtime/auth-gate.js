@@ -62,6 +62,31 @@ window.WaraqaAuthorized = false;
 
       .wa-card{background:#fffaf0!important;border:2px solid #ef7b22!important;box-shadow:0 10px 0 #c95112,0 24px 54px #71310e45,inset 0 1px 0 #fff!important}
 .wa-plan-note.wa-plan-message-visible{padding:12px;border:1px solid #ef7b22;border-radius:12px;background:#21170d;color:#ffcf62!important;font-weight:900;box-shadow:0 5px 0 #c95112}
+/* Owner dashboard: midnight blue, warm orange, and clear status cards. */
+.wa-admin-overlay{background:#07182bd1;backdrop-filter:blur(7px)}
+.wa-admin-panel{width:min(1120px,100%);padding:24px;background:#f2f5fa;border:1px solid #dbe3ef;border-radius:26px;box-shadow:0 30px 110px #03132580;color:#172d48;font-family:inherit}
+.wa-admin-head{padding:24px;margin:-24px -24px 22px;background:linear-gradient(120deg,#102541,#1a3c61);border-radius:25px 25px 0 0;position:relative;overflow:hidden;border-bottom:3px solid #f39745}
+.wa-admin-head h2{color:#fff;font-size:25px;letter-spacing:-.4px}.wa-admin-head p{color:#c2d0df;line-height:1.8}
+.wa-admin-close{background:#ffffff18;color:#ffb16b;border:1px solid #ffffff28;flex-shrink:0;width:40px;height:40px}
+.wa-admin-head .wa-admin-form-button{background:#ff9e50!important;color:#142740!important;box-shadow:0 5px 14px #06172d40;border:0;font-weight:800}
+.wa-admin-stats{gap:14px;margin-bottom:22px}.wa-admin-stat{background:#fff;border:1px solid #dce5ee;border-radius:17px;padding:18px 20px;box-shadow:0 6px 16px #1c355b08;color:#5c6e84;position:relative;overflow:hidden;font-weight:700}
+.wa-admin-stat:before{content:"";position:absolute;right:0;top:17px;bottom:17px;width:4px;background:#f39745;border-radius:6px}.wa-admin-stat b{font-size:34px;margin-top:8px;color:#142d4a}
+.wa-admin-stat:first-child:before{background:#17a182}.wa-admin-stat:first-child b{color:#10816b}.wa-admin-stat:nth-child(2):before{background:#d99841}
+.wa-admin-panel .wa-admin-table-wrap{border:1px solid #d5dfeb;border-radius:15px;box-shadow:0 7px 20px #142a4707;margin-bottom:22px}
+.wa-admin-panel .wa-admin-table th{background:#102640;color:#ffa65d;font-size:13px;font-weight:800;padding:15px 14px;border-bottom:0;white-space:nowrap}
+.wa-admin-panel .wa-admin-table td{padding:14px;border-bottom:1px solid #e8edf4;color:#263c56;font-size:14px;line-height:1.7}.wa-admin-panel .wa-admin-table tbody tr:nth-child(even){background:#f7f9fc}.wa-admin-panel .wa-admin-table tbody tr:hover{background:#edf3fa}
+.wa-admin-panel h3{font-size:19px;color:#142d4a;margin:22px 0 12px}.wa-admin-panel .wa-admin-form{border:1px solid #dbe3ee;box-shadow:0 5px 16px #142b4606;border-radius:17px;padding:18px;gap:12px}.wa-admin-form label{color:#496079}.wa-admin-form input{background:#fafbfd;color:#193452;border-color:#cfdbe8;padding:12px;box-sizing:border-box;min-width:0}
+.wa-admin-panel .wa-admin-form button,.wa-admin-panel .wa-admin-form-button,.wa-admin-panel .wa-receipt-button{background:#173a5e;color:#fff;border:0;padding:11px 14px;border-radius:10px;font:700 13px system-ui,sans-serif;cursor:pointer}.wa-admin-panel button:hover{filter:brightness(1.08)}
+.wa-admin-panel .wa-admin-action{background:#b83d45;border-radius:9px;padding:8px 14px;box-shadow:0 3px 7px #b83d4514}
+.wa-admin-panel .wa-admin-message{font-size:13px;margin:16px 4px;color:#387260}.wa-admin-panel .wa-admin-message.error{color:#b23c43}.wa-admin-mail{border-color:#dae3ef!important;border-radius:17px!important;padding:18px!important;color:#3c526c}.wa-admin-mail strong{color:#173451}.wa-admin-mail p{line-height:1.8;font-size:13px}
+.wa-email-quota{padding:22px;margin:0 0 20px;border-radius:20px;background:linear-gradient(120deg,#fff,#fff8ee);border:1px solid #ebd9c1;box-shadow:0 8px 24px #3d291108}
+.wa-quota-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.wa-admin-eyebrow{font-size:11px;color:#ab6c2d;font-weight:800;letter-spacing:.3px}.wa-admin-panel .wa-quota-heading h3{margin:5px 0;font-size:22px}.wa-quota-link{color:#173b60;text-decoration:none;font-weight:800;border:1px solid #d4dfeb;background:#fff;padding:10px 14px;border-radius:11px;font-size:13px}.wa-quota-link:hover{background:#edf3fa}
+.wa-quota-description{font-size:13px;color:#687586;line-height:1.9;margin:12px 0 18px}.wa-quota-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.wa-quota-numbers>div{padding:16px 18px;background:#fff;border:1px solid #e4e8ee;border-radius:14px}.wa-quota-numbers span{display:block;color:#62738a;font-size:12px;font-weight:700}.wa-quota-numbers strong{display:block;font-size:34px;line-height:1.5;color:#163452;font-variant-numeric:tabular-nums}.wa-quota-numbers>div:first-child{background:#fff0de;border-color:#f1d3ad}.wa-quota-numbers>div:first-child strong{color:#ad621d}
+.wa-quota-progress{height:9px;background:#e6eaf0;border-radius:30px;overflow:hidden;margin-top:18px}.wa-quota-progress>div{height:100%;border-radius:30px;background:linear-gradient(90deg,#f4ad5a,#dd8432);transition:width .3s}
+.wa-quota-alert{font-size:13px;line-height:1.9;color:#775a35;margin:12px 0 6px}.wa-email-quota[data-tone="danger"]{border-color:#e8b1af;background:#fff6f4}.wa-email-quota[data-tone="danger"] .wa-quota-alert{color:#a93439}.wa-email-quota[data-tone="danger"] .wa-quota-progress>div{background:#c64b4b}.wa-email-quota[data-tone="warning"] .wa-quota-alert{font-weight:800;color:#9c5c1c}
+#wa-quota-updated{display:block;color:#7a8491;font-size:11px;line-height:1.8}.wa-quota-details{margin-top:18px;padding-top:14px;border-top:1px solid #e8e1d8}.wa-quota-details summary{cursor:pointer;font-weight:800;font-size:13px;color:#1c4267}.wa-quota-details form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:12px;align-items:end;margin-top:15px}.wa-quota-details label{display:block;font-size:12px;color:#5b6d82;font-weight:700}.wa-quota-details input{display:block;width:100%;box-sizing:border-box;min-width:0;border:1px solid #d0dce8;border-radius:9px;background:#fff;padding:11px;margin-top:7px;font:inherit;color:#193452}.wa-quota-details button{border:0;border-radius:9px;padding:12px 16px;background:#173a5e;color:#fff;font:700 13px system-ui,sans-serif;cursor:pointer}.wa-quota-details p{font-size:12px;color:#52705d}
+@media(max-width:700px){.wa-admin-panel{padding:16px;border-radius:20px}.wa-admin-head{margin:-16px -16px 18px;padding:20px 16px;border-radius:19px 19px 0 0}.wa-admin-head h2{font-size:20px}.wa-admin-stats{grid-template-columns:1fr}.wa-email-quota{padding:16px}.wa-quota-numbers{gap:7px}.wa-quota-numbers>div{padding:12px 9px}.wa-quota-numbers span{font-size:11px}.wa-quota-numbers strong{font-size:27px}.wa-quota-details form{grid-template-columns:1fr}.wa-quota-link{font-size:12px}}
+
       </style>
     <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="wa-title">
       <div class="wa-page-heading">
@@ -633,6 +658,72 @@ showGate("تسجيل الدخول والاشتراك");
     document.querySelectorAll("#wa-admin-overlay .wa-provision-control, #wa-admin-form input, #wa-admin-form button")
       .forEach(control => control.disabled = value);
   }
+  function emailQuotaModel(snapshot, now = Date.now()) {
+    if (!snapshot || !Number.isInteger(snapshot.limit) || snapshot.limit <= 0 || snapshot.limit > 10000000 ||
+        !Number.isInteger(snapshot.used) || snapshot.used < 0 || snapshot.used > 10000000 ||
+        !Number.isFinite(snapshot.updatedAt) || !/^\d{4}-\d{2}-\d{2}$/.test(snapshot.resetDate || "")) return null;
+    const resetAt = new Date(snapshot.resetDate + "T00:00:00+03:00").getTime();
+    if (!Number.isFinite(resetAt)) return null;
+    const expired = now >= resetAt, stale = now - snapshot.updatedAt > 86400000;
+    const remaining = Math.max(0, snapshot.limit - snapshot.used), percent = Math.min(100, snapshot.used / snapshot.limit * 100);
+    return { ...snapshot, remaining, percent, expired, stale,
+      tone: expired ? "unknown" : remaining === 0 || percent >= 95 ? "danger" : percent >= 80 ? "warning" : "normal" };
+  }
+  function emailQuotaKey(ownerUid) {
+    return "waraqa-emailjs-quota:v1:" + new URL(".", location.href).pathname + ":" + ownerUid;
+  }
+  function readEmailQuota() {
+    try { return emailQuotaModel(JSON.parse(localStorage.getItem(emailQuotaKey(requireOwner())) || "null")); }
+    catch { return null; }
+  }
+  function renderEmailQuota(section) {
+    const quota = readEmailQuota(), number = value => Number(value).toLocaleString("ar-SA");
+    const value = selector => section.querySelector(selector);
+    value("#wa-quota-left").textContent = quota && !quota.expired ? number(quota.remaining) : "—";
+    value("#wa-quota-used").textContent = quota && !quota.expired ? number(quota.used) : "—";
+    value("#wa-quota-limit").textContent = quota ? number(quota.limit) : "—";
+    section.dataset.tone = quota?.tone || "unknown";
+    value("#wa-quota-fill").style.width = quota && !quota.expired ? quota.percent + "%" : "0%";
+    const progress = value("#wa-quota-progress");
+    if (quota && !quota.expired) progress.setAttribute("aria-valuenow", String(Math.round(quota.percent)));
+    else progress.removeAttribute("aria-valuenow");
+    const message = !quota ? "لم يُسجّل الرصيد بعد. افتح EmailJS وأدخل الاستهلاك وتاريخ التجدد الظاهرين في حسابك."
+      : quota.expired ? "حلّ موعد تجدد الرصيد. حدّث الأرقام من EmailJS؛ لا نفترض أن الاستهلاك عاد إلى الصفر."
+      : quota.remaining === 0 ? "الرصيد المسجّل نفد. راجع EmailJS قبل الاعتماد على تنبيهات جديدة؛ طلبات الاشتراك تبقى في لوحة التحكم."
+      : quota.percent >= 95 ? "الرصيد المسجّل قريب جدًا من النفاد. راجع الحساب الآن."
+      : quota.percent >= 80 ? "استهلكت ٨٠٪ أو أكثر حسب آخر تحديث. راقب الرصيد قبل نفاده."
+      : "الأرقام حسب آخر تحديث أدخلته؛ قد تكون رسائل أخرى قد استُهلكت بعده.";
+    value("#wa-quota-alert").textContent = message + (quota?.stale && !quota.expired ? " مضى أكثر من يوم على التحديث؛ يُنصح بمراجعة الرصيد." : "");
+    value("#wa-quota-updated").textContent = quota ? "آخر تحديث يدوي: " + new Date(quota.updatedAt).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" }) + " · التجدد: " + quota.resetDate : "لم يُحدّث بعد · لا توجد مزامنة آلية مع EmailJS";
+    value("#wa-quota-input-limit").value = quota?.limit ?? 200;
+    value("#wa-quota-input-used").value = quota?.used ?? "";
+    value("#wa-quota-input-reset").value = quota?.resetDate ?? "";
+  }
+  function mountEmailQuotaPanel(overlay) {
+    let section = overlay.querySelector("#wa-email-quota");
+    if (!section) {
+      section = document.createElement("section"); section.id = "wa-email-quota"; section.className = "wa-email-quota";
+      section.setAttribute("aria-labelledby", "wa-quota-heading");
+      section.innerHTML = '<div class="wa-quota-heading"><div><span class="wa-admin-eyebrow">متابعة التنبيهات</span><h3 id="wa-quota-heading">رصيد رسائل EmailJS</h3></div><a class="wa-quota-link" href="https://dashboard.emailjs.com/admin" target="_blank" rel="noopener noreferrer">عرض الرصيد الرسمي ↗</a></div><p class="wa-quota-description">متابعة يدوية لآخر رصيد من حسابك. حدّثه دوريًا؛ هذه الأرقام ليست قراءة مباشرة من EmailJS، وتُحفظ في متصفح المالك هذا.</p><div class="wa-quota-numbers"><div><span>المتبقي حسب آخر تحديث</span><strong id="wa-quota-left">—</strong></div><div><span>المستهلك حسب آخر تحديث</span><strong id="wa-quota-used">—</strong></div><div><span>حد الدورة المسجّل</span><strong id="wa-quota-limit">—</strong></div></div><div id="wa-quota-progress" class="wa-quota-progress" role="progressbar" aria-label="نسبة الاستهلاك المسجلة" aria-valuemin="0" aria-valuemax="100"><div id="wa-quota-fill"></div></div><p id="wa-quota-alert" class="wa-quota-alert" role="status"></p><small id="wa-quota-updated"></small><details class="wa-quota-details"><summary>تحديث أرقام الرصيد</summary><form id="wa-quota-form"><label>حد الرسائل في الدورة<input id="wa-quota-input-limit" type="number" min="1" max="10000000" step="1" required></label><label>المستهلك في EmailJS<input id="wa-quota-input-used" type="number" min="0" max="10000000" step="1" required placeholder="انسخ الرقم من حسابك"></label><label>تاريخ التجدد القادم<input id="wa-quota-input-reset" type="date" required></label><button type="submit">حفظ التحديث</button></form><p id="wa-quota-form-status" role="status"></p></details>';
+      overlay.querySelector(".wa-admin-mail").before(section);
+      section.querySelector("#wa-quota-form").onsubmit = event => {
+        event.preventDefault();
+        const ownerUid = requireOwner(), form = event.currentTarget;
+        if (!form.reportValidity()) return;
+        const limit = Number(section.querySelector("#wa-quota-input-limit").value), used = Number(section.querySelector("#wa-quota-input-used").value), resetDate = section.querySelector("#wa-quota-input-reset").value;
+        const snapshot = { limit, used, resetDate, updatedAt: Date.now() }, model = emailQuotaModel(snapshot);
+        const status = section.querySelector("#wa-quota-form-status");
+        if (!model || model.expired) { status.textContent = "أدخل أرقامًا صحيحة وتاريخ تجدد قادمًا كما يظهر في EmailJS."; return; }
+        try {
+          localStorage.setItem(emailQuotaKey(ownerUid), JSON.stringify(snapshot));
+          renderEmailQuota(section);
+          status.textContent = "حُفظ آخر رصيد أدخلته. حدّثه مجددًا بعد مراجعة EmailJS.";
+        } catch { status.textContent = "تعذر حفظ الرصيد في هذا المتصفح."; }
+      };
+    }
+    renderEmailQuota(section);
+  }
+
   let receiptDatabasePromise = null;
   function receiptDatabase() {
     if (!receiptDatabasePromise) receiptDatabasePromise = new Promise((resolve, reject) => {
@@ -861,6 +952,7 @@ showGate("تسجيل الدخول والاشتراك");
       };
     }
     overlay.classList.add("open");
+    mountEmailQuotaPanel(overlay);
     loadAdminLicenses();
     loadAdminRequests();
   }
