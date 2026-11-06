@@ -268,49 +268,91 @@ html[data-theme="gray"] .home-module-icon.scan,html[data-theme="gray"] .home-mod
 html[data-theme="gray"] .stat{border-color:#d4dee8;box-shadow:0 7px 20px #2746640b}
 @media(max-width:500px){html[data-theme="gray"] aside{background:#f8fafc;border-top-color:#ccd7e2}}
 
-/* Keep every header control within the available main-column width. */
+
+/* Workspace bar: tools above the account, with theme-aware actions. */
 main{min-width:0}
-main>header,.dashboard-home header{
-  box-sizing:border-box;min-width:0;width:calc(100% - 36px);max-width:calc(100% - 36px);
-  height:auto;min-height:76px;padding:14px 18px;gap:12px;flex-wrap:wrap
+main>header.workspace-header{
+  --bar-ink:#183e35;--bar-muted:#75837b;--bar-line:#e8e5d9;--bar-panel:#fffefa;--bar-soft:#f4f5ee;--bar-primary:#0b725b;--bar-accent:#fff2cc;--bar-accent-ink:#82611c;
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;
+  box-sizing:border-box;width:calc(100% - 36px);max-width:calc(100% - 36px);min-width:0;height:auto;min-height:0;
+  margin:18px 18px 0;padding:18px 22px;gap:16px;border:1px solid var(--bar-line);border-radius:22px;
+  background:var(--bar-panel);color:var(--bar-ink);box-shadow:0 10px 30px #223c2910
 }
-main>header #breadcrumb[hidden]{display:none!important}
-main>header .theme-toggle{flex:0 0 auto}
-main>header .top-search{flex:1 1 220px;min-width:0;max-width:none}
-main>header .top-search input{width:100%;min-width:0}
-main>header .header-left{
-  flex:1 1 540px;min-width:0;max-width:100%;flex-wrap:wrap;
-  justify-content:flex-start;gap:8px
-}
-main>header .waraqa-account-chip{
-  flex:1 1 350px;min-width:0;max-width:100%;white-space:normal;flex-wrap:wrap;row-gap:6px
-}
-main>header .waraqa-account-chip span{
-  min-width:0;max-width:220px;overflow-wrap:anywhere;white-space:normal
-}
-main>header .waraqa-account-chip button{max-width:100%;white-space:normal}
-main>header .header-save-status{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:100%;flex:0 1 auto}
-main>header .header-save-status .live-dot{display:inline-block;flex:0 0 6px}
-main>header .header-save-status .cloud-status{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
-main>header .icon-btn{flex:0 0 auto}
-aside .sidebar-brand{
-  display:flex;justify-content:center;padding:0 0 22px;gap:0
-}
-aside .sidebar-brand-logo{
-  display:block;width:180px;max-width:100%;height:auto;max-height:146px;
-  object-fit:contain;border-radius:14px;background:#000
-}
+.workspace-header #breadcrumb[hidden]{display:none!important}
+.workspace-header .header-tools{display:flex;align-items:center;gap:12px;min-width:0}
+.workspace-header .top-search{display:flex;flex:1 1 250px;min-width:0;max-width:none;margin:0;padding:0 14px;border:1px solid var(--bar-line);border-radius:12px;background:var(--bar-soft)}
+.workspace-header .top-search input{width:100%;min-width:0;padding:11px 0;font-size:12px;color:var(--bar-ink)}
+.workspace-header .top-search svg{stroke:var(--bar-ink)}
+.workspace-header .theme-toggle{flex:0 0 auto;min-height:42px;border-radius:12px}
+.workspace-header .header-utilities{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.workspace-header .icon-btn{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;line-height:1;border-radius:12px;border:1px solid var(--bar-line);background:var(--bar-panel);color:var(--bar-ink)}
+.workspace-header .header-account-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;min-width:0;border-top:1px solid var(--bar-line);padding-top:14px}
+.workspace-header .header-left{display:block;flex:1 1 630px;min-width:0;max-width:100%}
+.workspace-header .waraqa-account-chip{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%;max-width:100%;min-width:0;padding:0;border:0;border-radius:0;background:transparent;color:var(--bar-ink);white-space:normal;flex-shrink:1}
+.workspace-header .wa-account-identity{flex:1 1 180px;min-width:0}
+.workspace-header .wa-account-identity small{display:block;margin-bottom:3px;font-size:10px;color:var(--bar-muted)}
+.workspace-header .wa-account-identity span{display:block;max-width:none;min-width:0;font-size:13px;font-weight:600;text-align:right;overflow-wrap:anywhere;white-space:normal}
+.workspace-header .wa-account-actions{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px;min-width:0;max-width:100%}
+.workspace-header .wa-account-action{display:inline-flex;justify-content:center;align-items:center;gap:5px;max-width:100%;min-height:36px;padding:8px 12px;border:1px solid var(--bar-line);border-radius:9px;font:600 11px Tahoma,Arial,sans-serif;color:var(--bar-ink);background:var(--bar-soft);cursor:pointer;white-space:normal}
+.workspace-header .wa-account-action.wa-action-primary{background:var(--bar-primary);border-color:var(--bar-primary);color:#fff}
+.workspace-header .wa-account-action.wa-action-invoice{background:var(--bar-accent);border-color:#c9a84f66;color:var(--bar-accent-ink)}
+.workspace-header .wa-account-action.wa-action-logout{color:#ac433b;background:transparent;border-color:transparent}
+.workspace-header .wa-account-action:hover{filter:brightness(.97);transform:none}
+.workspace-header .header-save-status{display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0;max-width:100%;color:var(--bar-muted)}
+.workspace-header .header-save-status .live-dot{display:inline-block;width:6px;height:6px;flex:0 0 6px;border-radius:50%}
+.workspace-header .header-save-status .cloud-status{display:block;max-width:100%;min-width:0;padding:4px 0;font-size:10px;color:var(--bar-muted);white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+html[data-theme="dark"] main>header.workspace-header{--bar-panel:#081e39;--bar-soft:#102c4d;--bar-line:#224364;--bar-ink:#e2edfa;--bar-muted:#91a8c3;--bar-primary:#176b92;--bar-accent:#302b20;--bar-accent-ink:#e9cb7a;box-shadow:0 10px 30px #0003}
+html[data-theme="gray"] main>header.workspace-header{--bar-panel:#fff;--bar-soft:#f0f4f8;--bar-line:#d8e1eb;--bar-ink:#254764;--bar-muted:#71859b;--bar-primary:#345e7c;--bar-accent:#faf0d7;--bar-accent-ink:#806126}
+html[data-theme="dark"] .workspace-header .wa-action-logout{color:#f4a59b}
+aside .sidebar-brand{display:flex;justify-content:center;padding:0 0 22px;gap:0}
+aside .sidebar-brand-logo{display:block;width:180px;max-width:100%;height:auto;max-height:146px;object-fit:contain;border-radius:14px;background:#000}
+html[data-theme="dark"] aside .sidebar-brand,html[data-theme="gray"] aside .sidebar-brand{margin-bottom:20px;padding:12px;border-radius:18px;border:1px solid #33516d;background:linear-gradient(135deg,#102945,#0b1d32)}
+html[data-theme="dark"] aside .sidebar-brand-logo{background:transparent;border-radius:0;filter:url(#wa-logo-clear-black)}
+html[data-theme="gray"] aside .sidebar-brand{background:linear-gradient(135deg,#f8fafc,#e3ebf3);border-color:#cbd7e3}
+html[data-theme="gray"] aside .sidebar-brand-logo{background:transparent;border-radius:0;filter:url(#wa-logo-clear-black) brightness(.68) saturate(1.2)}
 @media(min-width:601px){aside{overflow-y:auto}}
 @media(max-width:850px){
   aside .sidebar-brand{padding:0 0 20px}
   aside .sidebar-brand-logo{width:56px;border-radius:7px}
-  main>header,.dashboard-home header{margin:10px 10px 0;width:calc(100% - 20px);max-width:calc(100% - 20px);padding:12px;min-height:68px}
+  html[data-theme="dark"] aside .sidebar-brand,html[data-theme="gray"] aside .sidebar-brand{padding:4px;margin-bottom:16px;border-radius:8px}
+  main>header.workspace-header{width:calc(100% - 20px);max-width:calc(100% - 20px);margin:10px 10px 0;padding:14px;gap:12px}
+  .workspace-header .header-account-row{padding-top:12px}
 }
 @media(max-width:600px){
-  aside .sidebar-brand{display:none}
-  main>header,.dashboard-home header{margin:8px 10px 0;padding:10px;min-height:62px;border-radius:17px;gap:8px}
-  main>header .top-search{flex-basis:150px}
-  main>header .header-left{flex-basis:100%;gap:6px}
-  main>header .waraqa-account-chip{flex-basis:100%;font-size:11px}
-  main>header .header-save-status .cloud-status{font-size:10px}
+  aside .sidebar-brand,html[data-theme="dark"] aside .sidebar-brand,html[data-theme="gray"] aside .sidebar-brand{display:none}
+  main>header.workspace-header{margin:8px 10px 0;padding:12px;border-radius:17px}
+  .workspace-header .header-tools{flex-wrap:wrap;gap:8px}
+  .workspace-header .top-search{flex-basis:100%}
+  .workspace-header .header-utilities{margin-inline-start:auto}
+  .workspace-header .header-left{flex-basis:100%}
+  .workspace-header .wa-account-identity{flex-basis:100%}
+  .workspace-header .wa-account-actions{width:100%}
+  .workspace-header .wa-account-action{flex:1 1 auto}
 }
+#wa-subscription-invoice{width:min(780px,calc(100% - 24px));max-height:92dvh;overflow:auto;border:1px solid #d9c182;border-radius:20px;padding:24px;background:#fffdf8;color:#183d34;font:14px Tahoma,Arial,sans-serif;box-shadow:0 24px 100px #0005}
+#wa-subscription-invoice::backdrop{background:#06130fcc}
+.wa-invoice-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.wa-invoice-toolbar small{color:#92723b;font-size:11px}.wa-invoice-toolbar h2{margin:4px 0 0;font-size:26px}
+#wa-subscription-invoice button{cursor:pointer;font:inherit}
+.wa-invoice-close{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#f1ebdc;color:#5b634f;font-size:24px!important}
+#wa-invoice-status,.wa-invoice-hint{font-size:12px;color:#6e7f75;line-height:1.8}
+#wa-invoice-form label{display:block;font-size:12px;font-weight:bold}
+#wa-invoice-form input,#wa-invoice-form select{display:block;width:100%;min-width:0;box-sizing:border-box;margin-top:7px;padding:11px;border:1px solid #d9dfd6;border-radius:9px;background:#fff;color:#183d34;font:inherit}
+.wa-invoice-contact{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+#wa-invoice-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:20px 0}
+#wa-invoice-summary>div{background:#f6f3e9;border:1px solid #e9e2d1;border-radius:12px;padding:12px;overflow-wrap:anywhere}
+#wa-invoice-summary small{display:block;color:#748073;font-size:11px}
+#wa-invoice-summary strong{display:block;margin-top:5px;font-size:14px}
+.wa-invoice-actions{display:flex;justify-content:flex-end}
+#wa-invoice-print{border-radius:10px;padding:12px 18px;background:#0b725b;color:white;border:0}
+#wa-invoice-print:disabled{opacity:.5;cursor:wait}
+html[data-theme="dark"] #wa-subscription-invoice{background:#0b2039;color:#e1edfa;border-color:#36516d}
+html[data-theme="dark"] #wa-invoice-form input,html[data-theme="dark"] #wa-invoice-form select{background:#102e4b;color:#e1edfa;border-color:#36516d}
+html[data-theme="dark"] #wa-invoice-summary>div{background:#102c45;border-color:#36516d}
+html[data-theme="dark"] #wa-invoice-status,html[data-theme="dark"] .wa-invoice-hint,html[data-theme="dark"] #wa-invoice-summary small{color:#9eb0c3}
+@media(max-width:500px){#wa-subscription-invoice{padding:16px}.wa-invoice-contact{grid-template-columns:1fr}}
+
+.wa-invoice-toolbar>div{display:grid;grid-template-columns:64px 1fr;column-gap:12px;align-items:center}
+.wa-invoice-toolbar img{grid-row:1/3;width:64px;height:52px;object-fit:contain;border-radius:8px;background:#000}
+
+#wa-invoice-select-wrap[hidden]{display:none!important}

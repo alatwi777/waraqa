@@ -140,6 +140,7 @@ window.WaraqaAuthorized = false;
         const ref = firebase.doc(db, "subscriptionRequests", requestUser.uid);
         const existing = await firebase.getDoc(ref);
         if (existing.exists() && existing.data().status === "pending") {
+          saveBillingProfile(email, { name, phone });
           showFeedback("الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.");
           return;
         }
@@ -154,6 +155,7 @@ window.WaraqaAuthorized = false;
           status: "pending",
           createdAt: firebase.serverTimestamp()
         });
+        saveBillingProfile(email, { name, phone });
         showFeedback("الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.");
       } catch (error) {
         const code = error?.code || "";
@@ -210,45 +212,183 @@ showGate("تسجيل الدخول والاشتراك");
     if (!target) return;
     let chip = document.getElementById("waraqa-account-chip");
     if (!chip) {
-      chip = document.createElement("div");
-      chip.id = "waraqa-account-chip";
-      chip.className = "waraqa-account-chip";
-      target.prepend(chip);
+      chip = document.createElement("div"); chip.id = "waraqa-account-chip"; chip.className = "waraqa-account-chip"; target.prepend(chip);
     }
     chip.replaceChildren();
     if (email) {
-      const label = document.createElement("span");
-      label.title = email;
-      label.textContent = email;
-      chip.append(label);
+      const identity = document.createElement("div"); identity.className = "wa-account-identity";
+      const caption = document.createElement("small"); caption.textContent = isAdmin ? "حساب المالك" : "حساب المشترك";
+      const label = document.createElement("span"); label.title = email; label.textContent = email; label.dir = "ltr";
+      identity.append(caption,label); chip.append(identity);
     }
-    const accountButton = document.createElement("button");
-    accountButton.type = "button";
-    accountButton.className = "wa-admin-open";
-    accountButton.textContent = email ? "الاشتراك" : "دخول / اشتراك";
-    accountButton.addEventListener("click", openAccountPanel);
-    chip.append(accountButton);
-    if (email && isAdmin) {
-      const adminButton = document.createElement("button");
-      adminButton.type = "button";
-      adminButton.className = "wa-admin-open";
-      adminButton.textContent = "لوحة التحكم";
-      adminButton.addEventListener("click", openAdminDashboard);
-      chip.append(adminButton);
-    }
+    const actions = document.createElement("div"); actions.className = "wa-account-actions";
+    const add = (text, handler, variant = "") => {
+      const button = document.createElement("button"); button.type = "button"; button.className = "wa-account-action " + variant;
+      button.textContent = text; button.addEventListener("click", handler); actions.append(button);
+    };
+    add(email ? "الاشتراك" : "دخول / اشتراك", openAccountPanel, "wa-action-primary");
+    if (email && isAdmin) add("لوحة التحكم", openAdminDashboard, "wa-action-primary");
     if (email) {
-      const change = document.createElement("button");
-      change.type = "button";
-      change.className = "wa-admin-open";
-      change.textContent = "تغيير رمز الدخول";
-      change.addEventListener("click", openPinDialog);
-      chip.append(change);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "تسجيل الخروج";
-      button.addEventListener("click", logout);
-      chip.append(button);
+      add("الفاتورة", () => openSubscriptionInvoice(), "wa-action-invoice");
+      add("تغيير رمز الدخول", openPinDialog);
+      add("تسجيل الخروج", async () => {
+        document.getElementById("wa-subscription-invoice")?.close();
+        await logout();
+      }, "wa-action-logout");
     }
+    chip.append(actions);
+  }
+
+
+  function billingProfileKey(email) {
+    return "waraqa-billing-profile:v1:" + new URL(".", location.href).pathname + ":" + email;
+  }
+  function readBillingProfile(email) {
+    try {
+      const data = JSON.parse(localStorage.getItem(billingProfileKey(email)) || "{}");
+      return { name: typeof data.name === "string" ? data.name.slice(0,80) : "", phone: typeof data.phone === "string" ? data.phone.slice(0,24) : "" };
+    } catch { return { name: "", phone: "" }; }
+  }
+  function saveBillingProfile(email, data) {
+    try { localStorage.setItem(billingProfileKey(email), JSON.stringify({ name: String(data.name || "").slice(0,80), phone: String(data.phone || "").slice(0,24) })); }
+    catch {}
+  }
+  function invoiceDate(value) {
+    return value instanceof Date && Number.isFinite(value.getTime())
+      ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { timeZone: "Asia/Riyadh", dateStyle: "medium" }).format(value) : "غير مسجل";
+  }
+  function invoiceModel(email, license, request, profile, now = new Date()) {
+    const expiry = asDate(license.expiresAt);
+    const linked = request?.status === "activated" && expiry &&
+      asDate(request.activatedUntil)?.getTime() === expiry.getTime();
+    const recorded = linked && Number.isInteger(request.amount) && request.amount >= 0;
+    const monthly = ["1 شهر","30 يوم"].includes(String(license.plan || "").trim());
+    const amount = recorded ? request.amount : monthly ? 29 : null;
+    return {
+      email, name: profile.name || request?.name || "", phone: profile.phone || request?.phone || "",
+      plan: String(license.plan || "غير مسجلة"), expiry, created: asDate(license.createdAt), issued: now,
+      status: license.active === true && expiry && expiry > now ? "نشط" : expiry && expiry <= now ? "منتهي" : "موقوف",
+      remaining: expiry ? Math.max(0, Math.ceil((expiry.getTime() - now.getTime()) / 86400000)) : 0,
+      amount, priceLabel: recorded ? "مبلغ الطلب المسجل" : "السعر المعلن للباقة",
+      paymentNote: recorded ? "تم تفعيل طلب الاشتراك بعد مراجعة التحويل." : "القيمة وفق الباقة المعروضة؛ هذا المستند لا يؤكد وصول دفعة مالية.",
+      transferReference: recorded ? String(request.reference || "غير مسجل") : "غير مسجل"
+    };
+  }
+  function invoiceEscape(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
+  }
+  function buildSubscriptionInvoice(model, logoSrc) {
+    const e = invoiceEscape;
+    const money = model.amount === null ? "غير مسجل" : model.amount.toLocaleString("ar-SA") + " ريال";
+    return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>فاتورة اشتراك ورقة</title><style>
+      *{box-sizing:border-box}body{margin:0;background:#fff;color:#172d2c;font:15px Tahoma,Arial,sans-serif;line-height:1.8}.invoice{max-width:780px;margin:24px auto;padding:30px;border:1px solid #e5dfce;border-radius:18px}
+      .invoice-head{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:2px solid #c6a04e;padding-bottom:20px;margin-bottom:22px}.invoice-head img{width:94px;height:77px;object-fit:contain;background:#000;border-radius:12px}.invoice-head h1{font-size:26px;margin:0;color:#173d35}.invoice-head p{margin:2px 0;color:#66736e;font-size:12px}
+      .invoice-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.invoice-section{padding:16px;background:#faf9f5;border:1px solid #ebe6da;border-radius:12px}.invoice-section h2{font-size:16px;margin:0 0 10px;color:#85641e}.line{margin:7px 0;overflow-wrap:anywhere}.line b{display:block;font-size:11px;color:#687770;font-weight:normal}.line span{font-weight:bold}
+      table{width:100%;border-collapse:collapse;margin:25px 0 12px}th,td{text-align:right;padding:13px;border-bottom:1px solid #e8e5dc}th{background:#163e33;color:#fff;font-size:13px}.invoice-total{text-align:left;font-size:21px;font-weight:bold;color:#173e34}.invoice-note{font-size:12px;color:#66746e;border-top:1px solid #e5dfce;margin-top:24px;padding-top:16px}footer{text-align:center;font-size:12px;color:#75817a;margin-top:22px}
+      @page{size:A4;margin:14mm}@media print{body{font-size:12px;print-color-adjust:exact;-webkit-print-color-adjust:exact}.invoice{margin:0;padding:10px;border:0;max-width:none}.invoice-section,table,.invoice-head{break-inside:avoid}footer{margin-top:24px}}
+      </style></head><body><article class="invoice"><header class="invoice-head"><img src="${e(logoSrc)}" alt="شعار ورقة"><div><h1>فاتورة اشتراك ورقة</h1><p>تاريخ إصدار المستند: ${e(invoiceDate(model.issued))}</p><p>مساحة المعلم</p></div></header>
+      <div class="invoice-grid"><section class="invoice-section"><h2>بيانات العميل</h2><div class="line"><b>الاسم</b><span>${e(model.name || "غير مسجل")}</span></div><div class="line"><b>البريد الإلكتروني</b><span dir="ltr">${e(model.email)}</span></div><div class="line"><b>رقم الجوال</b><span dir="ltr">${e(model.phone || "غير مسجل")}</span></div></section>
+      <section class="invoice-section"><h2>بيانات الاشتراك</h2><div class="line"><b>الحالة</b><span>${e(model.status)}</span></div><div class="line"><b>تاريخ إنشاء الاشتراك</b><span>${e(invoiceDate(model.created))}</span></div><div class="line"><b>صالح حتى</b><span>${e(invoiceDate(model.expiry))}</span></div><div class="line"><b>المدة المتبقية</b><span>${e(model.remaining)} يوم</span></div></section></div>
+      <table><thead><tr><th>الخدمة</th><th>الخطة</th><th>${e(model.priceLabel)}</th></tr></thead><tbody><tr><td>اشتراك منصة ورقة</td><td>${e(model.plan)}</td><td>${e(money)}</td></tr></tbody></table><div class="invoice-total">${e(model.priceLabel)}: ${e(money)}</div>
+      <div class="invoice-note"><div>مرجع التحويل: ${e(model.transferReference)}</div><p>${e(model.paymentNote)}</p></div><footer>ورقة · alatwi777.github.io/waraqa</footer></article></body></html>`;
+  }
+  async function loadInvoiceRecord(user, email) {
+    const owner = isAdminAccount(user);
+    if (!owner && email !== String(user.email || "").toLowerCase()) throw new Error("invoice-forbidden");
+    let snap = await firebase.getDoc(firebase.doc(db, "licenses", email));
+    if (!snap.exists() && !owner) snap = await firebase.getDoc(firebase.doc(db, "licenses", user.uid));
+    if (!snap.exists()) throw new Error("invoice-missing");
+    let request = null;
+    if (owner) {
+      const records = await firebase.getDocs(firebase.collection(db, "subscriptionRequests"));
+      const candidates = records.docs.map(doc => doc.data()).filter(data => String(data.email || "").toLowerCase() === email && data.status === "activated");
+      const expiryTime = asDate(snap.data().expiresAt)?.getTime();
+      candidates.sort((a,b) => Number(asDate(b.activatedUntil)?.getTime() === expiryTime) - Number(asDate(a.activatedUntil)?.getTime() === expiryTime) || (asDate(b.reviewedAt)?.getTime() || 0) - (asDate(a.reviewedAt)?.getTime() || 0));
+      request = candidates[0] || null;
+    } else {
+      try {
+        const own = await firebase.getDoc(firebase.doc(db, "subscriptionRequests", user.uid));
+        if (own.exists() && String(own.data().email || "").toLowerCase() === email) request = own.data();
+      } catch (error) { if (error.code !== "permission-denied") throw error; }
+    }
+    if (auth.currentUser?.uid !== user.uid) throw new Error("invoice-session-changed");
+    const profile = readBillingProfile(email);
+    if (!profile.name) profile.name = request?.name || (email === String(user.email || "").toLowerCase() ? user.displayName || "" : "");
+    if (!profile.phone) profile.phone = request?.phone || "";
+    return invoiceModel(email, snap.data(), request, profile);
+  }
+  async function openSubscriptionInvoice() {
+    const user = auth?.currentUser;
+    if (!user?.email || user.isAnonymous) return;
+    if (document.getElementById("wa-subscription-invoice")) return;
+    const dialog = document.createElement("dialog");
+    dialog.id = "wa-subscription-invoice"; dialog.dir = "rtl";
+    dialog.setAttribute("aria-labelledby", "wa-invoice-title");
+    dialog.innerHTML = `<div class="wa-invoice-toolbar"><div><small>ورقة · الاشتراكات</small><h2 id="wa-invoice-title">الفاتورة</h2></div><button type="button" class="wa-invoice-close" aria-label="إغلاق الفاتورة">×</button></div>
+      <p id="wa-invoice-status" role="status">جارٍ تحميل بيانات الاشتراك…</p>
+      <form id="wa-invoice-form"><label id="wa-invoice-select-wrap" hidden>اشتراك العميل<select id="wa-invoice-select"></select></label><div class="wa-invoice-contact"><label>اسم العميل<input name="customerName" maxlength="80" autocomplete="name" required></label><label>رقم الجوال<input name="customerPhone" type="tel" maxlength="24" autocomplete="tel" required></label></div>
+      <p class="wa-invoice-hint">أكمل البيانات إن لزم. الاسم والجوال اللذان تعدلهما هنا يُحفظان على هذا المتصفح.</p>
+      <div id="wa-invoice-summary"></div><div class="wa-invoice-actions"><button type="submit" id="wa-invoice-print" disabled>طباعة الفاتورة / حفظ PDF</button></div></form>`;
+    const invoiceLogo = document.createElement("img");
+    invoiceLogo.src = $(".wa-brand-logo").src; invoiceLogo.alt = "شعار ورقة";
+    dialog.querySelector(".wa-invoice-toolbar>div").prepend(invoiceLogo);
+    const form = dialog.querySelector("form"), status = dialog.querySelector("#wa-invoice-status");
+    const summary = dialog.querySelector("#wa-invoice-summary"), print = dialog.querySelector("#wa-invoice-print");
+    let model = null, generation = 0;
+    const close = () => dialog.close();
+    dialog.querySelector(".wa-invoice-close").onclick = close;
+    dialog.addEventListener("close", () => { generation++; model = null; form.reset(); dialog.remove(); }, { once: true });
+    const load = async email => {
+      const token = ++generation; model = null; print.disabled = true; summary.replaceChildren(); status.textContent = "جارٍ تحميل بيانات الاشتراك…";
+      try {
+        const result = await loadInvoiceRecord(user, email);
+        if (!dialog.isConnected || token !== generation) return;
+        model = result;
+        form.elements.customerName.value = model.name; form.elements.customerPhone.value = model.phone;
+        const cards = [
+          ["البريد", model.email], ["الخطة", model.plan], ["حالة الاشتراك", model.status],
+          ["صالح حتى", invoiceDate(model.expiry)], [model.priceLabel, model.amount === null ? "غير مسجل" : model.amount + " ريال"]
+        ];
+        for (const [label,value] of cards) {
+          const card = document.createElement("div"), caption = document.createElement("small"), content = document.createElement("strong");
+          caption.textContent = label; content.textContent = value; card.append(caption,content); summary.append(card);
+        }
+        status.textContent = model.paymentNote; print.disabled = false;
+      } catch (error) {
+        if (!dialog.isConnected || token !== generation) return;
+        status.textContent = error.message === "invoice-missing" ? "لا يوجد سجل اشتراك لهذا الحساب لعرض فاتورته." : "تعذر تحميل الفاتورة. تحقق من الاتصال وأعد فتحها.";
+      }
+    };
+    form.onsubmit = event => {
+      event.preventDefault();
+      if (!model || auth.currentUser?.uid !== user.uid || !form.reportValidity()) return;
+      const name = form.elements.customerName.value.trim(), phone = form.elements.customerPhone.value.trim();
+      if (!name || !phone) { status.textContent = "أكمل الاسم ورقم الجوال قبل الطباعة."; return; }
+      model = { ...model, name, phone, issued: new Date() };
+      saveBillingProfile(model.email, model);
+      const popup = window.open("", "_blank");
+      if (!popup) { status.textContent = "اسمح بفتح نافذة الطباعة لهذا الموقع ثم حاول مجددًا."; return; }
+      popup.document.open(); popup.document.write(buildSubscriptionInvoice(model, $(".wa-brand-logo").src)); popup.document.close();
+      popup.opener = null;
+      const image = popup.document.querySelector("img");
+      const ready = image?.decode ? image.decode().catch(() => {}) : Promise.resolve();
+      ready.then(() => { if (!popup.closed) { popup.focus(); popup.print(); } });
+      status.textContent = "فُتحت نافذة الطباعة. يمكنك اختيار «حفظ PDF» من قائمة الطابعات.";
+    };
+    document.body.appendChild(dialog); dialog.showModal();
+    if (isAdminAccount(user)) {
+      const wrap = dialog.querySelector("#wa-invoice-select-wrap"), select = dialog.querySelector("#wa-invoice-select");
+      wrap.hidden = false;
+      try {
+        const licenses = await firebase.getDocs(firebase.collection(db, "licenses"));
+        if (!dialog.isConnected || auth.currentUser?.uid !== user.uid) return;
+        const emails = [...new Set(licenses.docs.map(doc => String(doc.data().email || (doc.id.includes("@") ? doc.id : "")).trim().toLowerCase()).filter(Boolean))].sort();
+        if (!emails.length) { status.textContent = "لا توجد اشتراكات ببريد مسجل لعرض الفاتورة."; return; }
+        for (const email of emails) { const option = document.createElement("option"); option.value = email; option.textContent = email; select.append(option); }
+        select.onchange = () => load(select.value);
+        await load(select.value);
+      } catch { status.textContent = "تعذر تحميل قائمة الاشتراكات."; }
+    } else await load(String(user.email).toLowerCase());
   }
 
   function normalizePin(value) {
