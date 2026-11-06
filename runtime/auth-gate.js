@@ -28,7 +28,7 @@ window.WaraqaAuthorized = false;
       .wa-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.wa-button{border:0;border-radius:11px;padding:12px 16px;background:#0a7058;color:#fff;font:700 14px system-ui,sans-serif;cursor:pointer}.wa-button.alt{border:1px solid #d0ded6;background:#fff;color:#245548}.wa-button:disabled{opacity:.6;cursor:wait}
       .wa-message{min-height:26px;margin:14px 0 0;color:#526a60;line-height:1.7}.wa-message.error{color:#a42e2e}.wa-message.ok{color:#08734d}
       .wa-switch{border:0;background:none;color:#116a55;text-decoration:underline;cursor:pointer;font:inherit;padding:0}.wa-small{margin-top:12px;font-size:13px;color:#6c7d75}.wa-local{margin-top:18px;padding:12px 14px;border-radius:12px;background:#f2f6f3;color:#53665c;font-size:13px;line-height:1.8}
-      .waraqa-account-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #d7e3dc;border-radius:999px;background:#f8fbf9;color:#174b3e;font-size:12px;max-width:none;white-space:nowrap;flex-shrink:0}.waraqa-account-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer;padding:4px 6px}.waraqa-account-chip .wa-admin-open{padding:7px 10px;border-radius:9px;background:#0a7058;color:#fff;font-weight:800}.wa-admin-overlay{position:fixed;inset:0;z-index:2147483001;display:none;place-items:center;padding:18px;background:#10211dcc;direction:rtl;color:#17372d}.wa-admin-overlay.open{display:grid}.wa-admin-panel{width:min(1000px,100%);max-height:92vh;overflow:auto;padding:22px;border-radius:22px;background:#f8fbf9;box-shadow:0 24px 80px #0006}.wa-admin-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.wa-admin-head h2{margin:0;font-size:23px}.wa-admin-head p{margin:5px 0 0;color:#60756b}.wa-admin-close{border:0;border-radius:50%;width:38px;height:38px;background:#e5ece8;color:#24473b;font-size:22px;cursor:pointer}.wa-admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}.wa-admin-stat{padding:14px;border-radius:14px;background:#e8f3ee}.wa-admin-stat b{display:block;color:#0a7058;font-size:25px}.wa-admin-form{display:grid;grid-template-columns:minmax(180px,1fr) 150px auto;gap:10px;align-items:end;padding:15px;border:1px solid #dbe8e0;border-radius:16px;background:white}.wa-admin-form label{display:block;font-size:13px;font-weight:800;color:#40594e}.wa-admin-form input{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid #cbd9d1;border-radius:9px;font:inherit}.wa-admin-form button{padding:11px 15px;border:0;border-radius:10px;background:#0a7058;color:white;font-weight:800;cursor:pointer}.wa-admin-message{min-height:26px;margin:10px 2px;color:#08734d}.wa-admin-message.error{color:#a42e2e}.wa-admin-table-wrap{overflow:auto;border:1px solid #dbe8e0;border-radius:14px;background:white}.wa-admin-table{width:100%;border-collapse:collapse;min-width:650px}.wa-admin-table th,.wa-admin-table td{padding:11px;text-align:right;border-bottom:1px solid #e4ece7}.wa-admin-table th{background:#edf4f0;color:#345448}.wa-admin-action{border:0;border-radius:8px;padding:7px 10px;background:#b33b36;color:#fff;font-weight:700;cursor:pointer}.wa-admin-action:disabled,.wa-admin-form button:disabled{opacity:.6;cursor:wait}@media(max-width:640px){.wa-admin-panel{padding:16px}.wa-admin-stats{grid-template-columns:1fr}.wa-admin-form{grid-template-columns:1fr}.wa-admin-head h2{font-size:19px}}
+      .waraqa-account-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #d7e3dc;border-radius:999px;background:#f8fbf9;color:#174b3e;font-size:12px;max-width:none;white-space:nowrap;flex-shrink:0}.waraqa-account-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer}.waraqa-account-chip button{border:0;background:none;color:#9a3b32;font:inherit;cursor:pointer;padding:4px 6px}.waraqa-account-chip .wa-admin-open{padding:7px 10px;border-radius:9px;background:#0a7058;color:#fff;font-weight:800}.wa-admin-overlay{position:fixed;inset:0;z-index:2147483001;display:none;place-items:center;padding:18px;background:#10211dcc;direction:rtl;color:#17372d}.wa-admin-overlay.open{display:grid}.wa-admin-panel{width:min(1000px,100%);max-height:92vh;overflow:auto;padding:22px;border-radius:22px;background:#f8fbf9;box-shadow:0 24px 80px #0006}.wa-admin-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.wa-admin-head h2{margin:0;font-size:23px}.wa-admin-head p{margin:5px 0 0;color:#60756b}.wa-admin-close{border:0;border-radius:50%;width:38px;height:38px;background:#e5ece8;color:#24473b;font-size:22px;cursor:pointer}.wa-admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}.wa-admin-stat{padding:14px;border-radius:14px;background:#e8f3ee}.wa-admin-stat b{display:block;color:#0a7058;font-size:25px}.wa-admin-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;padding:15px;border:1px solid #dbe8e0;border-radius:16px;background:white}.wa-admin-form label{display:block;font-size:13px;font-weight:800;color:#40594e}.wa-admin-form input{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid #cbd9d1;border-radius:9px;font:inherit}.wa-admin-form button{padding:11px 15px;border:0;border-radius:10px;background:#0a7058;color:white;font-weight:800;cursor:pointer}.wa-admin-message{min-height:26px;margin:10px 2px;color:#08734d}.wa-admin-message.error{color:#a42e2e}.wa-admin-table-wrap{overflow:auto;border:1px solid #dbe8e0;border-radius:14px;background:white}.wa-admin-table{width:100%;border-collapse:collapse;min-width:650px}.wa-admin-table th,.wa-admin-table td{padding:11px;text-align:right;border-bottom:1px solid #e4ece7}.wa-admin-table th{background:#edf4f0;color:#345448}.wa-admin-action{border:0;border-radius:8px;padding:7px 10px;background:#b33b36;color:#fff;font-weight:700;cursor:pointer}.wa-admin-action:disabled,.wa-admin-form button:disabled{opacity:.6;cursor:wait}@media(max-width:640px){.wa-admin-panel{padding:16px}.wa-admin-stats{grid-template-columns:1fr}.wa-admin-form{grid-template-columns:1fr}.wa-admin-head h2{font-size:19px}}
       @media(max-width:540px){.wa-card{padding:23px 20px}.waraqa-account-chip{gap:5px;padding:6px}.waraqa-account-chip span{max-width:90px}.waraqa-account-chip button{font-size:11px;padding:5px}}
     .wa-page-heading{color:#321050}.wa-page-heading h1{color:#351253}.wa-section{border-color:#e6d8f0}.wa-section h2{color:#3b155e}.wa-login-section{background:linear-gradient(145deg,#fffdf8,#f4eaff);border-color:#dcc7ec}.wa-subscribe-section{background:linear-gradient(145deg,#f4eaff,#fffaf0);border-color:#cfb2e3}.wa-field{color:#45205e}.wa-field input,.wa-plan-select{border-color:#d9c3e8;background:#fffdf9;color:#321050}.wa-button,.wa-plan-submit,.wa-admin-form button{background:linear-gradient(135deg,#552080,#7a42a5)}.wa-button.alt{border-color:#cdb1e0;background:#fffaf0;color:#512077}.wa-price-card{background:linear-gradient(135deg,#f5eaff,#fff7e3);border-color:#d4b55a}.wa-price-value{color:#895e00}.wa-transfer{background:#fffaf0;border-color:#d7c28b}.wa-setup-badge{background:#efe2ff;color:#552080}.wa-brand-centered{margin:0 auto 16px}.wa-brand-logo{display:block;width:176px;max-width:55vw;height:auto;max-height:108px;object-fit:contain;border-radius:12px}@media(max-width:760px){.wa-brand-logo{width:148px;max-height:90px}}\n    
       /* Waraqa black, gold, and orange brand palette */
@@ -170,6 +170,8 @@ window.WaraqaAuthorized = false;
     updatePlanPrice();
   let auth, db, firebase, authSdk;
   let adminRequestsUnsubscribe = null;
+  let adminProvisionBusy = false;
+  let provisioningSequence = 0;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
   function authErrorText(error, action) {
@@ -325,7 +327,92 @@ showGate("تسجيل الدخول والاشتراك");
     node.textContent = text;
     node.className = "wa-admin-message" + (error ? " error" : "");
   }
+
+  function generateAccessPin() {
+    const value = new Uint32Array(1);
+    const limit = Math.floor(4294967296 / 900000) * 900000;
+    do { crypto.getRandomValues(value); } while (value[0] >= limit);
+    return String(100000 + value[0] % 900000);
+  }
+  function requireOwner(uid) {
+    if (!auth?.currentUser || !isAdminAccount(auth.currentUser) || (uid && auth.currentUser.uid !== uid)) {
+      const error = new Error("owner-session-changed"); error.code = "waraqa/owner-session-changed"; throw error;
+    }
+    return auth.currentUser.uid;
+  }
+  async function provisionSubscriber(email, pin) {
+    const ownerUid = requireOwner();
+    if (!/^[0-9]{6}$/.test(pin)) { const error = new Error("invalid-pin"); error.code = "waraqa/invalid-pin"; throw error; }
+    const secondaryApp = firebase.initializeApp(firebaseConfig, "waraqa-provision-" + (++provisioningSequence));
+    let secondaryAuth;
+    try {
+      secondaryAuth = authSdk.initializeAuth(secondaryApp, { persistence: authSdk.inMemoryPersistence });
+      try {
+        await authSdk.createUserWithEmailAndPassword(secondaryAuth, email, pin);
+      } catch (error) {
+        if (error.code !== "auth/email-already-in-use") throw error;
+        // A retry after an interrupted activation may reuse the account just created.
+        // Authenticate with the supplied code; never reset an existing user's password.
+        try { await authSdk.signInWithEmailAndPassword(secondaryAuth, email, pin); }
+        catch (loginError) {
+          if (!["auth/invalid-credential","auth/wrong-password","auth/user-not-found"].includes(loginError.code)) throw loginError;
+          const existing = new Error("existing-account"); existing.code = "waraqa/existing-account"; throw existing;
+        }
+      }
+      requireOwner(ownerUid);
+    } finally {
+      if (secondaryAuth) { try { await authSdk.signOut(secondaryAuth); } catch {} }
+      try { await firebase.deleteApp(secondaryApp); } catch {}
+    }
+  }
+  function provisioningError(error) {
+    if (error.code === "waraqa/existing-account") return "البريد مسجّل مسبقًا ولم يتغيّر رمزه. استخدم «تفعيل حساب موجود» للاشتراك فقط؛ لن يعمل الرمز الجديد لهذا الحساب.";
+    if (error.code === "waraqa/invalid-pin") return "أدخل رمزًا من ٦ أرقام أو اضغط «توليد رمز».";
+    if (error.code === "waraqa/owner-session-changed") return "تغيّر حساب المالك. أعد تسجيل الدخول قبل متابعة التفعيل.";
+    if (error.code === "waraqa/request-changed") return "الطلب تغيّر أو تمت معالجته. حدّث قائمة الطلبات قبل المحاولة.";
+    if (error.code === "permission-denied") return "تعذر حفظ التفعيل في Firestore. راجع القواعد وأعد المحاولة بالرمز نفسه؛ قد يكون حساب الدخول قد أُنشئ.";
+    return "لم يكتمل التفعيل (" + (error.code || "خطأ") + "). " + authErrorText(error, "login") + " إذا أُنشئ الحساب، أعد المحاولة بالرمز نفسه.";
+  }
+  function setProvisionBusy(value) {
+    adminProvisionBusy = value;
+    document.querySelectorAll("#wa-admin-overlay .wa-provision-control, #wa-admin-form input, #wa-admin-form button")
+      .forEach(control => control.disabled = value);
+  }
+  function clearActivationMessage() {
+    const box = document.getElementById("wa-activation-message");
+    if (box) { box.replaceChildren(); box.hidden = true; }
+  }
+  function showActivationMessage(email, pin, expiresAt) {
+    const box = document.getElementById("wa-activation-message");
+    if (!box) return;
+    box.replaceChildren(); box.hidden = false;
+    const title = document.createElement("strong");
+    title.textContent = "تم التفعيل — انسخ الرسالة وأرسلها للعميل بنفسك";
+    const text = document.createElement("textarea");
+    text.readOnly = true;
+    text.rows = 7;
+    text.style.cssText = "display:block;width:100%;box-sizing:border-box;margin:10px 0;padding:12px;font:inherit;border:1px solid #cbd9d1;border-radius:10px";
+    text.value = "تم تفعيل اشتراكك في ورقة.\nالبريد: " + email +
+      (pin ? "\nرمز الدخول: " + pin : "\nادخل باستخدام رمزك الحالي.") +
+      "\nصالح حتى: " + expiresAt.toLocaleDateString("ar-SA") +
+      "\nرابط الموقع: https://alatwi777.github.io/waraqa/" +
+      (pin ? "\nيمكنك تغيير الرمز بعد الدخول من «تغيير رمز الدخول» أعلى الصفحة." : "");
+    text.setAttribute("aria-label", "رسالة تفعيل الاشتراك");
+    const copy = document.createElement("button");
+    copy.type = "button"; copy.className = "wa-admin-form-button"; copy.textContent = "نسخ رسالة التفعيل";
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(text.value); copy.textContent = "تم النسخ"; }
+      catch { text.focus(); text.select(); copy.textContent = "حدّدنا الرسالة؛ انسخها يدويًا"; }
+    };
+    const clear = document.createElement("button");
+    clear.type = "button"; clear.textContent = "إخفاء الرسالة"; clear.onclick = clearActivationMessage;
+    box.append(title, text, copy, clear);
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
   function closeAdminDashboard() {
+    clearActivationMessage();
+    document.querySelectorAll("#wa-admin-overlay [data-wa-pin]").forEach(input => { input.value = ""; input.type = "password"; });
     document.getElementById("wa-admin-overlay")?.classList.remove("open");
     if (adminRequestsUnsubscribe) {
       adminRequestsUnsubscribe();
@@ -339,11 +426,15 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><button type="submit">إضافة / تجديد</button></form><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
       overlay.querySelector("#wa-admin-form").addEventListener("submit", saveAdminLicense);
+      overlay.querySelector("#wa-admin-generate-pin").onclick = () => {
+        const field = document.getElementById("wa-admin-new-pin");
+        field.type = "text"; field.value = generateAccessPin();
+      };
     }
     overlay.classList.add("open");
     loadAdminLicenses();
@@ -415,12 +506,13 @@ showGate("تسجيل الدخول والاشتراك");
     const body = document.getElementById("wa-admin-request-rows");
     if (!body) return;
     if (adminRequestsUnsubscribe) adminRequestsUnsubscribe();
-    body.replaceChildren();
     adminStatus("جارٍ تحميل الطلبات…");
     try {
       adminRequestsUnsubscribe = firebase.onSnapshot(
         firebase.collection(db, "subscriptionRequests"),
         (snapshot) => {
+          if (adminProvisionBusy) return;
+          const enteredPins = new Map([...body.querySelectorAll("[data-wa-request-pin]")].map(input => [input.dataset.requestId, input.value]));
           const requests = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
           requests.sort((a, b) => (asDate(b.data.createdAt)?.getTime() || 0) - (asDate(a.data.createdAt)?.getTime() || 0));
           body.replaceChildren();
@@ -443,10 +535,22 @@ showGate("تسجيل الدخول والاشتراك");
             setCell(row, request.data.status === "pending" ? "بانتظار التحقق" : request.data.status === "activated" ? "مفعّل" : "مغلق");
             const action = document.createElement("td");
             if (request.data.status === "pending") {
+              const pin = document.createElement("input");
+              pin.type = "password"; pin.inputMode = "numeric"; pin.maxLength = 6; pin.autocomplete = "new-password";
+              pin.placeholder = "رمز الدخول — ٦ أرقام"; pin.setAttribute("aria-label", "رمز دخول الحساب الجديد");
+              pin.dataset.waPin = ""; pin.dataset.waRequestPin = ""; pin.dataset.requestId = request.id;
+              pin.className = "wa-provision-control"; pin.value = enteredPins.get(request.id) || "";
+              pin.style.cssText = "display:block;width:180px;padding:9px;border:1px solid #b7c9bd;border-radius:8px;margin-bottom:8px;direction:ltr";
+              const generate = document.createElement("button");
+              generate.type = "button"; generate.className = "wa-admin-form-button wa-provision-control"; generate.textContent = "توليد رمز";
+              generate.onclick = () => { pin.type = "text"; pin.value = generateAccessPin(); };
               const activate = document.createElement("button");
-              activate.type = "button"; activate.className = "wa-admin-form-button"; activate.textContent = "تفعيل بعد التحقق";
-              activate.addEventListener("click", () => activateSubscriptionRequest(request.id));
-              action.appendChild(activate);
+              activate.type = "button"; activate.className = "wa-admin-form-button wa-provision-control"; activate.textContent = "تفعيل وإنشاء الحساب";
+              activate.onclick = () => activateSubscriptionRequest(request.id, pin.value, false);
+              const existing = document.createElement("button");
+              existing.type = "button"; existing.className = "wa-admin-form-button wa-provision-control"; existing.textContent = "تفعيل حساب موجود";
+              existing.onclick = () => activateSubscriptionRequest(request.id, "", true);
+              action.append(pin, generate, activate, existing);
             } else action.textContent = "—";
             row.appendChild(action);
             body.appendChild(row);
@@ -462,52 +566,64 @@ showGate("تسجيل الدخول والاشتراك");
       adminStatus("تعذر بدء متابعة طلبات Firestore (" + (error?.code || "خطأ") + ").", true);
     }
   }
-  async function activateSubscriptionRequest(uid) {
-    if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
-    if (!window.confirm("هل تحققت من وصول المبلغ؟ سيتم تفعيل الاشتراك الآن.")) return;
-    adminStatus("جارٍ تفعيل الاشتراك…");
+  async function activateSubscriptionRequest(uid, rawPin = "", existingAccount = false) {
+    if (adminProvisionBusy || !auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
+    const pin = existingAccount ? "" : normalizePin(rawPin);
+    if (!existingAccount && !/^[0-9]{6}$/.test(pin)) { adminStatus("أدخل رمزًا من ٦ أرقام أو اضغط «توليد رمز».", true); return; }
+    if (!window.confirm("هل تحققت من وصول المبلغ؟ " + (existingAccount ? "سيُفعّل الاشتراك مع إبقاء رمز الحساب الحالي." : "سيُنشأ حساب الدخول ويُفعّل الاشتراك."))) return;
+    const ownerUid = requireOwner();
+    setProvisionBusy(true); clearActivationMessage();
+    adminStatus("جارٍ تجهيز حساب العميل وتفعيل الاشتراك…");
+    let activated = false;
     try {
       const requestRef = firebase.doc(db, "subscriptionRequests", uid);
       const requestSnap = await firebase.getDoc(requestRef);
-      if (!requestSnap.exists() || requestSnap.data().status !== "pending") {
-        adminStatus("الطلب غير موجود أو تمت معالجته مسبقًا.", true);
-        await loadAdminRequests();
-        return;
-      }
+      if (!requestSnap.exists() || requestSnap.data().status !== "pending") { const error = new Error("request-changed"); error.code = "waraqa/request-changed"; throw error; }
       const request = requestSnap.data();
       const email = String(request.email || "").trim().toLowerCase();
       const months = Number(request.months);
-      if (!email || !Number.isInteger(months) || ![1].includes(months)) throw new Error("invalid-request");
+      if (!email || months !== 1) { const error = new Error("request-changed"); error.code = "waraqa/request-changed"; throw error; }
+      if (!existingAccount) await provisionSubscriber(email, pin);
+      requireOwner(ownerUid);
       const licenseRef = firebase.doc(db, "licenses", email);
-      const licenseSnap = await firebase.getDoc(licenseRef);
-      const previous = licenseSnap.exists() ? licenseSnap.data() : null;
-      const now = new Date();
-      const priorExpiry = asDate(previous?.expiresAt);
-      const start = previous?.active === true && priorExpiry && priorExpiry > now ? priorExpiry : now;
-      const expiresAt = new Date(start.getTime() + months * 30 * 86400000);
-      const batch = firebase.writeBatch(db);
-      batch.set(licenseRef, {
-        email,
-        active: true,
-        plan: months + (months === 1 ? " شهر" : " أشهر"),
-        createdAt: previous?.createdAt || firebase.Timestamp.now(),
-        expiresAt: firebase.Timestamp.fromDate(expiresAt)
-      }, { merge: true });
-      batch.update(requestRef, {
-        status: "activated",
-        reviewedAt: firebase.serverTimestamp(),
-        activatedUntil: firebase.Timestamp.fromDate(expiresAt)
+      const expiresAt = await firebase.runTransaction(db, async transaction => {
+        requireOwner(ownerUid);
+        const currentRequest = await transaction.get(requestRef);
+        const licenseSnap = await transaction.get(licenseRef);
+        if (!currentRequest.exists() || currentRequest.data().status !== "pending" ||
+            String(currentRequest.data().email || "").trim().toLowerCase() !== email || Number(currentRequest.data().months) !== months) {
+          const error = new Error("request-changed"); error.code = "waraqa/request-changed"; throw error;
+        }
+        const previous = licenseSnap.exists() ? licenseSnap.data() : null;
+        const now = new Date(), priorExpiry = asDate(previous?.expiresAt);
+        const start = previous?.active === true && priorExpiry && priorExpiry > now ? priorExpiry : now;
+        const expiry = new Date(start.getTime() + months * 30 * 86400000);
+        transaction.set(licenseRef, {
+          email, active: true, plan: months + " شهر",
+          createdAt: previous?.createdAt || firebase.Timestamp.now(),
+          expiresAt: firebase.Timestamp.fromDate(expiry)
+        }, { merge: true });
+        transaction.update(requestRef, {
+          status: "activated", reviewedAt: firebase.serverTimestamp(),
+          activatedUntil: firebase.Timestamp.fromDate(expiry)
+        });
+        return expiry;
       });
-      await batch.commit();
-      adminStatus("تم تفعيل " + email + " حتى " + expiresAt.toLocaleDateString("ar-SA") + ".");
-      await Promise.all([loadAdminLicenses(), loadAdminRequests()]);
-    } catch (error) {
-      adminStatus("تعذر التفعيل. تأكد من نشر القواعد الجديدة، ثم راجع صحة الطلب.", true);
+      requireOwner(ownerUid);
+      activated = true;
+      showActivationMessage(email, pin, expiresAt);
+      document.querySelectorAll("[data-wa-request-pin]").forEach(input => { if (input.dataset.requestId === uid) input.value = ""; });
+      adminStatus("تم التفعيل. رسالة العميل جاهزة للنسخ؛ لم تُرسل تلقائيًا.");
+    } catch (error) { adminStatus(provisioningError(error), true); }
+    finally { setProvisionBusy(false); }
+    if (activated) {
+      await loadAdminLicenses();
+      loadAdminRequests();
     }
   }
   async function saveAdminLicense(event) {
     event.preventDefault();
-    if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
+    if (adminProvisionBusy || !auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
     const email = document.getElementById("wa-admin-email").value.trim().toLowerCase();
     const days = Number(document.getElementById("wa-admin-days").value);
     const submit = event.currentTarget.querySelector('button[type="submit"]');
@@ -515,12 +631,17 @@ showGate("تسجيل الدخول والاشتراك");
       adminStatus("أدخل بريدًا صحيحًا ومدة بين يوم و١٠ سنوات.", true);
       return;
     }
-    submit.disabled = true;
+    const pin = normalizePin(document.getElementById("wa-admin-new-pin").value);
+    if (pin && !/^[0-9]{6}$/.test(pin)) { adminStatus("رمز الحساب الجديد يجب أن يكون ٦ أرقام.", true); return; }
+    const ownerUid = requireOwner();
+    setProvisionBusy(true); clearActivationMessage();
     adminStatus("جارٍ حفظ الاشتراك في Firebase…");
     try {
       const ref = firebase.doc(db, "licenses", email);
       let previous = null;
       try { const existing = await firebase.getDoc(ref); if (existing.exists()) previous = existing.data(); } catch {}
+      if (pin) await provisionSubscriber(email, pin);
+      requireOwner(ownerUid);
       const now = new Date();
       const priorExpiry = asDate(previous?.expiresAt);
       const start = previous?.active === true && priorExpiry && priorExpiry.getTime() > now.getTime() ? priorExpiry : now;
@@ -533,12 +654,14 @@ showGate("تسجيل الدخول والاشتراك");
         expiresAt: firebase.Timestamp.fromDate(expiresAt)
       }, { merge: true });
       document.getElementById("wa-admin-email").value = "";
-      adminStatus("تم تفعيل / تجديد " + email + " حتى " + expiresAt.toLocaleDateString("ar-SA") + ".");
+      document.getElementById("wa-admin-new-pin").value = "";
+      showActivationMessage(email, pin, expiresAt);
+      adminStatus(pin ? "تم إنشاء حساب الدخول وتفعيل الاشتراك." : "تم حفظ الاشتراك فقط؛ يستخدم العميل حسابه ورمزه الحاليين.");
       await loadAdminLicenses();
     } catch (error) {
-      adminStatus("تعذر الحفظ في Firebase. انشر قواعد Firestore المحدّثة ثم أعد المحاولة.", true);
+      adminStatus(provisioningError(error), true);
     } finally {
-      submit.disabled = false;
+      setProvisionBusy(false);
     }
   }
   function expirationValue(data) {
