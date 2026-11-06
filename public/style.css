@@ -267,3 +267,50 @@ html[data-theme="gray"] .home-module-icon.exams,html[data-theme="gray"] .home-mo
 html[data-theme="gray"] .home-module-icon.scan,html[data-theme="gray"] .home-module-icon.results{background:#dcefed;color:#167a71}
 html[data-theme="gray"] .stat{border-color:#d4dee8;box-shadow:0 7px 20px #2746640b}
 @media(max-width:500px){html[data-theme="gray"] aside{background:#f8fafc;border-top-color:#ccd7e2}}
+
+/* Keep every header control within the available main-column width. */
+main{min-width:0}
+main>header,.dashboard-home header{
+  box-sizing:border-box;min-width:0;width:calc(100% - 36px);max-width:calc(100% - 36px);
+  height:auto;min-height:76px;padding:14px 18px;gap:12px;flex-wrap:wrap
+}
+main>header #breadcrumb[hidden]{display:none!important}
+main>header .theme-toggle{flex:0 0 auto}
+main>header .top-search{flex:1 1 220px;min-width:0;max-width:none}
+main>header .top-search input{width:100%;min-width:0}
+main>header .header-left{
+  flex:1 1 540px;min-width:0;max-width:100%;flex-wrap:wrap;
+  justify-content:flex-start;gap:8px
+}
+main>header .waraqa-account-chip{
+  flex:1 1 350px;min-width:0;max-width:100%;white-space:normal;flex-wrap:wrap;row-gap:6px
+}
+main>header .waraqa-account-chip span{
+  min-width:0;max-width:220px;overflow-wrap:anywhere;white-space:normal
+}
+main>header .waraqa-account-chip button{max-width:100%;white-space:normal}
+main>header .header-save-status{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:100%;flex:0 1 auto}
+main>header .header-save-status .live-dot{display:inline-block;flex:0 0 6px}
+main>header .header-save-status .cloud-status{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+main>header .icon-btn{flex:0 0 auto}
+aside .sidebar-brand{
+  display:flex;justify-content:center;padding:0 0 22px;gap:0
+}
+aside .sidebar-brand-logo{
+  display:block;width:180px;max-width:100%;height:auto;max-height:146px;
+  object-fit:contain;border-radius:14px;background:#000
+}
+@media(min-width:601px){aside{overflow-y:auto}}
+@media(max-width:850px){
+  aside .sidebar-brand{padding:0 0 20px}
+  aside .sidebar-brand-logo{width:56px;border-radius:7px}
+  main>header,.dashboard-home header{margin:10px 10px 0;width:calc(100% - 20px);max-width:calc(100% - 20px);padding:12px;min-height:68px}
+}
+@media(max-width:600px){
+  aside .sidebar-brand{display:none}
+  main>header,.dashboard-home header{margin:8px 10px 0;padding:10px;min-height:62px;border-radius:17px;gap:8px}
+  main>header .top-search{flex-basis:150px}
+  main>header .header-left{flex-basis:100%;gap:6px}
+  main>header .waraqa-account-chip{flex-basis:100%;font-size:11px}
+  main>header .header-save-status .cloud-status{font-size:10px}
+}
