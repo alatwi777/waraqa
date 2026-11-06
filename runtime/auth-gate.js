@@ -65,9 +65,11 @@ window.WaraqaAuthorized = false;
       <div class="wa-columns">
         <section class="wa-section wa-login-section" aria-labelledby="wa-login-title">
           <h2 id="wa-login-title">لديك حساب؟ سجّل الدخول</h2>
-          <p class="wa-section-intro">أدخل بيانات حسابك للتحقق من صلاحية الاشتراك والمتابعة إلى ورقة.</p>
+          <p class="wa-section-intro">أدخل بريدك ورمز الدخول للمتابعة إلى ورقة.</p>
           <form id="wa-form">
             <label class="wa-field">البريد الإلكتروني<input id="wa-email" type="email" autocomplete="email" required></label>
+            <label class="wa-field">رمز الدخول<input id="wa-pin" type="password" autocomplete="current-password" required minlength="6" aria-describedby="wa-pin-help"></label>
+            <small id="wa-pin-help">استخدم رمزك الحالي. يمكنك تغييره من زر «تغيير رمز الدخول» بعد الدخول.</small>
             <div class="wa-actions"><button class="wa-button" id="wa-submit" type="submit">دخول</button></div>
           </form>
           <p class="wa-message" id="wa-message" role="status"></p>
@@ -167,9 +169,6 @@ window.WaraqaAuthorized = false;
     });
     updatePlanPrice();
   let auth, db, firebase, authSdk;
-  let completingEmailLink = false;
-  const emailLinkStorageKey = "waraqa-email-link:" + location.pathname;
-  const emailLinkHashKey = "waraqa-email-link-hash:" + location.pathname;
   let adminRequestsUnsubscribe = null;
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
@@ -185,9 +184,9 @@ window.WaraqaAuthorized = false;
       "auth/invalid-api-key": "مفتاح Firebase غير صالح لهذا المشروع.",
       "auth/api-key-not-valid": "مفتاح Firebase غير صالح لهذا المشروع."
     };
-    if (code === "auth/operation-not-allowed") return "تسجيل الدخول برابط البريد غير مفعّل بعد. فعّل Email link ضمن Firebase Authentication ثم أعد المحاولة.";
-    if (code === "auth/expired-action-code" || code === "auth/invalid-action-code") return "انتهت صلاحية رابط الدخول أو استُخدم سابقًا. أدخل بريدك واضغط دخول لإرسال رابط جديد.";
-    if (code === "auth/invalid-credential") return "تعذر التحقق من رابط الدخول. أدخل بريد الحساب واضغط دخول لإرسال رابط جديد.";
+    if (code === "auth/operation-not-allowed") return "تسجيل الدخول بالبريد والرمز غير مفعّل في Firebase Authentication.";
+    if (code === "auth/weak-password" || code === "auth/password-does-not-meet-requirements") return "الرمز لا يطابق سياسة كلمة المرور في Firebase. راجع سياسة المشروع.";
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password") return "البريد أو رمز الدخول غير صحيح.";
     return messages[code] || `تعذر ${action === "reset" ? "إرسال رابط الدخول" : "تسجيل الدخول"} (رمز Firebase: ${code}).`;
   }
   function setBusy(value) { $("#wa-submit").disabled = value; }
@@ -236,6 +235,12 @@ showGate("تسجيل الدخول والاشتراك");
       chip.append(adminButton);
     }
     if (email) {
+      const change = document.createElement("button");
+      change.type = "button";
+      change.className = "wa-admin-open";
+      change.textContent = "تغيير رمز الدخول";
+      change.addEventListener("click", openPinDialog);
+      chip.append(change);
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = "تسجيل الخروج";
@@ -243,6 +248,77 @@ showGate("تسجيل الدخول والاشتراك");
       chip.append(button);
     }
   }
+
+  function normalizePin(value) {
+    return value.replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, c => String(c.charCodeAt(0) - 1776));
+  }
+  function openPinDialog() {
+    const user = auth?.currentUser;
+    if (!user?.email || user.isAnonymous) return;
+    if (document.getElementById("wa-pin-dialog")) return;
+    const dialog = document.createElement("dialog");
+    dialog.id = "wa-pin-dialog";
+    dialog.dir = "rtl";
+    dialog.setAttribute("aria-labelledby", "wa-pin-title");
+    dialog.innerHTML = `
+      <style>
+        #wa-pin-dialog{width:min(460px,calc(100% - 28px));padding:26px;border:1px solid #d4af37;border-radius:22px;background:#111;color:#fff7df;font:inherit;box-shadow:0 20px 70px #0008}
+        #wa-pin-dialog::backdrop{background:#0009}
+        #wa-pin-dialog h2{margin:0 0 12px;color:#e5c15c}
+        #wa-pin-dialog label{display:block;margin:16px 0;font-weight:bold}
+        #wa-pin-dialog input{display:block;box-sizing:border-box;width:100%;padding:12px;margin-top:6px;border:1px solid #d4af37;border-radius:10px;background:#fffbed;color:#161616;font:inherit;direction:ltr}
+        #wa-pin-dialog .pin-actions{display:flex;gap:10px;margin-top:16px}
+        #wa-pin-dialog button{padding:12px 16px;border:1px solid #d4af37;border-radius:10px;font:inherit;cursor:pointer;background:#d4af37;color:#111}
+        #wa-pin-dialog button[type=button]{background:transparent;color:#fff7df}
+        #wa-pin-dialog button:disabled{opacity:.5;cursor:wait}
+        #wa-pin-status{line-height:1.7;min-height:28px}
+      </style>
+      <h2 id="wa-pin-title">تغيير رمز الدخول</h2>
+      <p>اختر رمزًا جديدًا من ٦ أرقام. ستستخدمه في الدخول القادم.</p>
+      <form id="wa-change-pin-form">
+        <label>الرمز الحالي<input name="current" type="password" autocomplete="current-password" required></label>
+        <label>الرمز الجديد<input name="next" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="6" required></label>
+        <label>تأكيد الرمز الجديد<input name="confirm" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="6" required></label>
+        <p id="wa-pin-status" role="status" aria-live="polite"></p>
+        <div class="pin-actions"><button type="submit">حفظ الرمز</button><button type="button" id="wa-pin-close">إلغاء</button></div>
+      </form>`;
+    let busy = false;
+    const form = dialog.querySelector("form");
+    const status = dialog.querySelector("#wa-pin-status");
+    const controls = () => dialog.querySelectorAll("input,button");
+    const close = () => { if (!busy) dialog.close(); };
+    dialog.querySelector("#wa-pin-close").onclick = close;
+    dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
+    dialog.addEventListener("close", () => { form.reset(); dialog.remove(); }, { once: true });
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const current = form.elements.current.value;
+      const next = normalizePin(form.elements.next.value);
+      const confirm = normalizePin(form.elements.confirm.value);
+      if (!/^[0-9]{6}$/.test(next)) { status.textContent = "الرمز الجديد يجب أن يتكوّن من ٦ أرقام."; return; }
+      if (next !== confirm) { status.textContent = "تأكيد الرمز لا يطابق الرمز الجديد."; return; }
+      if (next === current) { status.textContent = "اختر رمزًا جديدًا مختلفًا عن الحالي."; return; }
+      busy = true; controls().forEach(control => control.disabled = true);
+      status.textContent = "جارٍ حفظ الرمز…";
+      try {
+        await authSdk.reauthenticateWithCredential(user, authSdk.EmailAuthProvider.credential(user.email, current));
+        if (auth.currentUser?.uid !== user.uid) throw new Error("session-changed");
+        await authSdk.updatePassword(user, next);
+        form.reset();
+        status.textContent = "تم تغيير رمز الدخول بنجاح.";
+        form.querySelector('button[type="submit"]').hidden = true;
+        dialog.querySelector("#wa-pin-close").textContent = "إغلاق";
+        form.querySelectorAll("input").forEach(input => input.closest("label").hidden = true);
+      } catch (error) {
+        status.textContent = error.message === "session-changed" ? "تغيّر الحساب. أغلق النافذة وأعد تسجيل الدخول." : authErrorText(error, "change");
+      } finally {
+        busy = false; controls().forEach(control => control.disabled = false);
+      }
+    };
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  }
+
   function adminStatus(text, error = false) {
     const node = document.getElementById("wa-admin-message");
     if (!node) return;
@@ -503,7 +579,7 @@ showGate("تسجيل الدخول والاشتراك");
       $("#wa-form").hidden = false;
 showGate();
       addAccountChip("", async () => {});
-      if (!completingEmailLink) setMessage(authSdk?.isSignInWithEmailLink(auth, location.href) ? "أدخل البريد الذي استقبل رابط الدخول لإكمال تسجيل الدخول." : "أدخل بريدك واضغط دخول؛ سنرسل إليك رابطًا آمنًا لتسجيل الدخول.");
+      setMessage("أدخل بريدك ورمز الدخول.");
       return;
     }
     if (user.isAnonymous) {
@@ -567,41 +643,13 @@ showGate("إرسال طلب الاشتراك");
     $("#wa-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = $("#wa-email").value.trim().toLowerCase();
-      if (!email || !$("#wa-email").checkValidity()) { setMessage("أدخل بريدًا إلكترونيًا صحيحًا.", "error"); return; }
-      setBusy(true);
-      try {
-        if (authSdk.isSignInWithEmailLink(auth, location.href)) {
-          completingEmailLink = true;
-          setMessage("جارٍ التحقق من رابط الدخول…");
-          await authSdk.signInWithEmailLink(auth, email, location.href);
-          const returnHash = localStorage.getItem(emailLinkHashKey) || "#home";
-          localStorage.removeItem(emailLinkStorageKey); localStorage.removeItem(emailLinkHashKey);
-          history.replaceState({}, document.title, location.pathname + returnHash);
-        } else {
-          setMessage("جارٍ إرسال رابط الدخول إلى بريدك…");
-          const returnHash = location.hash || "#home";
-          await authSdk.sendSignInLinkToEmail(auth, email, { url: location.origin + location.pathname + returnHash, handleCodeInApp: true });
-          localStorage.setItem(emailLinkStorageKey, email); localStorage.setItem(emailLinkHashKey, returnHash);
-          setMessage("أرسلنا رابط الدخول إلى بريدك. افتحه لإكمال الدخول؛ وإذا فتحته في متصفح آخر فأدخل البريد نفسه هناك.", "ok");
-        }
-      } catch (error) { completingEmailLink = false; setMessage(authErrorText(error, "login"), "error"); }
+      const pin = normalizePin($("#wa-pin").value);
+      if (!$("#wa-form").reportValidity()) return;
+      setBusy(true); setMessage("جارٍ تسجيل الدخول…");
+      try { await authSdk.signInWithEmailAndPassword(auth, email, pin); $("#wa-pin").value = ""; }
+      catch (error) { setMessage(authErrorText(error, "login"), "error"); }
       finally { setBusy(false); }
     });
-    const savedEmail = localStorage.getItem(emailLinkStorageKey);
-    if (savedEmail) $("#wa-email").value = savedEmail;
-    if (authSdk.isSignInWithEmailLink(auth, location.href)) {
-      showGate("إكمال تسجيل الدخول");
-      setMessage(savedEmail ? "جارٍ إكمال تسجيل الدخول…" : "أدخل البريد الذي استقبل رابط الدخول ثم اضغط دخول.");
-      if (savedEmail) {
-        completingEmailLink = true;
-        try {
-          await authSdk.signInWithEmailLink(auth, savedEmail, location.href);
-          const returnHash = localStorage.getItem(emailLinkHashKey) || "#home";
-          localStorage.removeItem(emailLinkStorageKey); localStorage.removeItem(emailLinkHashKey);
-          history.replaceState({}, document.title, location.pathname + returnHash);
-        } catch (error) { completingEmailLink = false; setMessage(authErrorText(error, "login"), "error"); }
-      }
-    }
     authSdk.onAuthStateChanged(auth, authorize);
   } catch (error) {
     showGate("تعذر تشغيل تسجيل الدخول");
