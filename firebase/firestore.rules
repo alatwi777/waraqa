@@ -48,7 +48,7 @@ service cloud.firestore {
         let data = request.resource.data;
         return data.keys().hasOnly([
             'uid', 'name', 'email', 'phone', 'months', 'amount',
-            'reference', 'status', 'createdAt', 'reviewedAt', 'activatedUntil'
+            'reference', 'status', 'createdAt'
           ])
           && data.keys().hasAll([
             'uid', 'name', 'email', 'phone', 'months', 'amount', 'status', 'createdAt'
@@ -69,11 +69,17 @@ service cloud.firestore {
               && request.auth.token.email.lower() == data.email));
       }
 
-      // A customer can create and view only their own pending request.
+      // Customers may submit their own request, or resubmit it after owner review.
       allow create: if validRequest();
       allow get: if isAdmin() || (signedIn() && request.auth.uid == uid);
-      // Only the owner can list, activate, or remove subscription requests.
-      allow list, update, delete: if isAdmin();
+      // Resubmission replaces a processed request with a fresh pending request.
+      // validRequest binds the document to auth.uid, fixes the price/status,
+      // and excludes owner-only review/activation fields. Pending requests cannot
+      // be overwritten by customers, and licenses remain owner-write-only.
+      allow update: if isAdmin()
+        || (resource.data.status in ['activated', 'closed', 'rejected']
+          && validRequest());
+      allow list, delete: if isAdmin();
     }
 
     // Student records stay in browser storage; no other Firestore access.
