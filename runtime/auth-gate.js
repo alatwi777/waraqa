@@ -4,7 +4,11 @@ window.WaraqaAuthorized = false;
 
 (async () => {
   const ADMIN_EMAIL = "aaddaa5400@gmail.com";
-  const OWNER_NOTIFICATION_EMAIL = ADMIN_EMAIL;
+  const OWNER_NOTIFICATION_EMAIL = "alatwi3@me.com";
+  // Public browser identifiers only. The iCloud app password stays in EmailJS.
+  const EMAILJS_SERVICE_ID = "service_jgov56c";
+  const EMAILJS_TEMPLATE_ID = "template_aa6c4f2";
+  const EMAILJS_PUBLIC_KEY = "TCwGKubjHn_gei9eS";
   const SUBSCRIPTION_PENDING_MESSAGE = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
   const isAdminAccount = (user) => String(user?.email || "").trim().toLowerCase() === ADMIN_EMAIL;
   const firebaseConfig = {
@@ -183,7 +187,7 @@ window.WaraqaAuthorized = false;
 
 
   function subscriptionNoticeKey(uid) {
-    return "waraqa-subscription-notice:v1:" + new URL(".", location.href).pathname + ":" + uid;
+    return "waraqa-subscription-notice:emailjs-v2:" + new URL(".", location.href).pathname + ":" + uid;
   }
   function noticeState(key) {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
@@ -194,68 +198,49 @@ window.WaraqaAuthorized = false;
 
   function ownerNoticePayload(test = false) {
     return {
-      _subject: test ? "ورقة: اختبار تنبيهات طلبات الاشتراك" : "ورقة: طلب اشتراك جديد بانتظار المراجعة",
-      _template: "table",
-      _url: "https://alatwi777.github.io/waraqa/",
+      title: test ? "اختبار تنبيهات الاشتراك" : "طلب اشتراك جديد بانتظار المراجعة",
       name: "موقع ورقة",
-      message: test
-        ? "هذا تنبيه تجريبي من لوحة المالك لتفعيل إشعارات طلبات الاشتراك."
-        : "تم حفظ طلب اشتراك في Firebase. يوجد طلب بانتظار المراجعة في لوحة التحكم. هذا التنبيه لا يؤكد وصول الحوالة أو تفعيل الاشتراك.",
-      dashboard: "https://alatwi777.github.io/waraqa/",
-      submittedAt: new Date().toISOString()
+      time: new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" }),
+      message: (test
+        ? "هذا تنبيه تجريبي من لوحة المالك للتحقق من وصول إشعارات طلبات الاشتراك."
+        : "تم حفظ طلب اشتراك في Firebase. يوجد طلب بانتظار المراجعة في لوحة التحكم. هذا التنبيه لا يؤكد وصول الحوالة أو تفعيل الاشتراك.")
+        + "\nافتح لوحة التحكم: https://alatwi777.github.io/waraqa/"
     };
   }
   async function sendOwnerEmailNotice(test = false) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const response = await fetch("https://formsubmit.co/ajax/" + OWNER_NOTIFICATION_EMAIL, {
+      // The recipient is fixed in the EmailJS template, never taken from customer input.
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
         method: "POST", signal: controller.signal, credentials: "omit",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify(ownerNoticePayload(test))
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: EMAILJS_SERVICE_ID,
+          template_id: EMAILJS_TEMPLATE_ID,
+          user_id: EMAILJS_PUBLIC_KEY,
+          template_params: ownerNoticePayload(test)
+        })
       });
-      let data = null;
-      try { data = await response.json(); } catch {}
-      const serviceMessage = typeof data?.message === "string" ? data.message.replace(/\s+/g, " ").slice(0,240) : "";
+      const serviceMessage = (await response.text()).replace(/\s+/g, " ").slice(0,240);
       if (response.status === 429) return { accepted: false, code: "rate-limited", httpStatus: 429 };
       if (!response.ok) return { accepted: false, code: "http-error", httpStatus: response.status, serviceMessage };
-      if (!data) return { accepted: false, code: "invalid-response" };
-      if (data.success === true || data.success === "true") return { accepted: true, code: "accepted" };
-      return { accepted: false, code: /activat|confirm|verif/i.test(serviceMessage) ? "activation-required" : "service-rejected", serviceMessage };
+      if (serviceMessage.trim() !== "OK") return { accepted: false, code: "invalid-response" };
+      return { accepted: true, code: "accepted" };
     } catch (error) {
       return { accepted: false, code: controller.signal.aborted || error?.name === "AbortError" ? "timeout" : "network" };
     } finally { clearTimeout(timer); }
   }
   function ownerNoticeExplanation(result) {
-    if (result.accepted) return "قبلت خدمة FormSubmit طلب الإرسال. راجع البريد بعد تفعيله؛ قبول الخدمة لا يؤكد وصول الرسالة.";
+    if (result.accepted) return "قبلت EmailJS إرسال التنبيه إلى " + OWNER_NOTIFICATION_EMAIL + ". راجع الوارد وغير المرغوب فيه للتأكد من وصوله.";
     const explanations = {
-      "timeout": "انتهت مهلة الاتصال بخدمة FormSubmit. لم نتأكد من إرسال رسالة التفعيل. اضغط «١. تفعيل البريد من صفحة الخدمة» لترى استجابتها مباشرة.",
-      "network": "تعذر اتصال المتصفح بخدمة FormSubmit؛ لا يمكن تحديد هل السبب الشبكة أو حظر الاتصال من هذه الرسالة وحدها. افتح صفحة التفعيل المباشر.",
-      "activation-required": "خدمة FormSubmit تطلب تأكيد البريد. اضغط «١. تفعيل البريد من صفحة الخدمة»، وأكمل ما يظهر هناك، ثم راجع البريد.",
-      "rate-limited": "الخدمة حدّت المحاولات مؤقتًا (HTTP 429). انتظر قبل تجربة الإرسال مرة أخرى.",
-      "invalid-response": "لم ترجع الخدمة استجابة إرسال مفهومة. افتح صفحة التفعيل المباشر لعرض استجابة الخدمة.",
-      "service-rejected": "لم تقبل خدمة FormSubmit الإرسال."
+      "timeout": "انتهت مهلة الاتصال بخدمة EmailJS. لم نتأكد من إرسال التنبيه.",
+      "network": "تعذر اتصال المتصفح بخدمة EmailJS. تحقق من الاتصال ثم أعد المحاولة.",
+      "rate-limited": "بلغت حد الإرسال أو حدّدت الخدمة المحاولات مؤقتًا (HTTP 429). راجع EmailJS قبل إعادة المحاولة.",
+      "invalid-response": "لم ترجع EmailJS تأكيد إرسال مفهومًا. راجع Email History في حساب الخدمة."
     };
     const detail = result.serviceMessage ? " رد الخدمة: " + result.serviceMessage : "";
-    return (explanations[result.code] || "تعذر الإرسال إلى خدمة البريد" + (result.httpStatus ? " (HTTP " + result.httpStatus + ")" : "") + ".") + detail + " طلبات الاشتراك المحفوظة في Firebase لا تتأثر.";
-  }
-  function openOwnerEmailActivation() {
-    requireOwner();
-    // This is an explicit owner action. The service can show its activation or CAPTCHA page.
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "https://formsubmit.co/" + OWNER_NOTIFICATION_EMAIL;
-    form.target = "_blank";
-    form.rel = "noopener noreferrer";
-    form.style.display = "none";
-    for (const [name,value] of Object.entries(ownerNoticePayload(true))) {
-      const field = document.createElement("input");
-      field.type = "hidden"; field.name = name; field.value = value; form.appendChild(field);
-    }
-    document.body.appendChild(form);
-    try { form.submit(); } finally { form.remove(); }
-    const status = document.getElementById("wa-admin-mail-status");
-    if (status) status.textContent = "فُتحت صفحة FormSubmit في تبويب جديد. أكمل أي تحقق يظهر، ثم راجع البريد الوارد وغير المرغوب فيه. إذا ظهرت صفحة خطأ، فهي توضح سبب تعذر الربط. لا تحتاج طلب اشتراك جديد.";
+    return (explanations[result.code] || "تعذر الإرسال إلى EmailJS" + (result.httpStatus ? " (HTTP " + result.httpStatus + ")" : "") + ".") + detail + " طلبات الاشتراك المحفوظة في لوحة التحكم لا تتأثر.";
   }
   async function notifySavedSubscription(uid, fresh = false) {
     const key = subscriptionNoticeKey(uid);
@@ -681,12 +666,11 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">aaddaa5400@gmail.com</span> — تفعيل البريد مطلوب مرة واحدة لدى FormSubmit.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-activate" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#0a7058;color:#fff">١. تفعيل البريد من صفحة الخدمة</button><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">٢. اختبار إرسال التنبيه</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
       overlay.querySelector("#wa-admin-form").addEventListener("submit", saveAdminLicense);
-      overlay.querySelector("#wa-admin-mail-activate").onclick = openOwnerEmailActivation;
       overlay.querySelector("#wa-admin-mail-test").onclick = async event => {
         requireOwner();
         const button = event.currentTarget, status = document.getElementById("wa-admin-mail-status");
