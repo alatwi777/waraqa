@@ -196,7 +196,16 @@ window.WaraqaAuthorized = false;
     try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   }
 
-  function ownerNoticePayload(test = false) {
+  function ownerNoticePayload(test = false, request = {}) {
+    const clean = (value, limit) => String(value ?? "").replace(/[\r\n\t]+/g, " ").trim().slice(0, limit) || "غير مسجل";
+    const details = test ? "" : [
+      "اسم العميل: " + clean(request.name, 80),
+      "رقم الجوال: " + clean(request.phone, 24),
+      "البريد الإلكتروني: " + clean(request.email, 254),
+      "مدة الاشتراك: " + clean(request.months, 3) + " شهر",
+      "المبلغ: " + clean(request.amount, 8) + " ريال",
+      "مرجع التحويل: " + (request.reference ? clean(request.reference, 80) : "لم يُضف")
+    ].join(" | ");
     return {
       title: test ? "اختبار تنبيهات الاشتراك" : "طلب اشتراك جديد بانتظار المراجعة",
       name: "موقع ورقة",
@@ -204,10 +213,11 @@ window.WaraqaAuthorized = false;
       message: (test
         ? "هذا تنبيه تجريبي من لوحة المالك للتحقق من وصول إشعارات طلبات الاشتراك."
         : "تم حفظ طلب اشتراك في Firebase. يوجد طلب بانتظار المراجعة في لوحة التحكم. هذا التنبيه لا يؤكد وصول الحوالة أو تفعيل الاشتراك.")
+        + (details ? "\n" + details : "")
         + "\nافتح لوحة التحكم: https://alatwi777.github.io/waraqa/"
     };
   }
-  async function sendOwnerEmailNotice(test = false) {
+  async function sendOwnerEmailNotice(test = false, request = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
@@ -219,7 +229,7 @@ window.WaraqaAuthorized = false;
           service_id: EMAILJS_SERVICE_ID,
           template_id: EMAILJS_TEMPLATE_ID,
           user_id: EMAILJS_PUBLIC_KEY,
-          template_params: ownerNoticePayload(test)
+          template_params: ownerNoticePayload(test, request)
         })
       });
       const serviceMessage = (await response.text()).replace(/\s+/g, " ").slice(0,240);
@@ -248,7 +258,11 @@ window.WaraqaAuthorized = false;
     if (previous.accepted) return "accepted";
     if (previous.attemptedAt && Date.now() - previous.attemptedAt < 30000) return "retry";
     saveNoticeState(key, { attemptedAt: Date.now(), accepted: false });
-    const result = await sendOwnerEmailNotice(false);
+    // Read the saved record so retries include its actual data, not edited form fields.
+    if (auth?.currentUser?.uid !== uid) return "retry";
+    const saved = await firebase.getDoc(firebase.doc(db, "subscriptionRequests", uid));
+    if (!saved.exists() || saved.data().status !== "pending" || auth?.currentUser?.uid !== uid) return "retry";
+    const result = await sendOwnerEmailNotice(false, saved.data());
     const accepted = result.accepted;
     saveNoticeState(key, { attemptedAt: Date.now(), accepted });
     return accepted ? "accepted" : "retry";
