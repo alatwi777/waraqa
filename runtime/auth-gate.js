@@ -4,6 +4,8 @@ window.WaraqaAuthorized = false;
 
 (async () => {
   const ADMIN_EMAIL = "aaddaa5400@gmail.com";
+  const OWNER_NOTIFICATION_EMAIL = "alatwi3@my.com";
+  const SUBSCRIPTION_PENDING_MESSAGE = "الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.";
   const isAdminAccount = (user) => String(user?.email || "").trim().toLowerCase() === ADMIN_EMAIL;
   const firebaseConfig = {
     apiKey: "AIzaSyCosJv8S0atz72MlwRv8K0kdE1wyxEy6Nc",
@@ -19,7 +21,7 @@ window.WaraqaAuthorized = false;
   gate.innerHTML = `
     <style>
       #waraqa-auth-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:#e9f0ec;direction:rtl;font-family:inherit;color:#163b32}
-      #waraqa-auth-gate[hidden]{display:none}
+      #waraqa-auth-gate[hidden],#wa-mail-retry[hidden]{display:none!important}
       #waraqa-auth-gate *{box-sizing:border-box}
       .wa-card{width:min(1080px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:32px;background:#fff;border:1px solid #dce8df;border-radius:28px;box-shadow:0 28px 90px #0004}.wa-page-heading{text-align:center;margin:0 auto 24px;max-width:720px}.wa-page-heading h1{margin:0 0 8px;font-size:clamp(26px,3vw,36px);color:#153e32}.wa-page-heading p{margin:0;color:#718179;line-height:1.8}.wa-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}.wa-section{padding:24px;border:1px solid #e0eae4;border-radius:22px;background:#fff;box-shadow:0 12px 32px #173b2d0a}.wa-section h2{margin:0 0 6px;font-size:22px;color:#173d32}.wa-section-intro{margin:0 0 16px;color:#718179;line-height:1.7;font-size:14px}.wa-brand{margin-bottom:12px}.wa-section .wa-brand{margin-bottom:16px}.wa-price-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:16px;border-radius:16px;background:linear-gradient(135deg,#f5efe1,#fff9ec);border:1px solid #ead9b5}.wa-price-card small{display:block;color:#697a71}.wa-price-value{font-size:28px;font-weight:900;color:#a36a16;white-space:nowrap}.wa-price-value small{display:inline;color:#8a6b39;font-size:13px;font-weight:700}.wa-transfer{margin-top:16px;padding:16px;border:1px dashed #b6c8bd;border-radius:16px;background:#f7faf8}.wa-transfer-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-weight:900;color:#244b3e}.wa-setup-badge{padding:4px 9px;border-radius:999px;background:#fff0ce;color:#835b13;font-size:11px;white-space:nowrap}.wa-transfer p{margin:7px 0;color:#687b72;font-size:13px;line-height:1.8}.wa-plan-submit{width:100%;margin-top:15px;padding:13px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#0a7058,#14866b);color:#fff;font:800 15px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 18px #0a70582b}.wa-plan-submit:hover{filter:brightness(1.05);transform:translateY(-1px)}.wa-plan-note{margin:10px 0 0;color:#718179;font-size:12px;text-align:center;line-height:1.7}.wa-plan-select{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit}.wa-transfer .wa-field{margin-bottom:0}.wa-login-section{background:linear-gradient(150deg,#fff,#f8fbf9)}.wa-login-section .wa-brand{margin-bottom:14px}.wa-login-section .wa-field{margin:14px 0}.wa-login-section .wa-actions .wa-button{flex:1}.wa-section .wa-message{min-height:26px}@media(max-width:760px){#waraqa-auth-gate{padding:12px}.wa-card{padding:22px 18px;max-height:calc(100vh - 24px);border-radius:22px}.wa-columns{grid-template-columns:1fr;gap:12px}.wa-section{padding:19px}.wa-page-heading{margin-bottom:18px}.wa-section h2{font-size:20px}}
       .wa-brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}.wa-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#0a7058;color:#fff;font-size:24px}.wa-brand b{font-size:23px}.wa-brand small{display:block;color:#74847d;font-size:13px}
@@ -90,6 +92,7 @@ window.WaraqaAuthorized = false;
           </div>
           <button class="wa-plan-submit" id="wa-subscribe-button" type="button">إرسال طلب الاشتراك</button>
           <p class="wa-plan-note" id="wa-plan-message" role="status">الاشتراك 29 ريالًا للشهر. لا تحتاج إلى إنشاء حساب قبل إرسال الطلب؛ أنشئه بعد التفعيل.</p>
+          <button id="wa-mail-retry" class="wa-button alt" type="button" hidden>إعادة محاولة تنبيه المالك</button>
         </section>
       </div>
     </div>
@@ -125,6 +128,7 @@ window.WaraqaAuthorized = false;
         return;
       }
       button.disabled = true;
+      $("#wa-mail-retry").hidden = true;
       try {
         let requestUser = auth?.currentUser;
         if (!requestUser) {
@@ -141,7 +145,8 @@ window.WaraqaAuthorized = false;
         const existing = await firebase.getDoc(ref);
         if (existing.exists() && existing.data().status === "pending") {
           saveBillingProfile(email, { name, phone });
-          showFeedback("الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.");
+          showFeedback(SUBSCRIPTION_PENDING_MESSAGE);
+          await showSavedRequestNotice(requestUser.uid, false, showFeedback);
           return;
         }
         await firebase.setDoc(ref, {
@@ -156,7 +161,8 @@ window.WaraqaAuthorized = false;
           createdAt: firebase.serverTimestamp()
         });
         saveBillingProfile(email, { name, phone });
-        showFeedback("الطلب تحت الإجراء. سيتم التفعيل مباشرة بعد التحقق من وصول الحوالة.");
+        showFeedback(SUBSCRIPTION_PENDING_MESSAGE);
+        await showSavedRequestNotice(requestUser.uid, true, showFeedback);
       } catch (error) {
         const code = error?.code || "";
         const message = code === "auth/operation-not-allowed" || code === "auth/admin-restricted-operation"
@@ -174,6 +180,71 @@ window.WaraqaAuthorized = false;
   let adminRequestsUnsubscribe = null;
   let adminProvisionBusy = false;
   let provisioningSequence = 0;
+
+
+  function subscriptionNoticeKey(uid) {
+    return "waraqa-subscription-notice:v1:" + new URL(".", location.href).pathname + ":" + uid;
+  }
+  function noticeState(key) {
+    try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
+  }
+  function saveNoticeState(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }
+  async function sendOwnerEmailNotice(test = false) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch("https://formsubmit.co/ajax/" + OWNER_NOTIFICATION_EMAIL, {
+        method: "POST", signal: controller.signal, credentials: "omit",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: test ? "ورقة: اختبار تنبيهات طلبات الاشتراك" : "ورقة: طلب اشتراك جديد بانتظار المراجعة",
+          _template: "table",
+          name: "موقع ورقة",
+          message: test
+            ? "هذا تنبيه تجريبي من لوحة المالك. عند وصول تنبيه طلب جديد افتح لوحة التحكم لمراجعة التفاصيل والتفعيل."
+            : "تم حفظ طلب اشتراك في Firebase. يوجد طلب بانتظار المراجعة في لوحة التحكم. هذا التنبيه لا يؤكد وصول الحوالة أو تفعيل الاشتراك.",
+          dashboard: "https://alatwi777.github.io/waraqa/",
+          submittedAt: new Date().toISOString()
+        })
+      });
+      const data = await response.json();
+      return response.ok && (data.success === true || data.success === "true");
+    } catch { return false; }
+    finally { clearTimeout(timer); }
+  }
+  async function notifySavedSubscription(uid, fresh = false) {
+    const key = subscriptionNoticeKey(uid);
+    const previous = fresh ? {} : noticeState(key);
+    if (previous.accepted) return "accepted";
+    if (previous.attemptedAt && Date.now() - previous.attemptedAt < 30000) return "retry";
+    saveNoticeState(key, { attemptedAt: Date.now(), accepted: false });
+    const accepted = await sendOwnerEmailNotice(false);
+    saveNoticeState(key, { attemptedAt: Date.now(), accepted });
+    return accepted ? "accepted" : "retry";
+  }
+  async function showSavedRequestNotice(uid, fresh, showFeedback) {
+    const retry = $("#wa-mail-retry");
+    try {
+      const result = await notifySavedSubscription(uid, fresh);
+      if (auth?.currentUser?.uid !== uid) return;
+      retry.hidden = result === "accepted";
+      if (result !== "accepted") {
+        showFeedback(SUBSCRIPTION_PENDING_MESSAGE + " تم حفظ الطلب، لكن تعذر تأكيد إرسال تنبيه المالك الآن.");
+        retry.onclick = async () => {
+          if (auth?.currentUser?.uid !== uid) return;
+          retry.disabled = true;
+          showFeedback(SUBSCRIPTION_PENDING_MESSAGE);
+          try { await showSavedRequestNotice(uid, false, showFeedback); }
+          finally { retry.disabled = false; }
+        };
+      }
+    } catch {
+      // The notification is optional: a saved Firestore request remains successful.
+      showFeedback(SUBSCRIPTION_PENDING_MESSAGE + " تم حفظ الطلب، وسيظهر للمالك في لوحة التحكم.");
+    }
+  }
 
   function setMessage(text, kind = "") { message.textContent = text; message.className = `wa-message ${kind}`; }
   function authErrorText(error, action) {
@@ -566,11 +637,22 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@my.com</span> — تفعيل البريد مطلوب مرة واحدة لدى FormSubmit.</p><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button">إرسال تنبيه تجريبي / تفعيل البريد</button><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
       overlay.querySelector("#wa-admin-form").addEventListener("submit", saveAdminLicense);
+      overlay.querySelector("#wa-admin-mail-test").onclick = async event => {
+        requireOwner();
+        const button = event.currentTarget, status = document.getElementById("wa-admin-mail-status");
+        button.disabled = true; status.textContent = "جارٍ إرسال التنبيه التجريبي…";
+        try {
+          const accepted = await sendOwnerEmailNotice(true);
+          status.textContent = accepted
+            ? "قبلت خدمة البريد التنبيه. راجع الوارد والبريد غير المرغوب فيه؛ فعّل رسالة FormSubmit لأول مرة إن ظهرت. قبول الخدمة لا يؤكد التسليم."
+            : "لم نتأكد من قبول التنبيه. راجع بريدك بحثًا عن رسالة تفعيل FormSubmit، ثم أعد المحاولة. طلبات Firebase لا تتأثر.";
+        } finally { button.disabled = false; }
+      };
       overlay.querySelector("#wa-admin-generate-pin").onclick = () => {
         const field = document.getElementById("wa-admin-new-pin");
         field.type = "text"; field.value = generateAccessPin();
