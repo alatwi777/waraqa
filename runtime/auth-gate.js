@@ -723,9 +723,10 @@ showGate("تسجيل الدخول والاشتراك");
       document.getElementById("wa-admin-total").textContent = String(records.length);
       const body = document.getElementById("wa-admin-rows");
       body.replaceChildren();
-      records.sort((a,b) => (asDate(a.data.expiresAt)?.getTime() || 0) - (asDate(b.data.expiresAt)?.getTime() || 0));
+      records.sort((a,b) => Number(b.data.active === true && asDate(b.data.expiresAt)?.getTime() > now) - Number(a.data.active === true && asDate(a.data.expiresAt)?.getTime() > now) || (asDate(b.data.createdAt)?.getTime() || 0) - (asDate(a.data.createdAt)?.getTime() || 0));
       records.forEach(record => {
         const row = document.createElement("tr");
+        row.dataset.licenseId = record.id;
         const email = record.data.email || (record.id.includes("@") ? record.id : "سجل قديم: " + record.id);
         setCell(row, email);
         setCell(row, record.data.plan || "—");
@@ -774,7 +775,7 @@ showGate("تسجيل الدخول والاشتراك");
         (snapshot) => {
           if (adminProvisionBusy) return;
           const enteredPins = new Map([...body.querySelectorAll("[data-wa-request-pin]")].map(input => [input.dataset.requestId, input.value]));
-          const requests = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+          const requests = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })).filter(request => request.data.status === "pending");
           requests.sort((a, b) => (asDate(b.data.createdAt)?.getTime() || 0) - (asDate(a.data.createdAt)?.getTime() || 0));
           body.replaceChildren();
           if (!requests.length) {
@@ -873,6 +874,8 @@ showGate("تسجيل الدخول والاشتراك");
       requireOwner(ownerUid);
       activated = true;
       showActivationMessage(email, pin, expiresAt);
+      const receipt = document.getElementById("wa-activation-message");
+      if (receipt) receipt.dataset.email = email;
       document.querySelectorAll("[data-wa-request-pin]").forEach(input => { if (input.dataset.requestId === uid) input.value = ""; });
       adminStatus("تم التفعيل. رسالة العميل جاهزة للنسخ؛ لم تُرسل تلقائيًا.");
     } catch (error) { adminStatus(provisioningError(error), true); }
@@ -880,6 +883,11 @@ showGate("تسجيل الدخول والاشتراك");
     if (activated) {
       await loadAdminLicenses();
       loadAdminRequests();
+      const savedEmail = document.getElementById("wa-activation-message")?.dataset.email;
+      if (savedEmail) {
+        const row = [...document.querySelectorAll("#wa-admin-rows tr")].find(row => row.dataset.licenseId === savedEmail);
+        row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     }
   }
   async function saveAdminLicense(event) {
@@ -917,6 +925,8 @@ showGate("تسجيل الدخول والاشتراك");
       document.getElementById("wa-admin-email").value = "";
       document.getElementById("wa-admin-new-pin").value = "";
       showActivationMessage(email, pin, expiresAt);
+      const receipt = document.getElementById("wa-activation-message");
+      if (receipt) receipt.dataset.email = email;
       adminStatus(pin ? "تم إنشاء حساب الدخول وتفعيل الاشتراك." : "تم حفظ الاشتراك فقط؛ يستخدم العميل حسابه ورمزه الحاليين.");
       await loadAdminLicenses();
     } catch (error) {
@@ -956,17 +966,108 @@ showGate("تسجيل الدخول والاشتراك");
       return { valid: false, reason: "تعذر الاتصال بـ Firebase للتحقق من الاشتراك. تحقق من الإنترنت ثم أعد المحاولة." };
     }
   }
+  let licenseWatchCleanup = null;
+  let authorizationVersion = 0;
+  let accessNotice = "";
+  const lockedWorkspaceElements = new Set();
+  function setWorkspaceLocked(locked) {
+    if (locked) {
+      for (const element of document.body.children) {
+        if (element === gate || ["SCRIPT", "STYLE", "SVG"].includes(element.tagName) || element.inert) continue;
+        element.inert = true;
+        lockedWorkspaceElements.add(element);
+      }
+    } else {
+      for (const element of lockedWorkspaceElements) element.inert = false;
+      lockedWorkspaceElements.clear();
+    }
+  }
+  function stopLicenseWatch() {
+    if (licenseWatchCleanup) licenseWatchCleanup();
+    licenseWatchCleanup = null;
+  }
+  function startLicenseWatch(user, initialExpiry) {
+    stopLicenseWatch();
+    let stopped = false, expiryTimer = null;
+    let knownExpiry = initialExpiry?.getTime() || 0;
+    const snapshots = new Map(), unsubscribers = [];
+    const emailId = String(user.email || "").trim().toLowerCase();
+    const ids = [...new Set([emailId, user.uid].filter(Boolean))];
+    const current = () => !stopped && auth?.currentUser?.uid === user.uid;
+    const revoke = reason => {
+      if (!current()) return;
+      accessNotice = reason + " تبقى بياناتك المحلية محفوظة.";
+      window.WaraqaAuthorized = false;
+      closeAdminDashboard();
+      setWorkspaceLocked(true);
+      $("#wa-form").hidden = false;
+      $("#wa-pin").value = "";
+      showGate("تسجيل الدخول — الاشتراك غير متاح");
+      setMessage(accessNotice, "error");
+      stopLicenseWatch();
+      // Keep the local database intact; end only the Firebase login session.
+      Promise.resolve(firebase.signOut(auth)).catch(() => {});
+    };
+    const scheduleExpiry = () => {
+      clearTimeout(expiryTimer);
+      if (!current()) return;
+      const remaining = knownExpiry - Date.now();
+      if (remaining <= 0) { revoke("انتهت صلاحية اشتراكك."); return; }
+      expiryTimer = setTimeout(scheduleExpiry, Math.min(remaining, 2147483647));
+    };
+    const evaluate = () => {
+      if (!current()) return;
+      // An email license always takes precedence, including a stopped one.
+      const canonical = snapshots.get(emailId);
+      let selected = canonical?.exists() ? canonical : null;
+      if (!selected) {
+        if (ids.some(id => !snapshots.has(id))) return;
+        selected = snapshots.get(user.uid);
+      }
+      if (!selected?.exists()) { revoke("لا يوجد اشتراك مفعّل لهذا الحساب."); return; }
+      const data = selected.data(), expiry = expirationValue(data);
+      if (data.active !== true) { revoke("تم إيقاف اشتراكك."); return; }
+      if (!expiry || !Number.isFinite(expiry.getTime())) { revoke("تعذر التحقق من تاريخ انتهاء الاشتراك."); return; }
+      knownExpiry = expiry.getTime();
+      scheduleExpiry();
+    };
+    const resume = () => { if (current()) { scheduleExpiry(); evaluate(); } };
+    const visibility = () => { if (document.visibilityState === "visible") resume(); };
+    licenseWatchCleanup = () => {
+      stopped = true;
+      clearTimeout(expiryTimer);
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", visibility);
+    scheduleExpiry();
+    for (const id of ids) {
+      if (!current()) break;
+      unsubscribers.push(firebase.onSnapshot(firebase.doc(db, "licenses", id), snapshot => {
+        if (!current()) return;
+        snapshots.set(id, snapshot);
+        evaluate();
+      }, () => revoke("تعذر متابعة صلاحية الاشتراك. سجّل الدخول مجددًا للتحقق.")));
+    }
+  }
   async function authorize(user) {
+    const version = ++authorizationVersion;
+    stopLicenseWatch();
     if (!user) {
+      window.WaraqaIsAdmin = false;
+      setWorkspaceLocked(true);
       $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
       $("#wa-form").hidden = false;
 showGate();
       addAccountChip("", async () => {});
-      setMessage("أدخل بريدك ورمز الدخول.");
+      setMessage(accessNotice || "أدخل بريدك ورمز الدخول.", accessNotice ? "error" : "");
       return;
     }
     if (user.isAnonymous) {
+      setWorkspaceLocked(true);
       $("#wa-logout")?.remove();
       window.WaraqaAuthorized = false;
       $("#wa-form").hidden = false;
@@ -977,7 +1078,10 @@ showGate("إرسال طلب الاشتراك");
     const isAdmin = isAdminAccount(user);
     window.WaraqaIsAdmin = isAdmin;
     const license = isAdmin ? { valid: true } : await checkLicense(user);
+    if (version !== authorizationVersion || auth?.currentUser?.uid !== user.uid) return;
     if (license.valid) {
+      accessNotice = "";
+      setWorkspaceLocked(false);
       $("#wa-logout")?.remove();
       if (window.WaraqaLoadedUid && window.WaraqaLoadedUid !== user.uid) { location.reload(); return; }
       window.WaraqaFirebaseUid = user.uid;
@@ -994,10 +1098,12 @@ showGate("إرسال طلب الاشتراك");
         showGate();
       }, isAdmin);
       window.dispatchEvent(new Event("waraqa-authorized"));
+      if (!isAdmin) startLicenseWatch(user, license.expiry);
       return;
     }
     window.WaraqaAuthorized = false;
-    $("#wa-form").hidden = true;
+    setWorkspaceLocked(true);
+    $("#wa-form").hidden = false;
     addAccountChip(user.email || "حساب ورقة", async () => {
       closeAdminDashboard();
       await firebase.signOut(auth);
