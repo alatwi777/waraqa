@@ -759,7 +759,9 @@ function paintScanPreview(image, canvas) {
     if (status === 'wrong') {
       const key = item.bubbles.find(b => Number(b.value) === Number(item.q.answer));
       if (key) ring(item, key, '#f4bd16');
-    } else if (status === 'blank' || status === 'unresolved') {
+    } else if (status === 'blank') {
+      paintBlankQuestion(pen, item, map, scale, ox, oy, s.version || 8);
+    } else if (status === 'unresolved') {
       const point = map(item.x - 8, item.y + 8);
       pen.strokeStyle = scanStatusColors[status]; pen.lineWidth = 2; pen.beginPath();
       pen.arc(ox + point.x * scale, oy + point.y * scale, 7 * scale, 0, Math.PI * 2); pen.stroke();

@@ -16,6 +16,13 @@ run(`const image={clientWidth:1123,clientHeight:794};const pen={beginPath(){},ar
 assert.equal(run('scanState.answers[1]'),0);
 assert.equal(run('score(scanPreviewModel().draft)'),8);
 assert.equal(run('db.results.length'),0,'editing a preview must remain a draft');
+// A blank answer highlights the complete question; either chosen answer removes it.
+run(`const savedPreviewContext=scanPreviewContext;let fills=0;const fillPen={save(){},restore(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){fills++},arc(){},stroke(){}};const fillCanvas={getContext(){return fillPen}};const fillItem=scanPlan(scanState,sample).items.find(v=>v.i===0);scanPreviewContext=()=>({s:scanState,plan:{items:[fillItem]},map:(x,y)=>({x,y}),scale:1,ox:0,oy:0});scanState.answers[0]=null;scanState.flags[0]='فارغ';delete scanState.readings[0];paintScanPreview(image,fillCanvas)`);
+assert.equal(run('fills'),1,'blank question receives one translucent area');
+run('fills=0;scanState.answers[0]=0;paintScanPreview(image,fillCanvas)');assert.equal(run('fills'),0,'correct answer removes fill');
+run('scanState.answers[0]=1;paintScanPreview(image,fillCanvas)');assert.equal(run('fills'),0,'wrong answer also removes fill');
+run('scanState.answers[0]=0;scanPreviewContext=savedPreviewContext');
+
 run(`let writtenImage=null;filePut=async(k,v)=>{writtenImage={k,v}};save=()=>{};results=()=>{};scanState.url='synthetic-sheet';scanQueue=[{}];scanIndex=0;`);
 (async()=>{
  await run('saveScan(true)');assert.equal(run('db.results.length'),1);assert.equal(run('db.results[0].answers[1]'),0);assert.equal(run('db.results[0].essay[-1]'),6);assert.equal(run('writtenImage.v'),'synthetic-sheet');assert.equal(run('score(db.results[0])'),8);
