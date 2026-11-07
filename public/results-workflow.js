@@ -450,13 +450,13 @@ reviewResult = async function (id, p = 0) {
   if (db.results.find(r=>r.id===id)?.captureStatus === 'ungraded') return reviewCapturedSheet(id);
   await originalReviewResult(id, p);
   const r = db.results.find(x => x.id === id); if (!r) return;
-  const reviewPanel = document.querySelector('.review-layout > section:last-child');
-  if (reviewPanel && !reviewPanel.querySelector('.result-draft-notice') && resultNeedsReview(r)) reviewPanel.insertAdjacentHTML('afterbegin', `<div class="callout result-draft-notice"><strong>محفوظة — تحتاج مراجعة</strong><p>الدرجة أولية. يمكنك تعديل الطالب والإجابات ورصد المقالي الآن؛ تُحفظ التعديلات مباشرة.</p><button class="btn gold small" type="button" onclick="approveResultReview('${r.id}')">اعتماد المراجعة</button></div>`);
   const imagePanel = document.querySelector('.review-layout > section:first-child');
   if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط فقاعة الإجابة لتعديلها، أو فقاعة مجموع المقالي أعلى الورقة لرصد الدرجة. النقر على الفقاعة المحددة يمسحها.</p>');
   const imageToolbar = imagePanel?.querySelector('.toolbar');
-  if (imageToolbar && !imageToolbar.querySelector('.result-page-number-nav')) imageToolbar.insertAdjacentHTML('afterbegin', resultPageButtons(r, p));
-  if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions">${resultApprovalButton(r)}<button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button></div>`);
+  if(imageToolbar){
+    imageToolbar.classList.add('result-review-toolbar');
+    imageToolbar.innerHTML=`<select class="result-page-select" aria-label="صفحات ورقة الطالب" onchange="reviewResult('${r.id}',Number(this.value))">${options(Object.keys(r.pages||{}).sort((a,b)=>Number(a)-Number(b)).map(n=>[String(n),'صفحة '+ar(Number(n)+1)]),String(p))}</select><div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn light small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button>${resultApprovalButton(r)}</div>`;
+  }
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
     if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.filter(st=>!r.captureGroup||st.group===r.captureGroup).map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);

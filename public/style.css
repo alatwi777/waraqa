@@ -361,3 +361,10 @@ html[data-theme="dark"] #wa-invoice-status,html[data-theme="dark"] .wa-invoice-h
 .captured-batch-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px;margin:8px 0 18px;border:1px solid #d9b84e;border-radius:14px;background:var(--white)}.ungraded-capture-row td{background:#f8f1dc;color:#17342e}.ungraded-capture-row .tag{background:#182a43;color:#ffbd66}.batch-camera-context{margin:0;text-align:center;color:#e9dfc7;font-size:11px}.document-batch-camera .camera-progress i{background:#f7d66c}.document-batch-camera #document-batch-count{color:#f7d66c}
 
 .results-review-filter .field{margin-bottom:0;min-width:160px}.result-preview-top-info #result-preview-info{flex-wrap:wrap}.result-approve-button{white-space:nowrap}.result-approve-button:disabled{opacity:.75}
+
+/* Compact paper controls: page selector and four aligned actions. */
+.result-review-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.result-review-toolbar .result-page-select{width:108px;min-width:108px;max-width:108px;height:42px;min-height:0;flex:0 0 108px;align-self:center;margin:0;padding:7px 10px;font-size:13px;border-radius:9px}
+.result-review-toolbar .result-paper-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:300px;align-items:center}
+.result-review-toolbar .result-paper-actions .btn{height:42px;min-height:0;margin:0;padding:7px 10px;border-radius:9px;font-size:12px;white-space:nowrap;display:flex;align-items:center;justify-content:center}
+@media(max-width:600px){.result-review-toolbar .result-paper-actions{min-width:220px;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.result-review-toolbar .result-page-select{align-self:flex-start}}
