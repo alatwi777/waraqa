@@ -34,7 +34,7 @@ function mergeDuplicateStudentResults() {
   const groups = new Map();
   for (const r of db.results) {
     const identity = resultStudentKey(r);
-    if (!r.exam || !identity) continue;
+    if (r.captureStatus === 'ungraded' || !r.exam || !identity) continue;
     const key = r.exam + '|' + identity;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
@@ -160,12 +160,16 @@ function handleScanPaperClick(ev) {
 async function persistScanDraft(s, e, batch = false) {
   let st = db.students.find(x => x.id === s.student);
   let r = db.results.find(x => x.id === s.savedResultId) || (st && db.results.find(x => x.exam === e.id && resultMatchesStudent(x, st, e.id)));
-  if (r && (JSON.stringify(r.snapshot.questions) !== JSON.stringify(e.questions) || (r.snapshot.paperVersion || 1) !== (s.version || 8))) throw Error('تغير الاختبار بعد التصحيح. أنشئ اختبارًا منفصلًا للنسخة المعدلة.');
+  if (r && r.captureStatus !== 'ungraded' && (JSON.stringify(r.snapshot.questions) !== JSON.stringify(e.questions) || (r.snapshot.paperVersion || 1) !== (s.version || 8))) throw Error('تغير الاختبار بعد التصحيح. أنشئ اختبارًا منفصلًا للنسخة المعدلة.');
+  const previousRecord = r;
+  if (r) r = JSON.parse(JSON.stringify(r));
   if (!r) r = { id: uid(), exam: e.id, student: st?.id || '', name: st?.name || 'طالب غير محدد — للمراجعة', number: st?.number || '', group: st?.group || '', snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: {}, reviewed: {}, date: new Date().toISOString() };
   const key = r.id + '-' + s.p + '-' + uid();
   // Write the image before changing an existing result. A failed image write leaves it intact.
   await filePut(key, s.url);
   st = db.students.find(x => x.id === s.student);
+  if (r.captureStatus === 'ungraded') { r.snapshot = { ...JSON.parse(JSON.stringify(e)), paperVersion:s.version || 8 }; r.pages = {}; }
+  r.captureStatus = 'graded';
   if (st) { r.student = st.id; r.name = st.name; r.number = st.number; r.group = st.group; }
   r.pages[s.p] = key; r.markings ??= {}; r.markings[s.p] = {}; r.reviewPending ??= {}; r.reviewPending[s.p] = true;
   for (const { i, q } of scanPlan(s, e).items) {
@@ -180,8 +184,10 @@ async function persistScanDraft(s, e, batch = false) {
   if (s.version >= 6) for (const v of paperPlan(e, s.version)[s.p].items) r.reviewed[v.i] = true;
   r.updated = new Date().toISOString(); r.batchAuto = batch || !!r.batchAuto;
   if (batch) r.batchRunId = batchRunId;
-  if (!db.results.some(x => x.id === r.id)) db.results.push(r);
-  s.savedResultId = r.id; s.savedThisVisit = true; save(); return r;
+  const recordIndex = db.results.findIndex(x => x.id === r.id);
+  if (recordIndex < 0) db.results.push(r); else db.results[recordIndex] = r;
+  try { if (save() === false) throw Error('تعذر حفظ بيانات النتيجة؛ الصورة السابقة ما زالت محفوظة.'); } catch(error) { if (recordIndex < 0) db.results = db.results.filter(x=>x.id!==r.id); else db.results[recordIndex] = previousRecord; throw error; }
+  s.savedResultId = r.id; s.savedThisVisit = true; return r;
 }
 async function saveScan(advance = true) {
   const s = scanState, e = db.exams.find(x => x.id === s?.exam);
@@ -202,6 +208,7 @@ async function saveScan(advance = true) {
 function resultNeedsReview(r) { return !r.student || !!r.batchAuto || Object.values(r.reviewPending || {}).some(Boolean) || issueCounts(r).essayPending > 0; }
 function approveResultReview(id) {
   const r = db.results.find(x => x.id === id); if (!r) return;
+  if (r.captureStatus === 'ungraded') return toast('اضغط تصحيح أولًا؛ الصورة ما زالت غير مصححة');
   if (!r.student) return toast('اربط الورقة بالطالب قبل اعتماد النتيجة');
   if (Object.keys(r.pages || {}).length < resultPageCount(r)) return toast('أكمل صفحات الطالب قبل اعتماد النتيجة');
   if (issueCounts(r).essayPending) return toast('ارصد درجة المقالي قبل اعتماد النتيجة؛ تبقى الورقة محفوظة للمراجعة');
@@ -285,15 +292,15 @@ async function exportAnswerSheets() {
 }
 
 async function exportResultsExcel() {
-  if (!db.results.length) return toast('لا توجد نتائج للتصدير');
+  if (!db.results.some(r=>r.captureStatus!=='ungraded')) return toast('صحّح الأوراق أولًا قبل تصدير الدرجات');
   try {
     const XLSX = await loadStudentSheetLibrary();
     const safe = value => { const text = String(value ?? ''); return /^[=+\-@]/.test(text) ? `'${text}` : text; };
-    const gradeRows = [['رقم الطالب','اسم الطالب','المجموعة','الاختبار','الدرجة','الدرجة الكلية','درجة المقالي','تاريخ الرصد','حالة المراجعة'], ...db.results.map(r => {
+    const gradeRows = [['رقم الطالب','اسم الطالب','المجموعة','الاختبار','الدرجة','الدرجة الكلية','درجة المقالي','تاريخ الرصد','حالة المراجعة'], ...db.results.filter(r=>r.captureStatus!=='ungraded').map(r => {
       const e = resultExam(r), essay = r.snapshot?.paperVersion >= 6 ? Number(r.essay?.[-1] || 0) : Object.entries(r.essay || {}).filter(([key]) => key !== '-1').reduce((sum,[,value]) => sum + Number(value || 0), 0);
       return [safe(r.number), safe(r.name), safe(r.group), safe(e?.title), score(r), e ? total(e) : 0, issueCounts(r).essayPending ? 'غير مرصودة' : essay, r.updated || r.date || '', resultNeedsReview(r) ? 'تحتاج مراجعة — الدرجة أولية' : 'مراجَعة'];
     })];
-    const answerRows = [['رقم الطالب','اسم الطالب','الاختبار','نوع السؤال','رقم السؤال','إجابة الطالب','إجابة المفتاح','الحالة','الدرجة'], ...db.results.flatMap(r => {
+    const answerRows = [['رقم الطالب','اسم الطالب','الاختبار','نوع السؤال','رقم السؤال','إجابة الطالب','إجابة المفتاح','الحالة','الدرجة'], ...db.results.filter(r=>r.captureStatus!=='ungraded').flatMap(r => {
       const e = resultExam(r); if (!e) return [];
       return e.questions.map((q,i) => {
         const p = Number(Object.keys(r.pages || {}).sort((a,b)=>Number(a)-Number(b))[0] || 0);
@@ -327,6 +334,7 @@ results = function () {
   const filtered = resultsExamFilter === 'all' ? db.results : db.results.filter(r => r.exam === resultsExamFilter);
   const filterBar = `<div class="toolbar results-exam-filter"><label class="field">اختر الاختبار<select aria-label="تصفية النتائج حسب الاختبار" onchange="setResultsExamFilter(this.value)"><option value="all" ${resultsExamFilter === 'all' ? 'selected' : ''}>جميع الاختبارات</option>${options(examItems, resultsExamFilter)}</select></label><span class="note">عدد أوراق الطلاب: ${ar(filtered.length)}</span></div>`;
   const rows = filtered.slice().reverse().map(r => {
+    if (r.captureStatus === 'ungraded') return ungradedCaptureRow(r);
     const e = resultExam(r), complete = Object.keys(r.pages || {}).length >= resultPageCount(r), c = issueCounts(r);
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${resultNeedsReview(r) ? 'محفوظة — تحتاج مراجعة' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
@@ -371,6 +379,7 @@ async function correctAllPending() {
 function openResultIssue(id, kind) { currentResult = id; reviewResult(id).then(() => { const r = db.results.find(x => x.id === id), e = resultExam(r); const q = e.questions.findIndex((x, i) => x.type !== 'essay' && resultAnswerStatus(r, x, i, Number(Object.keys(r.pages)[0] || 0)) === kind); if (q >= 0) setTimeout(() => document.querySelector(`#result-q-${q}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100); }); }
 
 reviewResult = async function (id, p = 0) {
+  if (db.results.find(r=>r.id===id)?.captureStatus === 'ungraded') return reviewCapturedSheet(id);
   await originalReviewResult(id, p);
   const r = db.results.find(x => x.id === id); if (!r) return;
   const reviewPanel = document.querySelector('.review-layout > section:last-child');
@@ -382,7 +391,7 @@ reviewResult = async function (id, p = 0) {
   if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button></div>`);
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
-    if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
+    if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.filter(st=>!r.captureGroup||st.group===r.captureGroup).map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
   }
   resultExam(r)?.questions.forEach((q, i) => {
     const card = [...document.querySelectorAll('.review-layout > section:last-child .review-q')].find(el => el.querySelector('b')?.textContent.includes(q.text));
@@ -613,7 +622,7 @@ async function switchLargeResultPage(id, p) {
 
 async function navigateLargeResultPreview(direction) {
   const current = db.results.find(x => x.id === largeResultPreview?.id); if (!current) return;
-  const sameExam = db.results.filter(x => x.exam === current.exam).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  const sameExam = db.results.filter(x => x.exam === current.exam && x.captureStatus !== 'ungraded').slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
   if (sameExam.length < 2) return toast('لا توجد أوراق أخرى لهذا الاختبار');
   const at = sameExam.findIndex(x => x.id === current.id), step = direction === 'previous' ? -1 : 1;
   const next = sameExam[(at + step + sameExam.length) % sameExam.length], oldPage = largeResultPreview.p;

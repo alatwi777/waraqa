@@ -16,6 +16,7 @@ function registerBubbleRings(canvas,map,plan){
  return{offsets,reliable,count};
 }
 function bubblePointMap(s,map,i,b){const offset=s.bubbleRegistration?.offsets[i+':'+b.value];return(x,y)=>map(x+(offset?.dx||0),y+(offset?.dy||0))}
+function identityStudentsForScan(s){return db.students.filter(st=>!s.captureGroup||st.group===s.captureGroup)}
 function scanIdentityNotice(s){return s.identityStatus||'تجري قراءة رقم الطالب من الورقة…'}
 let NumberOCR=null,NumberOCRLoading=null,IdentityJob=0,NumberOCRQueue=Promise.resolve();
 function recognizeNumber(image){const task=NumberOCRQueue.then(async()=>{const worker=await getNumberOCR();return worker.recognize(image,{}, {text:true,blocks:true})});NumberOCRQueue=task.catch(()=>{});return task}
@@ -54,17 +55,18 @@ function refreshIdentityUI(s){if(scanState!==s)return;const r=db.results.find(x=
 async function readScanStudent(s){
  if(!s||scanState!==s||s.student)return;const job=++IdentityJob;
  if(s.orientationReady===false){s.identityStatus='صحّح اتجاه الورقة أولًا؛ يجب أن يكون عنوان الاختبار في الأعلى.';refreshIdentityUI(s);return}
- if(!db.students.length){s.identityStatus='لا توجد قائمة طلاب على هذا الجهاز. استعد بيانات الطلاب أولًا.';refreshIdentityUI(s);return}
+ const students=identityStudentsForScan(s);
+ if(!students.length){s.identityStatus='لا توجد قائمة طلاب على هذا الجهاز. استعد بيانات الطلاب أولًا.';refreshIdentityUI(s);return}
  const crop=studentNumberCrop(s);if(!crop){s.identityStatus='يلزم قالب V8 ورقم طالب مطبوع وزوايا صحيحة لقراءة الاسم تلقائيًا.';refreshIdentityUI(s);return}
  s.identityStatus='جارٍ قراءة رقم الطالب تلقائيًا…';refreshIdentityUI(s);
  try{await getNumberOCR();if(scanState!==s||job!==IdentityJob||s.student)return;
  const readings=[];let matched=null;
  s.identityReadings=[];
  for(const variant of [0,1,2,3]){const crop=studentNumberCrop(s,variant);if(!crop)break;const reading=numericOCRReading((await recognizeNumber(crop)).data);if(scanState!==s||job!==IdentityJob||s.student)return;
- for(const previous of readings){matched=studentFromReadings(previous,reading,db.students);if(matched)break}readings.push(reading);s.identityReadings=readings;if(matched)break;}
+ for(const previous of readings){matched=studentFromReadings(previous,reading,students);if(matched)break}readings.push(reading);s.identityReadings=readings;if(matched)break;}
  if(matched){s.student=matched.id;s.identityStatus='تم التعرف على الطالب برقم الورقة: '+matched.number;s.identityAutomatic=true}
  else{const strong=readings.filter(r=>r.confidence>=80).map(r=>printedStudentNumber(r.text)).filter(Boolean),agreed=strong.find(n=>strong.filter(x=>x===n).length>=2);
- const matches=agreed?db.students.filter(st=>normalizeStudentNumber(st.number)===agreed):[];
+ const matches=agreed?students.filter(st=>normalizeStudentNumber(st.number)===agreed):[];
  s.identityStatus=agreed&&!matches.length?'الرقم المقروء '+agreed+' غير موجود في قائمة الطلاب على هذا الجهاز. استعد القائمة الصحيحة.':agreed&&matches.length>1?'رقم الطالب '+agreed+' مكرر في القائمة؛ يلزم إزالة التكرار أو اختياره يدويًا.':'لم نقرأ رقمًا مطابقًا بثقة. أعد المسح الضوئي مع وضوح الرقم أو اختره يدويًا.';s.identityAutomatic=false}
  }catch{s.identityStatus='تعذرت قراءة رقم الطالب. تحقق من الإنترنت لتحميل محرك القراءة، أو اختر الطالب يدويًا.'}
  refreshIdentityUI(s);
