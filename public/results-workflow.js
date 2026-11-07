@@ -108,10 +108,14 @@ renderScan = function () {
   const imagePanel = cards[0]?.querySelector('.panel');
   const answerPanel = cards[1];
   if (imagePanel && !imagePanel.querySelector('.scan-top-actions')) {
-    imagePanel.insertAdjacentHTML('afterbegin', `<div class="scan-top-actions"><span>الورقة ${ar(scanIndex + 1)} من ${ar(scanQueue.length)}</span><button class="btn light small" type="button" onclick="saveScan(false)">حفظ</button><button class="btn gold small" type="button" onclick="saveScan(true)">التالي ←</button></div>`);
+    imagePanel.insertAdjacentHTML('afterbegin', `<div class="scan-top-actions"><span>الورقة ${ar(scanIndex + 1)} من ${ar(scanQueue.length)}</span><button class="btn light small" type="button" onclick="openLargeScanPreview()">معاينة</button><button class="btn light small" type="button" onclick="saveScan(false)">حفظ</button><button class="btn gold small" type="button" onclick="saveScan(true)">التالي ←</button></div>`);
   }
   if (answerPanel && !answerPanel.querySelector('.answers-top-save')) {
     answerPanel.insertAdjacentHTML('afterbegin', `<div class="answers-top-save"><strong>إجابات الطالب</strong><button class="btn light small" type="button" onclick="saveScan(false)">حفظ</button></div>`);
+  }
+  const readings = Object.values(scanState.readings || {}).flat();
+  if (readings.length && readings.every(value => Number(value) < .08) && imagePanel) {
+    imagePanel.insertAdjacentHTML('afterbegin', '<div class="callout" role="status">لم يُرصد تظليل واضح في هذه الصورة. افتح «معاينة» وتحقق من وضوح التظليل، واختيار الاختبار والقالب المطابقين للورقة قبل اعتماد الدرجة.</div>');
   }
   const image = document.querySelector('#scan-img');
   if (image) image.setAttribute('onclick', 'handleScanPaperClick(event)');
@@ -645,3 +649,112 @@ $('#modal')?.addEventListener('close', () => {
   $('#modal')?.classList.remove('result-preview-modal');
   largeResultPreview = null;
 });
+
+// Preview the current scan without creating a result or writing any data.
+let scanPreviewSession = null;
+function scanPreviewModel(s = scanState) {
+  if (!s) return null;
+  const exam = db.exams.find(e => e.id === s.exam);
+  if (!exam) return null;
+  const student = db.students.find(st => st.id === s.student);
+  const draft = { snapshot: { ...exam, paperVersion: s.version || 8 }, answers: s.answers, essay: s.essay, reviewed: {}, markings: { [s.p]: {} } };
+  for (const item of scanPlan(s, exam).items) {
+    draft.reviewed[item.i] = true;
+    if (item.q.type !== 'essay') {
+      const status = scanAnswerStatus(item.q, item.i, s);
+      draft.markings[s.p][item.i] = { status, marked: scanMarkedValues(item.i, s, status) };
+    }
+  }
+  return { exam, student, draft };
+}
+function scanPreviewContext(image, canvas) {
+  const s = scanState, model = scanPreviewModel(s);
+  if (!s?.corners || s.orientationReady === false || !model || !image?.clientWidth || !s.canvas?.width) return null;
+  try {
+    const scale = Math.min(image.clientWidth / s.canvas.width, image.clientHeight / s.canvas.height);
+    return { s, ...model, plan: scanPlan(s, model.exam), map: homography(s.corners, s.version || 8), scale,
+      ox: (image.clientWidth - s.canvas.width * scale) / 2, oy: (image.clientHeight - s.canvas.height * scale) / 2, canvas };
+  } catch { return null; }
+}
+function paintScanPreview(image, canvas) {
+  if (!canvas || !image?.clientWidth) return;
+  canvas.width = image.clientWidth; canvas.height = image.clientHeight;
+  const context = scanPreviewContext(image, canvas);
+  if (!context) return;
+  const { s, plan, map, scale, ox, oy } = context, pen = canvas.getContext('2d');
+  const ring = (item, bubble, color, extra = 2) => {
+    const bm = typeof bubblePointMap === 'function' ? bubblePointMap(s, map, item.i, bubble) : map;
+    const pt = bm(bubble.x, bubble.y), edge = bm(bubble.x + bubble.r, bubble.y);
+    pen.strokeStyle = color; pen.lineWidth = 3; pen.beginPath();
+    pen.arc(ox + pt.x * scale, oy + pt.y * scale, Math.hypot(edge.x - pt.x, edge.y - pt.y) * scale + extra, 0, Math.PI * 2); pen.stroke();
+  };
+  for (const item of plan.items) {
+    if (item.q.type === 'essay') {
+      const grade = s.essay?.[item.i];
+      const bubble = grade == null ? null : item.bubbles.find(b => Number(b.value) === Number(grade));
+      if (bubble) ring(item, bubble, scanStatusColors.correct);
+      continue;
+    }
+    const status = scanAnswerStatus(item.q, item.i, s), marked = scanMarkedValues(item.i, s, status);
+    for (const bubble of item.bubbles.filter(b => marked.includes(b.value))) ring(item, bubble, scanStatusColors[status] || scanStatusColors.unresolved);
+    if (status === 'wrong') {
+      const key = item.bubbles.find(b => Number(b.value) === Number(item.q.answer));
+      if (key) ring(item, key, '#f4bd16', 3);
+    } else if (status === 'blank' || status === 'unresolved') {
+      const point = map(item.x - 8, item.y + 8);
+      pen.strokeStyle = scanStatusColors[status]; pen.lineWidth = 2; pen.beginPath();
+      pen.arc(ox + point.x * scale, oy + point.y * scale, 7 * scale, 0, Math.PI * 2); pen.stroke();
+    }
+  }
+}
+function renderScanPreviewInfo() {
+  const info = document.querySelector('#scan-preview-info'), model = scanPreviewModel();
+  if (!info || !model) return;
+  const s = scanState, essay = s.version >= 6 ? s.essay?.[-1] : null;
+  info.innerHTML = `<strong class="result-preview-name">${esc(model.student?.name || 'اختر الطالب من صفحة المراجعة')}</strong><span class="result-preview-score-chip"><small>الدرجة الأولية</small><b>${ar(score(model.draft))} / ${ar(total(model.exam))}</b></span>${essayMaximum(model.exam) ? `<span class="result-preview-score-chip"><small>مجموع المقالي</small><b>${essay == null ? 'غير مرصود' : ar(essay)}</b></span>` : ''}`;
+}
+function editScanPreviewPoint(ev) {
+  if (scanPreviewSession?.scan !== scanState) return;
+  const image = document.querySelector('#large-scan-image'), canvas = document.querySelector('#large-scan-overlay');
+  const context = scanPreviewContext(image, canvas); if (!context) return;
+  const rect = canvas.getBoundingClientRect(), x = (ev.clientX - rect.left - context.ox) / context.scale, y = (ev.clientY - rect.top - context.oy) / context.scale;
+  let best = null;
+  for (const item of context.plan.items) for (const bubble of item.bubbles) {
+    const bm = typeof bubblePointMap === 'function' ? bubblePointMap(scanState, context.map, item.i, bubble) : context.map;
+    const point = bm(bubble.x, bubble.y), edge = bm(bubble.x + bubble.r, bubble.y), radius = Math.hypot(edge.x - point.x, edge.y - point.y), distance = Math.hypot(point.x - x, point.y - y);
+    if (distance <= Math.max(radius * 1.55, 11) && (!best || distance < best.distance)) best = { item, bubble, distance };
+  }
+  if (!best) return;
+  const { item, bubble } = best, s = scanState;
+  if (item.q.type === 'essay' && Number(bubble.value) > Number(item.q.points)) return toast('الدرجة أعلى من مجموع المقالي المخصص');
+  if (item.q.type === 'essay') {
+    s.essay[item.i] = s.essay[item.i] === bubble.value ? null : bubble.value;
+  } else {
+    s.answers[item.i] = s.answers[item.i] === bubble.value ? null : bubble.value;
+    delete s.readings?.[item.i];
+    if (s.answers[item.i] == null) s.flags[item.i] = 'فارغ — ترك السؤال دون إجابة';
+    else delete s.flags[item.i];
+  }
+  renderScan(); renderScanPreviewInfo(); paintScanPreview(image, canvas);
+  toast('تعدّلت القراءة الأولية؛ ارجع للمراجعة ثم احفظ النتيجة');
+}
+function openLargeScanPreview() {
+  const s = scanState, model = scanPreviewModel(s); if (!s || !model) return;
+  scanPreviewSession?.observer?.disconnect();
+  modal('معاينة ورقة الطالب — قبل الحفظ', `<div class="result-preview-toolbar"><button type="button" class="btn light small" onclick="closeModal()">العودة للمراجعة والحفظ</button><div class="result-preview-top-info"><div id="scan-preview-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"></div><small>${esc(model.exam.title)}</small></div></div><div class="result-preview-grid"><section class="result-preview-paper"><div class="large-result-scroll"><div class="result-page-image-wrap"><img id="large-scan-image" class="scan-preview" alt="معاينة الورقة الحالية قبل حفظ النتيجة"><canvas id="large-scan-overlay" aria-label="اضغط فقاعة لتعديل القراءة الأولية" style="position:absolute;inset:0;cursor:crosshair"></canvas></div></div>${scanStatusLegend()}<p class="note">الأحمر للإجابة الخاطئة والأصفر لمفتاح المعلم. اضغط الفقاعة أو درجة المقالي للتعديل. هذه قراءة أولية؛ تُحفظ النتيجة من صفحة المراجعة.</p></section></div>`);
+  document.querySelector('#modal').classList.add('result-preview-modal');
+  const image = document.querySelector('#large-scan-image'), canvas = document.querySelector('#large-scan-overlay');
+  image.style.maxHeight = 'none'; image.style.maxWidth = 'none';
+  const layout = () => { if (scanPreviewSession?.scan !== scanState || !image.naturalWidth) return; if (fitLargeResultImage(image)) paintScanPreview(image, canvas); };
+  scanPreviewSession = { scan: s, observer: null };
+  image.onload = () => requestAnimationFrame(layout); image.src = s.url;
+  canvas.onclick = editScanPreviewPoint;
+  if ('ResizeObserver' in window) { scanPreviewSession.observer = new ResizeObserver(layout); scanPreviewSession.observer.observe(image.closest('.large-result-scroll')); }
+  renderScanPreviewInfo(); if (image.complete) requestAnimationFrame(layout);
+}
+const scanOverlayBeforePreview = drawOverlay;
+drawOverlay = function () {
+  if (!scanState || isManual || !scanState.showOverlay || scanState.orientationReady === false) return scanOverlayBeforePreview();
+  paintScanPreview(document.querySelector('#scan-img'), document.querySelector('#scan-overlay'));
+};
+document.querySelector('#modal')?.addEventListener('close', () => { scanPreviewSession?.observer?.disconnect(); scanPreviewSession = null; });
