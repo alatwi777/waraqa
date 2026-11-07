@@ -15,7 +15,8 @@ function ink(canvas,x,y,value=0){const n=(y*canvas.width+x)*4;canvas.data[n]=can
 for(const [x,y]of copy('paperGeometry(8).markers'))for(let dx=-9;dx<9;dx++)for(let dy=-9;dy<9;dy++)ink(header,x+dx,y+dy);
 for(const y of [20,49])for(let x=50;x<1073;x++)ink(header,x,y);
 for(let x=175;x<950;x+=18)for(let y=28;y<40;y++)for(let dx=0;dx<5;dx++)ink(header,x+dx,y);
-ctx.header=header;const flattened=run('rectifyDocumentCanvas(header,8)');assert.equal(flattened.width,1797);assert.equal(flattened.height,1270);
+ctx.header=header;const flattened=run('rectifyDocumentCanvas(header,8)');assert.equal(flattened.width,Math.round(1123*2.4));assert.equal(flattened.height,Math.round(794*2.4));
+ctx.image=c;ctx.rectified=run('rectifyDocumentCanvas(image,8)');run('scanState={canvas:rectified,version:8,p:0,corners:null,answers:{},essay:{}};detectAndRead()');assert.equal(run('scanState.answers[0]'),0,'high-resolution document scan must retain the shaded answer');
 for(let turn=0;turn<4;turn++){ctx.header=header;const result=copy('paperOrientation(header,sample,8)');assert.equal(result.confident,true,JSON.stringify(result));assert.equal(result.turn,turn);header=rotate(header)}
 run('drawCameraGuides({documentScan:true,canvas:{width:720,height:500}},null,false)');assert.equal(fake.width,720);assert.equal(guideDraws.length,4);
 ctx.image=new Canvas();ctx.image.data=new Uint8ClampedArray(c.data.length).fill(255);assert.equal(run('paperOrientation(image,sample,8).confident'),false);
@@ -25,3 +26,4 @@ assert.equal(run('paperFrameQuality(image,null).ok'),false);
 let stopped=0;ctx.track={stop(){stopped++}};run('PaperCamera={stream:{getTracks:()=>[track]},timer:1};stopPaperCamera()');assert.equal(stopped,1);assert.equal(run('PaperCamera'),null);
 run(`db.students=[{id:'student',name:'طالب تجربة',number:'000123'}];scanState={exam:'exam',student:'student',version:8,p:0,answers:{0:0},essay:{'-1':6}};updateScanSummary()`);assert(fake.innerHTML.includes('000123'));assert(fake.innerHTML.includes('طالب تجربة'));assert(fake.innerHTML.includes('درجة الصفحة الأولية'));assert(fake.innerHTML.includes('٧'));
 (async()=>{let resolve;ctx.navigator.mediaDevices={getUserMedia(){return new Promise(r=>resolve=r)}};run('PaperCamera={stream:null,canvas:{}};const pending=connectPaperCamera(PaperCamera);stopPaperCamera()');resolve({getTracks(){return[ctx.track]}});await run('pending');assert.equal(stopped,2);console.log('PASS: four paper rotations retain answers, blank rejected, stability/movement guards, compact student score, camera cleanup and late permission cancellation.');})().catch(e=>{console.error(e);process.exitCode=1});
+
