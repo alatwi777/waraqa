@@ -232,7 +232,42 @@ function answerSheetsExportModal() {
   const available = db.results.filter(r => Object.keys(r.pages || {}).length);
   if (!available.length) return toast('لا توجد أوراق محفوظة للتصدير');
   const exams = [...new Map(available.map(r => { const e = resultExam(r); return [e?.id || r.exam, e]; }).filter(([, e]) => e).map(([id, e]) => [id, e])).values()];
-  modal('تصدير أوراق إجابات الطلاب', `<p class="note">يُجهّز ملف طباعة متعدد الصفحات بصور أوراق الطلاب، مع علامات إجاباتهم فقط. لن تظهر دوائر إجابة المعلم الصفراء. بعد فتح المعاينة اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p><label class="field">الاختبار<select id="answer-export-exam"><option value="all">جميع الاختبارات</option>${options(exams.map(e => [e.id, e.title]))}</select></label>${btn('تجهيز الأوراق','exportAnswerSheets()')}`);
+  modal('تصدير أوراق إجابات الطلاب', `<p class="note">يُجهّز ملف طباعة متعدد الصفحات بصور أوراق الطلاب، مع علامات إجاباتهم ودرجتهم الرقمية بالأحمر بأسلوب الكتابة اليدوية. لن تظهر دوائر إجابة المعلم الصفراء. بعد فتح المعاينة اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p><label class="field">الاختبار<select id="answer-export-exam"><option value="all">جميع الاختبارات</option>${options(exams.map(e => [e.id, e.title]))}</select></label>${btn('تجهيز الأوراق','exportAnswerSheets()')}`);
+}
+
+// Numeric red-pen annotation is added only to the exported copy, above the paper.
+function exportedSheetGrade(r) {
+  const e=resultExam(r);if(!e||r.captureStatus==='ungraded')return null;
+  const numeric=n=>new Intl.NumberFormat('en-US',{useGrouping:false,maximumFractionDigits:2}).format(n);
+  return { text:numeric(score(r))+' / '+numeric(total(e)), provisional:resultNeedsReview(r)||Object.keys(r.pages||{}).length<resultPageCount(r), essayPending:issueCounts(r).essayPending>0 };
+}
+function drawExportedSheetGrade(ctx,width,band,r) {
+  const grade=exportedSheetGrade(r);
+  ctx.save();ctx.fillStyle='#fff';ctx.fillRect(0,0,width,band);
+  ctx.fillStyle='#61706b';ctx.font=`${Math.max(12,band*.19)}px Tahoma,Arial,sans-serif`;ctx.textAlign='left';ctx.direction='rtl';
+  ctx.fillText(!grade?'غير مصححة':grade.essayPending?'درجة أولية — المقالي غير مرصود':grade.provisional?'الدرجة الحالية — للمراجعة':'الدرجة',width*.045,band*.57);
+  if(!grade){ctx.restore();return;}
+  // Single-stroke numerals, round pen ends and a slightly uneven circle resemble handwriting.
+  const digits={
+    '0':'M30 3 C-5 3 -5 97 30 97 C65 97 65 3 30 3',
+    '1':'M12 20 L32 3 L32 97',
+    '2':'M4 22 C7 -7 59 -4 57 24 C56 44 16 62 4 95 L59 95',
+    '3':'M5 13 C32 -8 61 3 54 29 C50 43 34 48 21 48 C66 42 70 94 35 97 C18 100 6 92 2 85',
+    '4':'M44 3 L3 62 L60 62 M44 3 L44 98',
+    '5':'M57 4 L10 4 L6 47 C69 29 74 95 34 98 C18 99 7 93 2 84',
+    '6':'M55 7 C20 -9 1 43 4 74 C7 107 58 106 59 72 C60 45 16 43 5 69',
+    '7':'M2 5 L60 5 C42 35 30 63 22 98',
+    '8':'M30 48 C-8 35 2 2 30 3 C66 3 66 38 30 48 C-12 59 -4 98 30 97 C73 96 70 60 30 48',
+    '9':'M54 32 C53 -8 0 -7 3 30 C5 64 49 59 55 32 C60 61 46 86 17 98',
+    '/':'M4 101 L42 0', '.':'M10 92 L11 93'
+  };
+  const advance=c=>c===' '?25:c==='/'?49:c==='.'?23:70;
+  const units=[...grade.text].reduce((sum,c)=>sum+advance(c),0),scale=Math.min(band*.55/100,width*.32/units),textWidth=units*scale;
+  ctx.translate(width*.84,band*.5);ctx.rotate(-.065);ctx.strokeStyle='#cd2028';ctx.lineWidth=3.6;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();for(let i=0;i<=64;i++){const t=i/64*Math.PI*2,rx=textWidth/2+band*.16,ry=band*.4,x=Math.cos(t)*rx*(1+.017*Math.sin(3*t)),y=Math.sin(t)*ry*(1+.025*Math.cos(5*t));if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y)}ctx.stroke();
+  ctx.translate(-textWidth/2,-band*.275);ctx.scale(scale,scale);ctx.lineWidth=4.3;
+  for(const c of grade.text){if(digits[c])ctx.stroke(new Path2D(digits[c]));ctx.translate(advance(c),0)}
+  ctx.restore();
 }
 
 function makeStudentAnswerSheetImage(source, r, p) {
@@ -252,8 +287,10 @@ function makeStudentAnswerSheetImage(source, r, p) {
         // Use only the original student-mark renderer; the wrapper renderer adds
         // the teacher's yellow answer circle, which is intentionally excluded.
         originalDrawResultOverlay(r, p, image, overlay);
-        const output = document.createElement('canvas'); output.width = width; output.height = height;
-        const ctx = output.getContext('2d'); ctx.drawImage(image, 0, 0); ctx.drawImage(overlay, 0, 0);
+        const band=Math.max(36,Math.round(width*.055));
+        const output = document.createElement('canvas'); output.width = width; output.height = height+band;
+        const ctx = output.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height+band);ctx.drawImage(image,0,band);ctx.drawImage(overlay,0,band);
+        drawExportedSheetGrade(ctx,width,band,r);
         const data = output.toDataURL('image/jpeg', 0.94);
         holder.remove(); output.width = output.height = 1;
         resolve(data);

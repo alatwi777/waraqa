@@ -1,0 +1,21 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+class Canvas{constructor(w=1123,h=794){this.width=w;this.height=h}getContext(){const self=this;return{drawImage(c){if(c.width===self.width&&c.height===self.height){self.data=c.data;return}self.data=new Uint8ClampedArray(self.width*self.height*4);for(let y=0;y<self.height;y++)for(let x=0;x<self.width;x++){const a=(Math.min(c.height-1,Math.floor(y*c.height/self.height))*c.width+Math.min(c.width-1,Math.floor(x*c.width/self.width)))*4,b=(y*self.width+x)*4;self.data.set(c.data.subarray(a,a+4),b)}},getImageData(){return{data:self.data}}}}}
+const fake={innerHTML:'',style:{},offsetWidth:1,checked:true,open:true,classList:{add(){},remove(){}},textContent:'',addEventListener(){}};
+const ctx={console,crypto:require('crypto').webcrypto,localStorage:{getItem(){return null},setItem(){}},indexedDB:{open(){return{}}},document:{querySelector(){return fake},createElement(){return new Canvas()}},window:{addEventListener(){}},navigator:{},location:{hash:''},setTimeout(){return 1},clearTimeout(){},Uint8Array,Math,Date,Number,JSON,Promise,confirm(){return true}};vm.createContext(ctx);for(const f of ['layout.js','voice.js','app.js','camera.js','scan-precision.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../public',f),'utf8'),ctx);
+const run=s=>vm.runInContext(s,ctx),copy=s=>JSON.parse(run(`JSON.stringify(${s})`));
+run(`const sample={id:'exam',title:'تجربة',questions:[...Array.from({length:15},(_,i)=>({id:'m'+i,type:'mcq',text:'سؤال',options:['أ','ب','ج','د'],answer:0,points:1})),...Array.from({length:15},(_,i)=>({id:'t'+i,type:'tf',text:'عبارة',options:['صح','خطأ'],answer:0,points:1})),{id:'essay',type:'essay',text:'وضح',options:[],points:15}]};db.exams=[sample];currentExam='exam'`);
+
+
+ctx.fake=fake;
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/results-workflow.js'),'utf8'),ctx);
+
+run(`const exportResult={id:'export',exam:'exam',student:'student',snapshot:{...JSON.parse(JSON.stringify(sample)),paperVersion:8},answers:Object.fromEntries(sample.questions.flatMap((q,i)=>q.type==='essay'?[]:[[i,0]])),essay:{[-1]:6},pages:{0:'original-image'},reviewed:Object.fromEntries(sample.questions.map((q,i)=>[i,true])),markings:{}}`);
+assert.equal(run('exportedSheetGrade(exportResult).text'),'36 / 45');assert.equal(run('exportedSheetGrade(exportResult).provisional'),false);
+const before=run('JSON.stringify(exportResult)');
+const strokes=[],labels=[];ctx.Path2D=class{constructor(path){this.path=path}};ctx.pen={save(){},restore(){},fillRect(){},fillText(text){labels.push(text)},translate(){},rotate(){},scale(){},beginPath(){},moveTo(){},lineTo(){},stroke(path){strokes.push(path?.path||'circle')}};
+run('drawExportedSheetGrade(pen,1800,99,exportResult)');assert.equal(strokes[0],'circle');assert.equal(strokes.length,6,'four numerals and slash plus the surrounding pen circle');assert.equal(run('JSON.stringify(exportResult)'),before,'export stamp must not modify saved answers, grades or original image keys');
+run('exportResult.snapshot.questions[0].answer=1');assert.equal(run('exportedSheetGrade(exportResult).text'),'35 / 45','the stamp must use the latest answer key');
+run('exportResult.essay[-1]=null');assert.equal(run('exportedSheetGrade(exportResult).essayPending'),true);run('drawExportedSheetGrade(pen,1800,99,exportResult)');assert(labels.at(-1).includes('المقالي غير مرصود'));
+run(`exportResult.answers={};exportResult.essay[-1]=0`);assert.equal(run('exportedSheetGrade(exportResult).text'),'0 / 45','a real zero grade remains numeric');
+const count=strokes.length;run(`exportResult.captureStatus='ungraded';drawExportedSheetGrade(pen,1800,99,exportResult)`);assert.equal(strokes.length,count,'an ungraded photo must never receive a fabricated zero stamp');assert.equal(labels.at(-1),'غير مصححة');
+console.log('PASS: numeric handwritten export stamp uses current total/key, preserves originals, displays zero correctly, and distinguishes missing essay and ungraded images.');
