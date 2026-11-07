@@ -359,3 +359,5 @@ html[data-theme="dark"] #wa-invoice-status,html[data-theme="dark"] .wa-invoice-h
 
 
 .captured-batch-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px;margin:8px 0 18px;border:1px solid #d9b84e;border-radius:14px;background:var(--white)}.ungraded-capture-row td{background:#f8f1dc;color:#17342e}.ungraded-capture-row .tag{background:#182a43;color:#ffbd66}.batch-camera-context{margin:0;text-align:center;color:#e9dfc7;font-size:11px}.document-batch-camera .camera-progress i{background:#f7d66c}.document-batch-camera #document-batch-count{color:#f7d66c}
+
+.results-review-filter .field{margin-bottom:0;min-width:160px}.result-preview-top-info #result-preview-info{flex-wrap:wrap}.result-approve-button{white-space:nowrap}.result-approve-button:disabled{opacity:.75}

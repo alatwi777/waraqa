@@ -14,6 +14,7 @@ const originalReviewResult = reviewResult;
 const originalDrawResultOverlay = drawResultOverlay;
 
 let resultsExamFilter = '';
+let resultsIssueFilter = 'all';
 
 function resultNumberKey(value) {
   const digits = String(value ?? '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g, '');
@@ -76,6 +77,30 @@ function setResultsExamFilter(value) {
   resultsExamFilter = value || '';
   currentResult = null;
   results();
+}
+
+function setResultsIssueFilter(value){resultsIssueFilter=['blank','double'].includes(value)?value:'all';currentResult=null;results();}
+function resultMatchesIssueFilter(r){return resultsIssueFilter==='all'||(r.captureStatus!=='ungraded'&&issueCounts(r)[resultsIssueFilter]>0);}
+function visibleResults(){return db.results.filter(r=>(resultsExamFilter==='all'||r.exam===resultsExamFilter)&&resultMatchesIssueFilter(r));}
+function resultApprovalBlocker(r){
+ if(r.captureStatus==='ungraded')return 'اضغط تصحيح أولًا؛ الصورة ما زالت غير مصححة';
+ if(!r.student)return 'اربط الورقة بالطالب قبل اعتماد النتيجة';
+ if(Object.keys(r.pages||{}).length<resultPageCount(r))return 'أكمل صفحات الطالب قبل اعتماد النتيجة';
+ if(issueCounts(r).essayPending)return 'ارصد درجة المقالي قبل اعتماد النتيجة؛ تبقى الورقة محفوظة للمراجعة';
+ return '';
+}
+function resultApprovalButton(r){const approved=!resultNeedsReview(r)&&!resultApprovalBlocker(r);return `<button type="button" class="btn gold small result-approve-button" onclick="approveResultReview('${r.id}')" ${approved?'disabled':''}>${approved?'✓ تم اعتماد الدرجة':'اعتماد الدرجة'}</button>`;}
+function commitReviewApprovals(records){
+ const previous=records.map(r=>({r,reviewPending:r.reviewPending,batchAuto:r.batchAuto,updated:r.updated}));
+ for(const r of records){r.reviewPending={};r.batchAuto=false;r.updated=new Date().toISOString();}
+ try{if(save()===false)throw Error('save');return true;}catch{for(const old of previous)Object.assign(old.r,{reviewPending:old.reviewPending,batchAuto:old.batchAuto,updated:old.updated});toast('تعذر حفظ الاعتماد. أعد المحاولة.');return false;}
+}
+function approveVisibleResultReviews(){
+ const shown=visibleResults(),eligible=shown.filter(r=>!resultApprovalBlocker(r));
+ if(!eligible.length)return toast('لا توجد أوراق مكتملة جاهزة للاعتماد ضمن التصفية؛ تحقق من الطالب والصفحات ودرجة المقالي');
+ if(!commitReviewApprovals(eligible))return;
+ currentResult=null;results();const skipped=shown.length-eligible.length;
+ toast('تم اعتماد مراجعة '+ar(eligible.length)+' ورقة'+(skipped?'؛ بقيت '+ar(skipped)+' ورقة لاستكمال الطالب أو الصفحات أو المقالي':''));
 }
 
 score = function (r) {
@@ -207,12 +232,12 @@ async function saveScan(advance = true) {
 }
 function resultNeedsReview(r) { return !r.student || !!r.batchAuto || Object.values(r.reviewPending || {}).some(Boolean) || issueCounts(r).essayPending > 0; }
 function approveResultReview(id) {
-  const r = db.results.find(x => x.id === id); if (!r) return;
-  if (r.captureStatus === 'ungraded') return toast('اضغط تصحيح أولًا؛ الصورة ما زالت غير مصححة');
-  if (!r.student) return toast('اربط الورقة بالطالب قبل اعتماد النتيجة');
-  if (Object.keys(r.pages || {}).length < resultPageCount(r)) return toast('أكمل صفحات الطالب قبل اعتماد النتيجة');
-  if (issueCounts(r).essayPending) return toast('ارصد درجة المقالي قبل اعتماد النتيجة؛ تبقى الورقة محفوظة للمراجعة');
-  r.reviewPending = {}; r.batchAuto = false; r.updated = new Date().toISOString(); save(); reviewResult(id); toast('تم اعتماد المراجعة');
+ const r=db.results.find(x=>x.id===id);if(!r)return;
+ const blocker=resultApprovalBlocker(r);if(blocker)return toast(blocker);
+ if(!commitReviewApprovals([r]))return;
+ const p=largeResultPreview?.id===id?largeResultPreview.p:0;
+ reviewResult(id,p);if(largeResultPreview?.id===id)renderLargeResultPanels(r,p);
+ toast('تم اعتماد الدرجة والمراجعة');
 }
 
 function issueCounts(r, p = null) {
@@ -372,16 +397,16 @@ results = function () {
   const pendingList = bulkWaiting && scanQueue.length ? `<div class="bulk-file-list" aria-label="الأوراق المضافة">${scanQueue.map((f,i)=>`<span><b>${ar(i+1)}</b> ${esc(f.name)} <small>بانتظار التصحيح</small></span>`).join('')}</div>` : '';
   const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة أُضيفت إلى النتائج، جاهزة للمعالجة.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div><div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}<p id="batch-progress" class="note" aria-live="polite"></p></section>`;
   const examIds = [...new Set(db.results.map(r => r.exam).filter(Boolean))];
-  if (!resultsExamFilter || !examIds.includes(resultsExamFilter)) resultsExamFilter = examIds.at(-1) || 'all';
+  if (!resultsExamFilter || (resultsExamFilter !== 'all' && !examIds.includes(resultsExamFilter))) resultsExamFilter = examIds.at(-1) || 'all';
   const examItems = examIds.map(id => { const e = db.exams.find(x => x.id === id) || db.results.find(x => x.exam === id)?.snapshot; return e ? [id, e.title || 'اختبار'] : null; }).filter(Boolean);
-  const filtered = resultsExamFilter === 'all' ? db.results : db.results.filter(r => r.exam === resultsExamFilter);
-  const filterBar = `<div class="toolbar results-exam-filter"><label class="field">اختر الاختبار<select aria-label="تصفية النتائج حسب الاختبار" onchange="setResultsExamFilter(this.value)"><option value="all" ${resultsExamFilter === 'all' ? 'selected' : ''}>جميع الاختبارات</option>${options(examItems, resultsExamFilter)}</select></label><span class="note">عدد أوراق الطلاب: ${ar(filtered.length)}</span></div>`;
+  const filtered = visibleResults();
+  const filterBar = `<div class="toolbar results-exam-filter"><label class="field">اختر الاختبار<select aria-label="تصفية النتائج حسب الاختبار" onchange="setResultsExamFilter(this.value)"><option value="all" ${resultsExamFilter === 'all' ? 'selected' : ''}>جميع الاختبارات</option>${options(examItems, resultsExamFilter)}</select></label><div class="results-review-filter" style="display:flex;align-items:end;gap:12px;flex-wrap:wrap"><label class="field">تصفية الأوراق<select aria-label="تصفية الأوراق حسب الإجابات" onchange="setResultsIssueFilter(this.value)">${options([['all','جميع الأوراق'],['blank','متروك'],['double','مزدوج']],resultsIssueFilter)}</select></label><button type="button" class="btn gold" onclick="approveVisibleResultReviews()" ${filtered.length?'':'disabled'}>اعتماد المراجعة للكل</button></div><span class="note">عدد الأوراق الظاهرة: ${ar(filtered.length)} · الاعتماد للأوراق الظاهرة فقط</span></div>`;
   const rows = filtered.slice().reverse().map(r => {
     if (r.captureStatus === 'ungraded') return ungradedCaptureRow(r);
     const e = resultExam(r), complete = Object.keys(r.pages || {}).length >= resultPageCount(r), c = issueCounts(r);
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${resultNeedsReview(r) ? 'محفوظة — تحتاج مراجعة' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
-  const noResults = !db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : empty('لا توجد نتائج لهذا الاختبار','اختر اختبارًا آخر من القائمة أعلاه.');
+  const noResults = !db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : empty('لا توجد أوراق مطابقة للتصفية','غيّر الاختبار أو اختر جميع الأوراق من القائمة أعلاه.');
   $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')+btn('تصدير Excel','exportResultsExcel()','light')+btn('تصدير CSV','exportResults()','light')) + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
 };
 
@@ -431,7 +456,7 @@ reviewResult = async function (id, p = 0) {
   if (imagePanel && !imagePanel.querySelector('.result-edit-hint')) imagePanel.insertAdjacentHTML('beforeend', '<p class="note result-edit-hint">اضغط فقاعة الإجابة لتعديلها، أو فقاعة مجموع المقالي أعلى الورقة لرصد الدرجة. النقر على الفقاعة المحددة يمسحها.</p>');
   const imageToolbar = imagePanel?.querySelector('.toolbar');
   if (imageToolbar && !imageToolbar.querySelector('.result-page-number-nav')) imageToolbar.insertAdjacentHTML('afterbegin', resultPageButtons(r, p));
-  if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions"><button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button></div>`);
+  if (imageToolbar && !imageToolbar.querySelector('.result-paper-actions')) imageToolbar.insertAdjacentHTML('beforeend', `<div class="result-paper-actions">${resultApprovalButton(r)}<button type="button" class="btn light small" onclick="previousResultPaper('${r.id}')">→ السابق</button><button type="button" class="btn gold small next-result-paper" onclick="nextResultPaper('${r.id}')">التالي ←</button><button type="button" class="btn light small" onclick="openLargeResultPreview('${r.id}',${p})">معاينة</button></div>`);
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
     if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.filter(st=>!r.captureGroup||st.group===r.captureGroup).map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
@@ -540,7 +565,7 @@ function resultPreviewChoice(q, index) {
 function renderLargeResultPanels(r, p) {
   const e = resultExam(r); if (!e) return;
   const info = document.querySelector('#result-preview-info');
-  if (info) info.innerHTML = `<strong class="result-preview-name">${esc(r.name || 'غير محدد')}</strong>${essayMaximum(e) ? `<span class="result-preview-score-chip"><small>درجة المقالي</small><b>${issueCounts(r).essayPending ? 'غير مرصودة' : ar(r.essay?.[-1] ?? Object.entries(r.essay || {}).filter(([k])=>k!=='-1').reduce((sum,[,v])=>sum+Number(v||0),0))} / ${ar(essayMaximum(e))}</b></span>` : ''}<span class="result-preview-score-chip"><small>${resultNeedsReview(r) ? 'الدرجة الأولية' : 'الدرجة الكلية'}</small><b>${ar(score(r))} / ${ar(total(e))}</b></span>`;
+  if (info) info.innerHTML = `<strong class="result-preview-name">${esc(r.name || 'غير محدد')}</strong>${resultApprovalButton(r)}${essayMaximum(e) ? `<span class="result-preview-score-chip"><small>درجة المقالي</small><b>${issueCounts(r).essayPending ? 'غير مرصودة' : ar(r.essay?.[-1] ?? Object.entries(r.essay || {}).filter(([k])=>k!=='-1').reduce((sum,[,v])=>sum+Number(v||0),0))} / ${ar(essayMaximum(e))}</b></span>` : ''}<span class="result-preview-score-chip"><small>${resultNeedsReview(r) ? 'الدرجة الأولية' : 'الدرجة الكلية'}</small><b>${ar(score(r))} / ${ar(total(e))}</b></span>`;
 }
 
 function fitLargeResultImage(image) {
@@ -665,10 +690,10 @@ async function switchLargeResultPage(id, p) {
 
 async function navigateLargeResultPreview(direction) {
   const current = db.results.find(x => x.id === largeResultPreview?.id); if (!current) return;
-  const sameExam = db.results.filter(x => x.exam === current.exam && x.captureStatus !== 'ungraded').slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
-  if (sameExam.length < 2) return toast('لا توجد أوراق أخرى لهذا الاختبار');
+  const sameExam = db.results.filter(x => x.exam === current.exam && x.captureStatus !== 'ungraded' && resultMatchesIssueFilter(x)).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  if (!sameExam.length || (sameExam.length===1&&sameExam[0].id===current.id)) return toast('لا توجد أوراق أخرى ضمن التصفية');
   const at = sameExam.findIndex(x => x.id === current.id), step = direction === 'previous' ? -1 : 1;
-  const next = sameExam[(at + step + sameExam.length) % sameExam.length], oldPage = largeResultPreview.p;
+  const next = sameExam[at<0?(step>0?0:sameExam.length-1):(at + step + sameExam.length) % sameExam.length], oldPage = largeResultPreview.p;
   const page = next.pages?.[oldPage] ? oldPage : Number(Object.keys(next.pages || {})[0] || 0);
   closeModal();
   await reviewResult(next.id, page);
@@ -677,17 +702,17 @@ async function navigateLargeResultPreview(direction) {
 
 function nextResultPaper(id) {
   const current = db.results.find(x => x.id === id); if (!current) return;
-  const sameExam = db.results.filter(x => x.exam === current.exam).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
-  if (sameExam.length < 2) return toast('لا توجد ورقة طالب تالية لهذا الاختبار');
+  const sameExam = db.results.filter(x => x.exam === current.exam && resultMatchesIssueFilter(x)).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  if (!sameExam.length || (sameExam.length===1&&sameExam[0].id===id)) return toast('لا توجد ورقة طالب تالية ضمن التصفية');
   const index = sameExam.findIndex(x => x.id === id), next = sameExam[(index + 1) % sameExam.length];
   reviewResult(next.id);
 }
 
 function previousResultPaper(id) {
   const current = db.results.find(x => x.id === id); if (!current) return;
-  const sameExam = db.results.filter(x => x.exam === current.exam).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
-  if (sameExam.length < 2) return toast('لا توجد ورقة طالب سابقة لهذا الاختبار');
-  const index = sameExam.findIndex(x => x.id === id), previous = sameExam[(index - 1 + sameExam.length) % sameExam.length];
+  const sameExam = db.results.filter(x => x.exam === current.exam && resultMatchesIssueFilter(x)).slice().sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  if (!sameExam.length || (sameExam.length===1&&sameExam[0].id===id)) return toast('لا توجد ورقة طالب سابقة ضمن التصفية');
+  const index = sameExam.findIndex(x => x.id === id), previous = sameExam[index<0?sameExam.length-1:(index - 1 + sameExam.length) % sameExam.length];
   reviewResult(previous.id);
 }
 
