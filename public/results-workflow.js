@@ -241,12 +241,18 @@ function exportedSheetGrade(r) {
   const numeric=n=>new Intl.NumberFormat('en-US',{useGrouping:false,maximumFractionDigits:2}).format(n);
   return { text:numeric(score(r))+' / '+numeric(total(e)), provisional:resultNeedsReview(r)||Object.keys(r.pages||{}).length<resultPageCount(r), essayPending:issueCounts(r).essayPending>0 };
 }
-function drawExportedSheetGrade(ctx,width,band,r) {
-  const grade=exportedSheetGrade(r);
-  ctx.save();ctx.fillStyle='#fff';ctx.fillRect(0,0,width,band);
-  ctx.fillStyle='#61706b';ctx.font=`${Math.max(12,band*.19)}px Tahoma,Arial,sans-serif`;ctx.textAlign='left';ctx.direction='rtl';
-  ctx.fillText(!grade?'غير مصححة':grade.essayPending?'درجة أولية — المقالي غير مرصود':grade.provisional?'الدرجة الحالية — للمراجعة':'الدرجة',width*.045,band*.57);
-  if(!grade){ctx.restore();return;}
+function exportedGradePlacement(r) {
+  const version=r.snapshot?.paperVersion||1,g=paperGeometry(version);
+  return version>=6&&essayMaximum(resultExam(r))>0?{x:265,y:66,height:22,maxWidth:210}:{x:g.width-140,y:g.height-26,height:20,maxWidth:180};
+}
+function drawExportedSheetGrade(ctx,width,height,r,map=null) {
+  const grade=exportedSheetGrade(r);if(!grade)return;
+  const at=exportedGradePlacement(r),g=paperGeometry(r.snapshot?.paperVersion||1);
+  const project=map||((x,y)=>({x:x*width/g.width,y:y*height/g.height}));
+  const origin=project(at.x,at.y),px=project(at.x+1,at.y),py=project(at.x,at.y+1);
+  ctx.save();ctx.transform(px.x-origin.x,px.y-origin.y,py.x-origin.x,py.y-origin.y,origin.x,origin.y);
+  ctx.fillStyle='#61706b';ctx.font='7px Tahoma,Arial,sans-serif';ctx.textAlign='right';ctx.direction='rtl';
+  if(grade.provisional)ctx.fillText(grade.essayPending?'مقالي غير مرصود':'أولية',-85,3);
   // Single-stroke numerals, round pen ends and a slightly uneven circle resemble handwriting.
   const digits={
     '0':'M30 3 C-5 3 -5 97 30 97 C65 97 65 3 30 3',
@@ -262,10 +268,10 @@ function drawExportedSheetGrade(ctx,width,band,r) {
     '/':'M4 101 L42 0', '.':'M10 92 L11 93'
   };
   const advance=c=>c===' '?25:c==='/'?49:c==='.'?23:70;
-  const units=[...grade.text].reduce((sum,c)=>sum+advance(c),0),scale=Math.min(band*.55/100,width*.32/units),textWidth=units*scale;
-  ctx.translate(width*.84,band*.5);ctx.rotate(-.065);ctx.strokeStyle='#cd2028';ctx.lineWidth=3.6;ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.beginPath();for(let i=0;i<=64;i++){const t=i/64*Math.PI*2,rx=textWidth/2+band*.16,ry=band*.4,x=Math.cos(t)*rx*(1+.017*Math.sin(3*t)),y=Math.sin(t)*ry*(1+.025*Math.cos(5*t));if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y)}ctx.stroke();
-  ctx.translate(-textWidth/2,-band*.275);ctx.scale(scale,scale);ctx.lineWidth=4.3;
+  const units=[...grade.text].reduce((sum,c)=>sum+advance(c),0),scale=Math.min(at.height*.65/100,at.maxWidth/units),textWidth=units*scale;
+  ctx.rotate(-.025);ctx.strokeStyle='#cd2028';ctx.lineWidth=1.25;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();for(let i=0;i<=64;i++){const t=i/64*Math.PI*2,rx=textWidth/2+at.height*.22,ry=at.height*.47,x=Math.cos(t)*rx*(1+.017*Math.sin(3*t)),y=Math.sin(t)*ry*(1+.025*Math.cos(5*t));if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y)}ctx.stroke();
+  ctx.translate(-textWidth/2,-50*scale);ctx.scale(scale,scale);ctx.lineWidth=8;
   for(const c of grade.text){if(digits[c])ctx.stroke(new Path2D(digits[c]));ctx.translate(advance(c),0)}
   ctx.restore();
 }
@@ -287,10 +293,10 @@ function makeStudentAnswerSheetImage(source, r, p) {
         // Use only the original student-mark renderer; the wrapper renderer adds
         // the teacher's yellow answer circle, which is intentionally excluded.
         originalDrawResultOverlay(r, p, image, overlay);
-        const band=Math.max(36,Math.round(width*.055));
-        const output = document.createElement('canvas'); output.width = width; output.height = height+band;
-        const ctx = output.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height+band);ctx.drawImage(image,0,band);ctx.drawImage(overlay,0,band);
-        drawExportedSheetGrade(ctx,width,band,r);
+        const output = document.createElement('canvas'); output.width = width; output.height = height;
+        const ctx = output.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(image,0,0);ctx.drawImage(overlay,0,0);
+        const position=getResultHitContext(r,p,image,overlay);
+        drawExportedSheetGrade(ctx,width,height,r,position?.map);
         const data = output.toDataURL('image/jpeg', 0.94);
         holder.remove(); output.width = output.height = 1;
         resolve(data);
@@ -323,7 +329,7 @@ async function exportAnswerSheets() {
   if (!pages.length) { popup.close(); return toast('لم نتمكن من تجهيز أي ورقة؛ تحقق من توفر صور النتائج'); }
   const note = skipped.length ? `<p class="warning">تعذر تضمين ${ar(skipped.length)} صفحة لعدم توفر صورتها.</p>` : '';
   popup.document.open();
-  popup.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>أوراق إجابات الطلاب</title><style>@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Tahoma,Arial,sans-serif}.sheet{height:196mm;width:100%;display:grid;place-items:center;page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}.sheet img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}.warning{padding:14px;color:#8a4b00;background:#fff5df}@media screen{body{padding:14px;background:#eef2ed}.sheet{margin:0 auto 14px;max-width:1100px;height:70vh;background:#fff;box-shadow:0 2px 14px #0002}.sheet img{max-height:68vh}.warning{text-align:center}}</style></head><body>${note}${pages.join('')}<script>window.addEventListener('load',()=>setTimeout(()=>{window.focus();window.print()},500))<\/script></body></html>`);
+  popup.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>أوراق إجابات الطلاب</title><style>@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Tahoma,Arial,sans-serif}.sheet{position:relative;height:190mm;width:100%;display:block;overflow:hidden;page-break-inside:avoid;break-inside:avoid;page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}.sheet img{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain}.warning{padding:14px;color:#8a4b00;background:#fff5df}@media screen{body{padding:14px;background:#eef2ed}.sheet{margin:0 auto 14px;max-width:1100px;height:70vh;background:#fff;box-shadow:0 2px 14px #0002}.sheet img{max-height:100%}.warning{text-align:center}}</style></head><body>${note}${pages.join('')}<script>window.addEventListener('load',()=>setTimeout(()=>{window.focus();window.print()},500))<\/script></body></html>`);
   popup.document.close(); closeModal();
   toast(`تم تجهيز ${ar(pages.length)} صفحة${skipped.length ? ` · تعذر ${ar(skipped.length)}` : ''}`);
 }
