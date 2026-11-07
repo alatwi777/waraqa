@@ -10,9 +10,9 @@ async function openPaperCamera(documentScan=false){
  stopPaperCamera();
  unlockPaperCameraAudio();
  const shell=document.createElement('section');shell.id='paper-camera-shell';shell.className='paper-camera-shell camera-shell';shell.setAttribute('role','dialog');shell.setAttribute('aria-modal','true');shell.setAttribute('aria-label',documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب');
- shell.innerHTML=`<div class="camera-shell-head"><h2>${documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب'}</h2><button class="camera-shell-close" type="button" onclick="closePaperCamera()" aria-label="إغلاق">×</button></div><div class="camera-shell-content"><div class="camera-intro">وجّه الهاتف حتى تظهر المربعات السوداء الأربع داخل الإطارات. تلتقط الكاميرا الورقة تلقائيًا فور ثباتها ووضوحها.</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true"></canvas><div id="paper-camera-start"><span>جارٍ تشغيل الكاميرا…</span></div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div class="camera-camera-controls"><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div></div><label class="switch-row note camera-auto-row"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note camera-footnote">يظهر اسم الطالب ودرجاته بعد الالتقاط. لن تُحفظ الإطارات الخضراء على الصورة.</p></div>`;
+ shell.innerHTML=`<div class="camera-shell-head"><h2>${documentScan?'مسح ضوئي للورقة':'تصوير ورقة الطالب'}</h2><button class="camera-shell-close" type="button" onclick="closePaperCamera()" aria-label="إغلاق">×</button></div><div class="camera-shell-content"><div class="camera-intro">وازن المربعات السوداء المطبوعة داخل المربعات الخضراء الثابتة. تُلتقط الورقة سريعًا بعد المحاذاة والثبات.</div><div class="paper-camera-stage"><video id="paper-camera-video" autoplay muted playsinline></video><canvas id="paper-camera-overlay" aria-hidden="true"></canvas><div id="paper-camera-start"><span>جارٍ تشغيل الكاميرا…</span></div></div><p id="paper-camera-status" class="camera-status" role="status" aria-live="polite">اسمح للمتصفح باستخدام الكاميرا.</p><div class="camera-progress" aria-hidden="true"><i id="paper-camera-progress"></i></div><div class="camera-camera-controls"><div id="paper-camera-lenses"></div><div id="paper-camera-zoom"></div></div><label class="switch-row note camera-auto-row"><input id="paper-camera-auto" type="checkbox" checked onchange="resetCameraStability()">التقاط تلقائي عند الثبات</label><div class="actions camera-actions"><button class="btn" id="paper-camera-capture" disabled onclick="capturePaperFrame(false)">التقاط الآن</button><button class="btn light" onclick="closePaperCamera()">إلغاء</button></div><p class="note camera-footnote">يظهر اسم الطالب ودرجاته بعد الالتقاط. لن تُحفظ الإطارات الخضراء على الصورة.</p></div>`;
  document.body.append(shell);document.body.classList.add('paper-camera-open');
- const state=PaperCamera={documentScan,generation:++PaperCameraGeneration,stream:null,timer:null,canvas:document.createElement('canvas'),previous:null,stableSince:0,busy:false,detected:false};
+ const state=PaperCamera={documentScan,generation:++PaperCameraGeneration,stream:null,timer:null,canvas:document.createElement('canvas'),previous:null,stableSince:0,busy:false,detected:false,alignmentHoldMs:360};
  await connectPaperCamera(state);
 }
 function cameraActive(s){return PaperCamera===s&&!!document.getElementById?.('paper-camera-shell')?.isConnected}
@@ -71,24 +71,36 @@ function stablePaperFrame(s,points,now,ready){
  if(!ready){s.previous=null;s.stableSince=0;return 0}
  const scale=Math.max(s.canvas.width,s.canvas.height),movement=s.previous?Math.max(...points.map((p,i)=>Math.hypot(p.x-s.previous[i].x,p.y-s.previous[i].y)))/scale:Infinity;
  if(movement>.008||!s.stableSince)s.stableSince=now;
- s.previous=points.map(p=>({...p}));return Math.min(1,(now-s.stableSince)/720);
+ s.previous=points.map(p=>({...p}));return Math.min(1,(now-s.stableSince)/(s.alignmentHoldMs||720));
+}
+// Targets depend only on the video dimensions, never on detected marker positions.
+function fixedCameraGuides(w,h){
+ const g=paperGeometry(8),ratio=w>=h?(g.width-64)/(g.height-64):(g.height-64)/(g.width-64);
+ let width=w*.82,height=width/ratio;if(height>h*.82){height=h*.82;width=height*ratio;}
+ const left=(w-width)/2,top=(h-height)/2;
+ return[{x:left,y:top},{x:left+width,y:top},{x:left+width,y:top+height},{x:left,y:top+height}];
+}
+function cameraMarkersAligned(points,w,h){
+ if(!points||points.length!==4)return false;
+ const targets=fixedCameraGuides(w,h),tolerance=Math.max(10,Math.min(w,h)*.027);
+ return points.every((p,i)=>Math.abs(p.x-targets[i].x)<=tolerance&&Math.abs(p.y-targets[i].y)<=tolerance);
 }
 function drawCameraGuides(s,points,ready){
- const c=$('#paper-camera-overlay');if(!c||!s.canvas)return;c.width=s.canvas.width;c.height=s.canvas.height;const ctx=c.getContext('2d'),w=c.width,h=c.height;
- const guides=points||[{x:w*.08,y:h*.08},{x:w*.92,y:h*.08},{x:w*.92,y:h*.92},{x:w*.08,y:h*.92}];
- ctx.strokeStyle=ready?'#21f36a':points?'#b6f566':'#21f36a';ctx.lineWidth=Math.max(3,w/180);ctx.lineCap='round';
- guides.forEach((p,i)=>{const a=Math.max(12,w*.018),sx=i===0||i===3?1:-1,sy=i<2?1:-1;ctx.strokeRect(p.x-a*.58,p.y-a*.58,a*1.16,a*1.16);ctx.beginPath();ctx.moveTo(p.x+sx*a*1.7,p.y);ctx.lineTo(p.x,p.y);ctx.lineTo(p.x,p.y+sy*a*1.7);ctx.stroke()});
- if(points&&ready){ctx.strokeStyle='#31df7b99';ctx.lineWidth=Math.max(1,w/650);ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.stroke()}
+ const c=$('#paper-camera-overlay');if(!c||!s.canvas)return;c.width=s.canvas.width;c.height=s.canvas.height;
+ const pen=c.getContext('2d'),w=c.width,h=c.height,side=Math.max(22,Math.min(w,h)*.065);
+ pen.strokeStyle=ready?'#57ff9b':'#20e777';pen.lineWidth=Math.max(3,w/210);
+ for(const p of fixedCameraGuides(w,h))pen.strokeRect(p.x-side/2,p.y-side/2,side,side);
 }
+
 function analysePaperFrame(s){
  if(!cameraActive(s)||s.busy)return;
  try{const v=$('#paper-camera-video');if(!v?.videoWidth||v.readyState<2){s.timer=setTimeout(()=>analysePaperFrame(s),200);return}
  const k=Math.min(1,720/Math.max(v.videoWidth,v.videoHeight)),c=s.canvas;c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d',{willReadFrequently:true}).drawImage(v,0,0,c.width,c.height);
- const points=findMarkers(c),quality=paperFrameQuality(c,points);s.detected=quality.ok;
- const progress=stablePaperFrame(s,points,performance.now(),quality.ok);drawCameraGuides(s,points,quality.ok);cameraMessage(quality.message);const auto=$('#paper-camera-auto').checked;$('#paper-camera-progress').style.width=(auto?progress*100:0)+'%';
+ const points=findMarkers(c),quality=paperFrameQuality(c,points),aligned=cameraMarkersAligned(points,c.width,c.height);s.detected=quality.ok&&aligned;
+ s.alignmentHoldMs=360;const progress=stablePaperFrame(s,points,performance.now(),s.detected);drawCameraGuides(s,points,s.detected);cameraMessage(!points?'وازن المربعات السوداء داخل المربعات الخضراء الثابتة.':!aligned?'حرّك الهاتف وقاربه أو أبعده حتى تتطابق المربعات الأربع.':!quality.ok?quality.message:'المربعات متطابقة — ثبات قصير ثم التقاط.');const auto=$('#paper-camera-auto').checked;$('#paper-camera-progress').style.width=(auto?progress*100:0)+'%';
  if(auto&&progress>=1){capturePaperFrame(true);return}
  }catch{resetCameraStability();cameraMessage('تعذر فحص هذه اللقطة. يمكنك الالتقاط يدويًا ومراجعة الزوايا.')}
- s.timer=setTimeout(()=>analysePaperFrame(s),240);
+ s.timer=setTimeout(()=>analysePaperFrame(s),120);
 }
 async function capturePaperFrame(automatic=false){
  const s=PaperCamera,v=$('#paper-camera-video');if(!s||s.busy||!v?.videoWidth||v.readyState<2)return;if(automatic&&!s.detected)return;
