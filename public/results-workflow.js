@@ -257,14 +257,29 @@ function answerSheetsExportModal() {
   const available = db.results.filter(r => Object.keys(r.pages || {}).length);
   if (!available.length) return toast('لا توجد أوراق محفوظة للتصدير');
   const exams = [...new Map(available.map(r => { const e = resultExam(r); return [e?.id || r.exam, e]; }).filter(([, e]) => e).map(([id, e]) => [id, e])).values()];
-  modal('تصدير أوراق إجابات الطلاب', `<p class="note">يُجهّز ملف طباعة متعدد الصفحات بصور أوراق الطلاب، مع علامات إجاباتهم ودرجتهم الرقمية بالأحمر بأسلوب الكتابة اليدوية. لن تظهر دوائر إجابة المعلم الصفراء. بعد فتح المعاينة اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p><label class="field">الاختبار<select id="answer-export-exam"><option value="all">جميع الاختبارات</option>${options(exams.map(e => [e.id, e.title]))}</select></label>${btn('تجهيز الأوراق','exportAnswerSheets()')}`);
+  modal('تصدير أوراق إجابات الطلاب', `<p class="note">يُجهّز ملف طباعة متعدد الصفحات بصور أوراق الطلاب، مع علامات إجاباتهم ودرجتهم بالأرقام والحروف بالأحمر بأسلوب الكتابة اليدوية. لن تظهر دوائر إجابة المعلم الصفراء. بعد فتح المعاينة اختر «حفظ بصيغة PDF» من نافذة الطباعة.</p><label class="field">الاختبار<select id="answer-export-exam"><option value="all">جميع الاختبارات</option>${options(exams.map(e => [e.id, e.title]))}</select></label>${btn('تجهيز الأوراق','exportAnswerSheets()')}`);
 }
 
-// Numeric red-pen annotation is added only to the exported copy, above the paper.
+// Red-pen annotations are added only to the exported copy, inside the paper.
+function arabicGradeInteger(n){
+ const ones=['صفر','إحدى','اثنتان','ثلاث','أربع','خمس','ست','سبع','ثمان','تسع'],teens=['عشر','إحدى عشرة','اثنتا عشرة','ثلاث عشرة','أربع عشرة','خمس عشرة','ست عشرة','سبع عشرة','ثماني عشرة','تسع عشرة'],tens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+ if(n<10)return ones[n];if(n<20)return teens[n-10];if(n<100)return (n%10?(n%10===2?'اثنتان':ones[n%10])+' و':'')+tens[Math.floor(n/10)];
+ if(n<1000){const hundreds=['','مئة','مئتان','ثلاثمئة','أربعمئة','خمسمئة','ستمئة','سبعمئة','ثمانمئة','تسعمئة'];return hundreds[Math.floor(n/100)]+(n%100?' و'+arabicGradeInteger(n%100):'');}
+ const thousands=Math.floor(n/1000),prefix=thousands===1?'ألف':thousands===2?'ألفان':thousands<11?['','','','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة'][thousands]+' آلاف':arabicGradeInteger(thousands)+' ألف';return prefix+(n%1000?' و'+arabicGradeInteger(n%1000):'');
+}
+function gradeInArabic(value){
+ const n=Math.max(0,Math.round(Number(value)*100)/100),whole=Math.floor(n),fraction=Math.round((n-whole)*100);
+ if(!Number.isFinite(n))return '';
+ const integer=whole===1?'درجة واحدة':whole===2?'درجتان':arabicGradeInteger(whole)+(whole>=3&&whole<=10?' درجات':' درجة');
+ if(!fraction)return integer+' فقط';
+ const fractions={25:'ربع',50:'نصف',75:'ثلاثة أرباع'};
+ if(fractions[fraction])return (whole?integer+' و'+fractions[fraction]:fractions[fraction]+' درجة')+' فقط';
+ return arabicGradeInteger(whole)+' فاصلة '+String(fraction).padStart(2,'0').split('').map(d=>arabicGradeInteger(Number(d))).join(' ')+' درجة فقط';
+}
 function exportedSheetGrade(r) {
   const e=resultExam(r);if(!e||r.captureStatus==='ungraded')return null;
   const numeric=n=>new Intl.NumberFormat('en-US',{useGrouping:false,maximumFractionDigits:2}).format(n);
-  return { text:numeric(score(r))+' / '+numeric(total(e)), provisional:resultNeedsReview(r)||Object.keys(r.pages||{}).length<resultPageCount(r), essayPending:issueCounts(r).essayPending>0 };
+  return { text:numeric(score(r))+' / '+numeric(total(e)), words:gradeInArabic(score(r)), provisional:resultNeedsReview(r)||Object.keys(r.pages||{}).length<resultPageCount(r), essayPending:issueCounts(r).essayPending>0 };
 }
 function exportedGradePlacement(r) {
   const version=r.snapshot?.paperVersion||1,g=paperGeometry(version);
@@ -277,7 +292,7 @@ function drawExportedSheetGrade(ctx,width,height,r,map=null) {
   const origin=project(at.x,at.y),px=project(at.x+1,at.y),py=project(at.x,at.y+1);
   ctx.save();ctx.transform(px.x-origin.x,px.y-origin.y,py.x-origin.x,py.y-origin.y,origin.x,origin.y);
   ctx.fillStyle='#61706b';ctx.font='7px Tahoma,Arial,sans-serif';ctx.textAlign='right';ctx.direction='rtl';
-  if(grade.provisional)ctx.fillText(grade.essayPending?'مقالي غير مرصود':'أولية',-85,3);
+  if(grade.provisional)ctx.fillText(grade.essayPending?'مقالي غير مرصود':'أولية',-85,-8);
   // Single-stroke numerals, round pen ends and a slightly uneven circle resemble handwriting.
   const digits={
     '0':'M30 3 C-5 3 -5 97 30 97 C65 97 65 3 30 3',
@@ -294,6 +309,9 @@ function drawExportedSheetGrade(ctx,width,height,r,map=null) {
   };
   const advance=c=>c===' '?25:c==='/'?49:c==='.'?23:70;
   const units=[...grade.text].reduce((sum,c)=>sum+advance(c),0),scale=Math.min(at.height*.65/100,at.maxWidth/units),textWidth=units*scale;
+  ctx.save();ctx.rotate(-.025);ctx.fillStyle='#cd2028';ctx.font='12px "Waraqa Hand", "Aref Ruqaa", "Traditional Arabic", serif';ctx.direction='rtl';ctx.textAlign='right';ctx.textBaseline='middle';
+  const wordsRight=-textWidth/2-at.height*.22-8,wordsWidth=Math.min(175,at.x+wordsRight-58);
+  ctx.fillText(grade.words,wordsRight,3,Math.max(40,wordsWidth));ctx.restore();
   ctx.rotate(-.025);ctx.strokeStyle='#cd2028';ctx.lineWidth=1.25;ctx.lineCap='round';ctx.lineJoin='round';
   ctx.beginPath();for(let i=0;i<=64;i++){const t=i/64*Math.PI*2,rx=textWidth/2+at.height*.22,ry=at.height*.47,x=Math.cos(t)*rx*(1+.017*Math.sin(3*t)),y=Math.sin(t)*ry*(1+.025*Math.cos(5*t));if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y)}ctx.stroke();
   ctx.translate(-textWidth/2,-50*scale);ctx.scale(scale,scale);ctx.lineWidth=8;
@@ -303,6 +321,7 @@ function drawExportedSheetGrade(ctx,width,height,r,map=null) {
 
 function makeStudentAnswerSheetImage(source, r, p) {
   return new Promise(async (resolve, reject) => {
+    try{if(document.fonts?.load)await document.fonts.load('12px "Waraqa Hand"','عشرون درجة فقط');}catch{}
     const image = new Image();
     image.onload = () => {
       try {

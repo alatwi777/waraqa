@@ -368,3 +368,5 @@ html[data-theme="dark"] #wa-invoice-status,html[data-theme="dark"] .wa-invoice-h
 .result-review-toolbar .result-paper-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-width:300px;align-items:center}
 .result-review-toolbar .result-paper-actions .btn{height:42px;min-height:0;margin:0;padding:7px 10px;border-radius:9px;font-size:12px;white-space:nowrap;display:flex;align-items:center;justify-content:center}
 @media(max-width:600px){.result-review-toolbar .result-paper-actions{min-width:220px;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.result-review-toolbar .result-page-select{align-self:flex-start}}
+
+@font-face{font-family:"Waraqa Hand";src:url("fonts/ArefRuqaa-Regular.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
