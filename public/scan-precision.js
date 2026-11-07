@@ -17,6 +17,7 @@ function registerBubbleRings(canvas,map,plan){
 }
 function bubblePointMap(s,map,i,b){const offset=s.bubbleRegistration?.offsets[i+':'+b.value];return(x,y)=>map(x+(offset?.dx||0),y+(offset?.dy||0))}
 function identityStudentsForScan(s){return db.students.filter(st=>!s.captureGroup||st.group===s.captureGroup)}
+function studentIdentityActive(s){return s?.backgroundIdentity===true||scanState===s}
 function scanIdentityNotice(s){return s.identityStatus||'تجري قراءة رقم الطالب من الورقة…'}
 let NumberOCR=null,NumberOCRLoading=null,IdentityJob=0,NumberOCRQueue=Promise.resolve();
 function recognizeNumber(image){const task=NumberOCRQueue.then(async()=>{const worker=await getNumberOCR();return worker.recognize(image,{}, {text:true,blocks:true})});NumberOCRQueue=task.catch(()=>{});return task}
@@ -38,7 +39,7 @@ function studentNumberCrop(s,variant=0){
  if((s.version||8)!==8||!s.corners||s.orientationReady===false)return null;const c=s.canvas,w=c.width,h=c.height,source=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data,map=homography(s.corners,8);
  const wide=variant>=2,top=wide?16:22,bottom=wide?53:46,x0=wide?156:160,x1=wide?248:242,scale=5,out=document.createElement('canvas');out.width=(x1-x0)*scale+40;out.height=(bottom-top)*scale+40;const ctx=out.getContext('2d'),dst=ctx.createImageData(out.width,out.height);dst.data.fill(255);
  // Interpolate the same local curve correction from the registered grade/header rings.
- const anchors=scanPlan(s,getExam()).items.flatMap(v=>v.bubbles.filter(b=>b.y<100).map(b=>{const o=s.bubbleRegistration?.offsets[v.i+':'+b.value];return o?.reliable?{...b,...o}:null})).filter(Boolean);
+ const anchors=scanPlan(s,s.identityExam||db.exams.find(e=>e.id===s.exam)||getExam()).items.flatMap(v=>v.bubbles.filter(b=>b.y<100).map(b=>{const o=s.bubbleRegistration?.offsets[v.i+':'+b.value];return o?.reliable?{...b,...o}:null})).filter(Boolean);
  for(let y=20;y<out.height-20;y++)for(let x=20;x<out.width-20;x++){const px=x0+(x-20)/scale,py=top+(y-20)/scale;let dx=0,dy=0,weight=0;for(const a of anchors){const t=1/(100+(px-a.x)**2);dx+=a.dx*t;dy+=a.dy*t;weight+=t}const p=map(px+((variant===0||variant===1)&&weight?dx/weight:0),py+((variant===0||variant===1)&&weight?dy/weight:0)),xx=Math.round(p.x),yy=Math.round(p.y);if(xx<0||yy<0||xx>=w||yy>=h)continue;const n=(yy*w+xx)*4,k=(y*out.width+x)*4;const v=.299*source[n]+.587*source[n+1]+.114*source[n+2];const value=v;dst.data[k]=dst.data[k+1]=dst.data[k+2]=value;dst.data[k+3]=255}
  // Normalize exposure before thresholding; a fixed cutoff merges faint printed digits on shaded paper.
  const hist=new Array(256).fill(0);for(let y=20;y<out.height-20;y++)for(let x=20;x<out.width-20;x++)hist[Math.round(dst.data[(y*out.width+x)*4])]++;
@@ -51,18 +52,18 @@ function studentNumberCrop(s,variant=0){
  for(const x of removeCols)for(let y=20;y<out.height-20;y++){const k=(y*out.width+x)*4;dst.data[k]=dst.data[k+1]=dst.data[k+2]=255}
  ctx.putImageData(dst,0,0);return out;
 }
-function refreshIdentityUI(s){if(scanState!==s)return;const r=db.results.find(x=>x.id===s.savedResultId),st=db.students.find(x=>x.id===s.student);if(r&&!r.student&&st){r.student=st.id;r.name=st.name;r.number=st.number;r.group=st.group;r.updated=new Date().toISOString();save()}updateScanSummary();const select=$('#scan-student');if(select)select.value=s.student||''}
+function refreshIdentityUI(s){if(s.backgroundIdentity||scanState!==s)return;const r=db.results.find(x=>x.id===s.savedResultId),st=db.students.find(x=>x.id===s.student);if(r&&!r.student&&st){r.student=st.id;r.name=st.name;r.number=st.number;r.group=st.group;r.updated=new Date().toISOString();save()}updateScanSummary();const select=$('#scan-student');if(select)select.value=s.student||''}
 async function readScanStudent(s){
- if(!s||scanState!==s||s.student)return;const job=++IdentityJob;
+ if(!s||!studentIdentityActive(s)||s.student)return;const job=s.identityJob=(s.identityJob||0)+1;
  if(s.orientationReady===false){s.identityStatus='صحّح اتجاه الورقة أولًا؛ يجب أن يكون عنوان الاختبار في الأعلى.';refreshIdentityUI(s);return}
  const students=identityStudentsForScan(s);
  if(!students.length){s.identityStatus='لا توجد قائمة طلاب على هذا الجهاز. استعد بيانات الطلاب أولًا.';refreshIdentityUI(s);return}
  const crop=studentNumberCrop(s);if(!crop){s.identityStatus='يلزم قالب V8 ورقم طالب مطبوع وزوايا صحيحة لقراءة الاسم تلقائيًا.';refreshIdentityUI(s);return}
  s.identityStatus='جارٍ قراءة رقم الطالب تلقائيًا…';refreshIdentityUI(s);
- try{await getNumberOCR();if(scanState!==s||job!==IdentityJob||s.student)return;
+ try{await getNumberOCR();if(!studentIdentityActive(s)||job!==s.identityJob||s.student)return;
  const readings=[];let matched=null;
  s.identityReadings=[];
- for(const variant of [0,1,2,3]){const crop=studentNumberCrop(s,variant);if(!crop)break;const reading=numericOCRReading((await recognizeNumber(crop)).data);if(scanState!==s||job!==IdentityJob||s.student)return;
+ for(const variant of [0,1,2,3]){const crop=studentNumberCrop(s,variant);if(!crop)break;const reading=numericOCRReading((await recognizeNumber(crop)).data);if(!studentIdentityActive(s)||job!==s.identityJob||s.student)return;
  for(const previous of readings){matched=studentFromReadings(previous,reading,students);if(matched)break}readings.push(reading);s.identityReadings=readings;if(matched)break;}
  if(matched){s.student=matched.id;s.identityStatus='تم التعرف على الطالب برقم الورقة: '+matched.number;s.identityAutomatic=true}
  else{const strong=readings.filter(r=>r.confidence>=80).map(r=>printedStudentNumber(r.text)).filter(Boolean),agreed=strong.find(n=>strong.filter(x=>x===n).length>=2);
@@ -72,7 +73,7 @@ async function readScanStudent(s){
  refreshIdentityUI(s);
 }
 function identifyScanStudent(s,force=false){
- if(!s||scanState!==s||s.student)return Promise.resolve();
+ if(!s||!studentIdentityActive(s)||s.student)return Promise.resolve();
  if(s.identityPromise)return s.identityPromise;
  const task=readScanStudent(s);s.identityPromise=task;
  return task.finally(()=>{if(s.identityPromise===task)s.identityPromise=null});

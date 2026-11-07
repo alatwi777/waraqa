@@ -105,7 +105,7 @@ capturePaperFrame=async function(automatic=false){
 async function finishDocumentBatch(){const s=PaperCamera;if(!s?.batchCapture)return closePaperCamera();if(s.capturePromise)try{await s.capturePromise}catch{}stopPaperCamera();currentResult=null;resultsExamFilter=s.examSnapshot.id;location.hash='results';results();}
 
 function ungradedCaptureRow(r) {
-  const exam=resultExam(r);return `<tr class="ungraded-capture-row"><td>—</td><td><strong>${esc(r.name)}</strong><small class="note" style="display:block">${esc(r.captureGroup||'جميع الصفوف')} · ${new Date(r.date).toLocaleString('ar-SA')}</small></td><td>${esc(exam?.title||'الاختبار')}</td><td>—</td><td><span class="tag amber">غير مصححة</span></td><td><button class="btn gold small" type="button" onclick="correctCapturedSheet('${r.id}')">تصحيح</button> <button class="text-link" onclick="reviewResult('${r.id}')">عرض الصورة</button> <button class="delete-link" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
+  const exam=resultExam(r),pending=typeof isContinuousCameraPending==='function'&&isContinuousCameraPending(r.id);return `<tr class="ungraded-capture-row"><td>—</td><td><strong>${esc(r.name)}</strong><small class="note" style="display:block">${esc(r.captureGroup||'جميع الصفوف')} · ${new Date(r.date).toLocaleString('ar-SA')}</small></td><td>${esc(exam?.title||'الاختبار')}</td><td>—</td><td><span class="tag amber">${pending?'جارٍ التصحيح…':'غير مصححة'}</span></td><td><button class="btn gold small" type="button" ${pending?'disabled':''} onclick="correctCapturedSheet('${r.id}')">تصحيح</button> <button class="text-link" onclick="reviewResult('${r.id}')">عرض الصورة</button> <button class="delete-link" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
 }
 function capturedPageNumber(r,e) { const count=paperPlan(e,8).length;if(count===1)return 0;return Number.isInteger(r.capturePage)&&r.capturePage>=0&&r.capturePage<count?r.capturePage:null; }
 function setCapturedPage(id,value) { const r=db.results.find(x=>x.id===id&&x.captureStatus==='ungraded'),e=r&&(db.exams.find(x=>x.id===r.exam)||resultExam(r));if(!r||!e)return;const page=value===''?null:Number(value);if(page!==null&&(!Number.isInteger(page)||page<0||page>=paperPlan(e,8).length))return;r.capturePage=page;save(); }
@@ -127,7 +127,7 @@ async function readCapturedSheet(r) {
   return {s,e};
 }
 async function correctCapturedSheet(id) {
-  if(capturedGrading)return;const r=db.results.find(x=>x.id===id&&x.captureStatus==='ungraded');if(!r)return;
+  if(capturedGrading)return;if(typeof isContinuousCameraPending==='function'&&isContinuousCameraPending(id))return toast('جارٍ تصحيح الورقة في الخلفية');const r=db.results.find(x=>x.id===id&&x.captureStatus==='ungraded');if(!r)return;
   const exam=db.exams.find(x=>x.id===r.exam);
   if(exam&&capturedPageNumber(r,exam)===null){await reviewCapturedSheet(id);toast('اختر رقم الصفحة المطبوعة ثم اضغط تصحيح');return;}
   capturedGrading=true;toast('جارٍ قراءة الورقة والطالب…');
@@ -139,7 +139,7 @@ async function correctCapturedSheet(id) {
   finally{capturedGrading=false}
 }
 async function correctCapturedBatch() {
-  if(capturedGrading)return;const list=db.results.filter(r=>r.captureStatus==='ungraded'&&(resultsExamFilter==='all'||r.exam===resultsExamFilter));if(!list.length)return;
+  if(capturedGrading)return;const list=db.results.filter(r=>r.captureStatus==='ungraded'&&!(typeof isContinuousCameraPending==='function'&&isContinuousCameraPending(r.id))&&(resultsExamFilter==='all'||r.exam===resultsExamFilter));if(!list.length)return;
   capturedGrading=true;batchProcessing=true;let count=0,needsCorners=0;
   const button=document.querySelector('.captured-batch-toolbar button');if(button){button.disabled=true;button.textContent='جارٍ التصحيح…';}
   try{for(const r of list){try{const {s,e}=await readCapturedSheet(r);if(!s.corners||s.orientationReady===false){needsCorners++;continue}await persistScanDraft(s,e,true);count++}catch{needsCorners++}const progress=$('#captured-grading-progress');if(progress)progress.textContent=`تم تصحيح ${ar(count)} · باقٍ للمراجعة اليدوية ${ar(needsCorners)}`;}}
