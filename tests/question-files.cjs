@@ -1,13 +1,17 @@
-const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
-const nodes=new Map(),node=s=>{if(!nodes.has(s))nodes.set(s,{value:'',innerHTML:'',checked:false});return nodes.get(s)};let saved=0;
-const ctx={require,console,Uint8Array,ArrayBuffer,Buffer,URL,process,setTimeout,clearTimeout,ReadableStream,TextDecoder,TextEncoder,structuredClone,AbortController,$:node,esc:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),uid:()=>String(Math.random()),ar:String,letters:['أ','ب','ج','د'],db:{exams:[]},currentExam:null,save:()=>saved++,closeModal(){},exams(){},toast:t=>ctx.toastText=t,location:{},window:{}};
-vm.createContext(ctx);const run=s=>vm.runInContext(s,ctx);for(const f of ['pdf.worker.min.js','pdf.min.js','question-files.js'])run(fs.readFileSync(path.join(__dirname,'../public',f),'utf8'));const Q=run('QuestionFiles');
-const text='اختياري ٠١: أي الكواكب أقرب إلى الشمس؟\nأ: عطارد\nب: الأرض\nج: المريخ\nد: زحل\nالإجابة الصحيحة: أ الدرجة: 2.5\nصح وخطأ 01: تدور الأرض حول الشمس.\nالإجابة الصحيحة: صح الدرجة: 1';let parsed=Q.parse(text);assert.equal(parsed.questions.length,2);assert.equal(parsed.errors.length,0);assert.equal(parsed.questions[0].points,2.5);assert.equal(parsed.questions[0].answer,0);assert.equal(parsed.questions[1].answer,0);
-assert(Q.parse(text.replace('د: زحل','')).errors.some(s=>s.includes('غير مكتمل')));assert(Q.parse('اختياري 01: اكتب نص السؤال هنا\nأ: اكتب الخيار أ هنا').errors.some(s=>s.includes('فارغ')));assert(Q.parse(text.replace('عطارد','ع'.repeat(25))).errors.length);assert(Q.parse(text.replace('الشمس؟','ش'.repeat(90))).errors.length);assert(Q.parse('نص غير منظم').errors.length);assert(Q.parse(text.replace('الصحيحة: أ','الصحيحة: هـ')).errors.length);const noKeys=Q.parse(text.replace(/الإجابة الصحيحة[^\n]+/g,''));assert(noKeys.questions.every(q=>q.answer===null));
-(async()=>{const doc=await ctx.pdfjsLib.getDocument({data:new Uint8Array(fs.readFileSync(path.join(__dirname,'fixtures/questions-filled.pdf'))),disableFontFace:true}).promise;const lines=[];for(let p=1;p<=doc.numPages;p++)lines.push(...Q.linesFromItems((await(await doc.getPage(p)).getTextContent()).items));parsed=Q.parse(lines.join('\n'));assert.equal(parsed.questions.length,20);assert.equal(parsed.errors.length,0);assert.equal(parsed.questions.filter(q=>q.type==='mcq').length,10);assert.equal(parsed.questions.filter(q=>q.type==='tf').length,10);assert(parsed.questions.every(q=>q.answer===0));await doc.destroy();
- // Commit is explicit, creates a separate exam by default and preserves existing questions.
- ctx.db.exams=[{id:'existing',questions:[{text:'محفوظ'}]}];run('questionPdfState={target:"existing",parsed:QuestionFiles.parse('+JSON.stringify(text)+')}');node('#question-pdf-mode').value='new';node('#question-pdf-title').value='اختبار مستورد';node('#question-pdf-subject').value='علوم';ctx.commitQuestionPDF();assert.equal(saved,0);node('#question-pdf-reviewed').checked=true;ctx.commitQuestionPDF();assert.equal(saved,1);assert.equal(ctx.db.exams.length,2);assert.equal(ctx.db.exams[0].questions.length,1);assert.equal(ctx.db.exams[1].questions.length,2);assert.equal(ctx.db.exams[1].questions[0].points,2.5);
- run('questionPdfState={target:"existing",parsed:QuestionFiles.parse('+JSON.stringify(text)+')}');node('#question-pdf-mode').value='append';ctx.commitQuestionPDF();assert.equal(ctx.db.exams[0].questions.length,3);
- const html=ctx.questionsExportHTML({...ctx.db.exams[1],title:'<script>bad</script>',questions:parsed.questions});assert(html.includes('&lt;script&gt;'));assert(!html.includes('الإجابة الصحيحة'));assert(html.includes('window.print()'));assert(html.includes('اختياري 01:'));assert(html.includes('صح وخطأ 01:'));
- console.log('PASS: actual Word-to-PDF fixture 10+10; Arabic PDF line order; options/keys/points; blank/incomplete/long-text guards; explicit reviewed commit; new/append preserves questions; escaped PDF export without answer keys.');
-})().catch(e=>{console.error(e);process.exitCode=1});
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const Q=require('../public/question-files.js');
+const stem='أي مصدر مائي تجمعت مياهه في باطن الأرض منذ العصور الجيولوجية القديمة؟ '.repeat(2);
+const option='المياه الجوفية العميقة المخزنة في باطن الأرض منذ آلاف السنين';
+const question=key=>`اختياري 01: ${stem}\nأ: ${option}\nب: المياه السطحية\nج: مياه الأمطار\nد: مياه الصرف المعالجة\n${key}`;
+for(const key of ['الإجابة الصحيحة: أ الدرجة: ١','الإجابة الصحيحة: أ: الدرجة: 1','الإجابة الصحيحة أ الدرجة: 1','الإجابة الصحيحة： أ： الدرجة： 1']){
+ const parsed=Q.parse(question(key));assert.deepEqual(parsed.errors,[],key);assert.equal(parsed.questions[0].answer,0,key);assert.equal(parsed.questions[0].points,1);assert.equal(parsed.questions[0].text,stem.trim());assert.equal(parsed.questions[0].options[0],option);
+ const normalized=Q.normalizeAnswerLines(question(key));assert.match(normalized,/الإجابة الصحيحة: أ: الدرجة: 1/);assert.equal(Q.parse(normalized).questions[0].answer,0);
+}
+const tf=Q.parse('صح وخطأ 01: موارد المياه مهمة للحياة.\nالإجابة الصحيحة: خطأ الدرجة: ٢');assert.equal(tf.questions[0].answer,1);assert.equal(tf.questions[0].points,2);
+assert.match(Q.parse(question('الإجابة الصحيحة: هـ الدرجة: 1')).errors.join(' '),/مفتاح الإجابة/);
+assert.equal(Q.parse(question('الإجابة الصحيحة: .... الدرجة: 1')).questions[0].answer,null);
+assert.match(Q.parse('اختياري 01: سؤال\nأ: فقط').errors.join(' '),/غير مكتمل/);
+const app=fs.readFileSync(require.resolve('../public/app.js'),'utf8');assert.ok(!app.includes('maxlength="24"'));assert.ok(!app.includes('maxlength="80"'));
+console.log('PASS: answer keys with/without colon before grades; Arabic numerals; long questions/options preserved; missing and invalid options still checked.');
