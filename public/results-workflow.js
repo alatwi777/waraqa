@@ -321,7 +321,7 @@ function drawExportedSheetGrade(ctx,width,height,r,map=null) {
 
 function makeStudentAnswerSheetImage(source, r, p) {
   return new Promise(async (resolve, reject) => {
-    try{if(document.fonts?.load)await document.fonts.load('12px "Waraqa Hand"','عشرون درجة فقط');}catch{}
+    try{if(document.fonts?.load)await document.fonts.load('18px "Waraqa Hand"','عشرون درجة فقط متروك');}catch{}
     const image = new Image();
     image.onload = () => {
       try {
@@ -336,7 +336,7 @@ function makeStudentAnswerSheetImage(source, r, p) {
         holder.append(image, overlay); document.body.append(holder);
         // Use only the original student-mark renderer; the wrapper renderer adds
         // the teacher's yellow answer circle, which is intentionally excluded.
-        originalDrawResultOverlay(r, p, image, overlay);
+        originalDrawResultOverlay(r, p, image, overlay, 'print');
         const output = document.createElement('canvas'); output.width = width; output.height = height;
         const ctx = output.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(image,0,0);ctx.drawImage(overlay,0,0);
         const position=getResultHitContext(r,p,image,overlay);
