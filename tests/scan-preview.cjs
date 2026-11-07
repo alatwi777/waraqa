@@ -17,4 +17,20 @@ assert.equal(run('scanState.answers[1]'),0);
 assert.equal(run('score(scanPreviewModel().draft)'),8);
 assert.equal(run('db.results.length'),0,'editing a preview must remain a draft');
 run(`let writtenImage=null;filePut=async(k,v)=>{writtenImage={k,v}};save=()=>{};results=()=>{};scanState.url='synthetic-sheet';scanQueue=[{}];scanIndex=0;`);
-(async()=>{await run('saveScan(true)');assert.equal(run('db.results.length'),1);assert.equal(run('db.results[0].answers[1]'),0);assert.equal(run('db.results[0].essay[-1]'),6);assert.equal(run('writtenImage.v'),'synthetic-sheet');assert.equal(run('score(db.results[0])'),8);console.log('PASS: colored draft preview preserves double marks, updates answers without saving, and saves the corrected result and essay through the normal review flow.');})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{
+ await run('saveScan(true)');assert.equal(run('db.results.length'),1);assert.equal(run('db.results[0].answers[1]'),0);assert.equal(run('db.results[0].essay[-1]'),6);assert.equal(run('writtenImage.v'),'synthetic-sheet');assert.equal(run('score(db.results[0])'),8);
+ // Saving is independent of the review checkbox and nullable essay grade.
+ fake.checked=false;run(`db.results=[];scanState={exam:'exam',student:'student',version:8,p:0,url:'sheet-without-essay',answers:{0:0},essay:{[-1]:null},flags:{},readings:{}};scanQueue=[{}];scanIndex=0`);
+ await run('saveScan(false)');assert.equal(run('db.results.length'),1);assert.equal(run('db.results[0].essay[-1]'),null);assert.equal(run('resultNeedsReview(db.results[0])'),true);
+ await run('saveScan(false)');assert.equal(run('db.results.length'),1,'repeated save must update the same draft');
+ run('approveResultReview(db.results[0].id)');assert.equal(run('resultNeedsReview(db.results[0])'),true,'missing essay must not be approved or converted to zero');
+ run('db.results[0].essay[-1]=0;reviewResult=async()=>{};approveResultReview(db.results[0].id)');assert.equal(run('resultNeedsReview(db.results[0])'),false,'explicit zero is a valid reviewed grade');
+ // Unidentified papers are retained as separate drafts, never merged with each other.
+ run(`scanState={exam:'exam',student:'',version:8,p:0,url:'unidentified-one',answers:{0:1},essay:{},flags:{},readings:{}}`);
+ await run('saveScan(false)');assert.equal(run('db.results.length'),2);assert.equal(run('db.results.at(-1).student'),'');
+ run(`scanState={exam:'exam',student:'',version:8,p:0,url:'unidentified-two',answers:{0:0},essay:{},flags:{},readings:{}}`);
+ await run('saveScan(false)');assert.equal(run('db.results.length'),3);run('mergeDuplicateStudentResults()');assert.equal(run('db.results.length'),3);
+ const before=copy('db.results[0]');run(`scanState={exam:'exam',student:'student',version:8,p:0,url:'failed-image',answers:{0:3},essay:{[-1]:null},flags:{},readings:{}};filePut=async()=>{throw Error('quota')}`);
+ await run('saveScan(false)');assert.deepEqual(copy('db.results[0]'),before,'failed image write must preserve the existing result');
+ console.log('PASS: editable preview; direct draft saving without checkbox, student or essay; null versus zero; repeat-save identity; unidentified sheets stay separate; explicit approval; failed writes preserve existing results.');
+})().catch(e=>{console.error(e);process.exitCode=1});

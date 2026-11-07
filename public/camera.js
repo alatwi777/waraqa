@@ -25,7 +25,7 @@ async function connectPaperCamera(s,deviceId){
  try{
   // Avoid requesting 4K-ish ideals up front: iOS Safari may open the track
   // while failing to paint its first frame. Let Safari choose a native mode.
-  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:deviceId?{deviceId:{exact:deviceId}}:{facingMode:{ideal:'environment'}}});
+  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{...(deviceId?{deviceId:{exact:deviceId}}:{facingMode:{ideal:'environment'}}),width:{ideal:2560},height:{ideal:1920}}});
   if(!active()){stream.getTracks().forEach(t=>t.stop());return}
   s.stream=stream;const track=stream.getVideoTracks()[0],v=$('#paper-camera-video');v.muted=true;v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');v.srcObject=stream;await v.play();await waitForPaperCameraFrame(v);
   if(!active())return;
@@ -93,7 +93,7 @@ function analysePaperFrame(s){
 async function capturePaperFrame(automatic=false){
  const s=PaperCamera,v=$('#paper-camera-video');if(!s||s.busy||!v?.videoWidth||v.readyState<2)return;if(automatic&&!s.detected)return;
  s.busy=true;clearTimeout(s.timer);$('#paper-camera-capture').disabled=true;
- try{const c=document.createElement('canvas'),k=Math.min(1,2400/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);playPaperCameraShutter();const url=c.toDataURL('image/jpeg',.95);closePaperCamera();scanQueue=[{name:s.documentScan?'مسح ضوئي للهاتف':'تصوير الهاتف',url,documentScan:s.documentScan,cameraScan:true}];scanIndex=0;await openScan();toast('تم التصوير. تجري قراءة رقم الطالب والإجابات تلقائيًا.')}catch{s.busy=false;if(cameraActive(s)){$('#paper-camera-capture').disabled=false;s.timer=setTimeout(()=>analysePaperFrame(s),240)}toast('تعذر التقاط الصورة. أعد المحاولة.')}
+ try{const c=document.createElement('canvas'),k=Math.min(1,3200/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);playPaperCameraShutter();const url=c.toDataURL('image/jpeg',.95);closePaperCamera();scanQueue=[{name:s.documentScan?'مسح ضوئي للهاتف':'تصوير الهاتف',url,documentScan:s.documentScan,cameraScan:true}];scanIndex=0;await openScan();toast('تم التصوير. تجري قراءة رقم الطالب والإجابات تلقائيًا.')}catch{s.busy=false;if(cameraActive(s)){$('#paper-camera-capture').disabled=false;s.timer=setTimeout(()=>analysePaperFrame(s),240)}toast('تعذر التقاط الصورة. أعد المحاولة.')}
 }
 // Compare printed bubble rings across all rotations, rather than inferring orientation from aspect alone.
 function paperOrientation(c,exam,version=8){
@@ -118,7 +118,7 @@ function orientScanCanvas(c,exam,version=8){
 }
 function rectifyDocumentCanvas(c,version=8){
  const corners=findMarkers(c);if(!corners)throw Error('أظهر المربعات الأربع لقص الورقة تلقائيًا');
- const g=paperGeometry(version),out=document.createElement('canvas'),scale=1.6;out.width=Math.round(g.width*scale);out.height=Math.round(g.height*scale);
+ const g=paperGeometry(version),out=document.createElement('canvas'),scale=2.4;out.width=Math.round(g.width*scale);out.height=Math.round(g.height*scale);
  const source=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data,ctx=out.getContext('2d'),dst=ctx.createImageData(out.width,out.height),map=homography(corners,version);
  // Bilinear resampling preserves faint marks; no destructive black/white threshold.
  const gray=(a,b)=>{const n=(b*c.width+a)*4;return .299*source[n]+.587*source[n+1]+.114*source[n+2]};
@@ -131,7 +131,7 @@ function rectifyDocumentCanvas(c,version=8){
  ctx.putImageData(dst,0,0);out.scanOrientation=c.scanOrientation;return out;
 }
 function updateScanSummary(){const host=$('#scan-summary'),s=scanState;if(!host||!s)return;const e=db.exams.find(e=>e.id===s.exam),student=db.students.find(st=>st.id===s.student),plan=scanPlan(s,e);const pageMax=plan.items.reduce((a,v)=>a+Number(v.q.points||0),0);const provisional=score({snapshot:{...e,paperVersion:s.version||8},answers:s.answers,essay:s.essay});const unresolved=plan.items.filter(v=>(v.q.type==='essay'?s.essay[v.i]:s.answers[v.i])==null).length;
- host.innerHTML=`<div class="scan-student-card"><div><small>الطالب</small><strong>${esc(student?.name||(s.identityStatus?.startsWith('جارٍ')?'جارٍ التعرف على الطالب…':'اختر الطالب من القائمة أدناه'))}</strong><span>${student?'رقم الطالب: '+esc(student.number):'اربط الورقة بالطالب قبل حفظ النتيجة'}</span></div><div class="scan-page-score"><small>درجة الصفحة الأولية</small><b>${ar(provisional)} <span>/ ${ar(pageMax)}</span></b></div></div><p class="note scan-identity-status">${esc(s.identityStatus||'')} ${typeof identifyScanStudent==='function'?'<button class="text-link" onclick="retryStudentIdentity()">إعادة قراءة رقم الطالب</button>':''}</p><p class="note">${unresolved?'يوجد '+ar(unresolved)+' سؤال أو درجة غير مرصودة. ':''}الدرجة تتحدث عند تعديل الإجابات، وتعتمد بعد مراجعتك وحفظها.</p>`}
+ host.innerHTML=`<div class="scan-student-card"><div><small>الطالب</small><strong>${esc(student?.name||(s.identityStatus?.startsWith('جارٍ')?'جارٍ التعرف على الطالب…':'اختر الطالب من القائمة أدناه'))}</strong><span>${student?'رقم الطالب: '+esc(student.number):'يمكن حفظ الورقة الآن وربطها بالطالب عند المراجعة'}</span></div><div class="scan-page-score"><small>درجة الصفحة الأولية</small><b>${ar(provisional)} <span>/ ${ar(pageMax)}</span></b></div></div><p class="note scan-identity-status">${esc(s.identityStatus||'')} ${typeof identifyScanStudent==='function'?'<button class="text-link" onclick="retryStudentIdentity()">إعادة قراءة رقم الطالب</button>':''}</p><p class="note">${unresolved?'يوجد '+ar(unresolved)+' سؤال أو درجة غير مرصودة. ':''}الدرجة تتحدث عند تعديل الإجابات، وتعتمد بعد مراجعتك وحفظها.</p>`}
 // Closing via X, Escape, navigation or a hidden tab releases the camera hardware.
 if(typeof document.addEventListener==='function'){
  document.querySelector('#modal')?.addEventListener('close',stopPaperCamera);
