@@ -462,8 +462,8 @@ drawResultOverlay = function (r, p, im = document.querySelector('#result-image')
       const pointMap = typeof bubblePointMap === 'function' ? bubblePointMap(context.state, context.map, item.i, bubble) : context.map;
       const point = pointMap(bubble.x, bubble.y), edge = pointMap(bubble.x + bubble.r, bubble.y);
       const radius = Math.hypot(edge.x - point.x, edge.y - point.y) * context.scale;
-      ctx.save(); ctx.strokeStyle = '#f4bd16'; ctx.lineWidth = Math.max(3, context.im.naturalWidth / 420); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 2;
-      ctx.beginPath(); ctx.arc(context.ox + point.x * context.scale, context.oy + point.y * context.scale, radius + 3, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.strokeStyle = '#f4bd16'; ctx.lineWidth = Math.max(1.2, Math.min(2.5, radius * .16)); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = .5;
+      ctx.beginPath(); ctx.arc(context.ox + point.x * context.scale, context.oy + point.y * context.scale, radius * .98, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
     });
   }
   if (canvas) { canvas.style.pointerEvents = 'auto'; canvas.style.cursor = 'crosshair'; canvas.onclick = ev => handleResultPaperClick(ev, r.id, p, getResultHitContext(r, p, im, canvas)); }
@@ -475,7 +475,7 @@ drawResultOverlay = function (r, p, im = document.querySelector('#result-image')
     if (b) {
       const ctx = resultHitContext, bm = typeof bubblePointMap === 'function' ? bubblePointMap(ctx.state, ctx.map, -1, b) : ctx.map;
       const pt = bm(b.x, b.y), edge = bm(b.x + b.r, b.y), radius = Math.hypot(edge.x - pt.x, edge.y - pt.y) * ctx.scale;
-      const x = canvas.getContext('2d'); x.strokeStyle = '#16834f'; x.lineWidth = Math.max(2, ctx.im.naturalWidth / 550); x.beginPath(); x.arc(ctx.ox + pt.x * ctx.scale, ctx.oy + pt.y * ctx.scale, radius + 2, 0, Math.PI * 2); x.stroke();
+      const x = canvas.getContext('2d'); x.strokeStyle = '#16834f'; x.lineWidth = Math.max(1.2, Math.min(2.5, radius * .16)); x.beginPath(); x.arc(ctx.ox + pt.x * ctx.scale, ctx.oy + pt.y * ctx.scale, radius * .98, 0, Math.PI * 2); x.stroke();
     }
   }
 };
@@ -740,11 +740,12 @@ function paintScanPreview(image, canvas) {
   const context = scanPreviewContext(image, canvas);
   if (!context) return;
   const { s, plan, map, scale, ox, oy } = context, pen = canvas.getContext('2d');
-  const ring = (item, bubble, color, extra = 2) => {
+  const ring = (item, bubble, color) => {
     const bm = typeof bubblePointMap === 'function' ? bubblePointMap(s, map, item.i, bubble) : map;
     const pt = bm(bubble.x, bubble.y), edge = bm(bubble.x + bubble.r, bubble.y);
-    pen.strokeStyle = color; pen.lineWidth = 3; pen.beginPath();
-    pen.arc(ox + pt.x * scale, oy + pt.y * scale, Math.hypot(edge.x - pt.x, edge.y - pt.y) * scale + extra, 0, Math.PI * 2); pen.stroke();
+    const radius = Math.hypot(edge.x - pt.x, edge.y - pt.y) * scale;
+    pen.strokeStyle = color; pen.lineWidth = Math.max(1.2, Math.min(2.5, radius * .16)); pen.beginPath();
+    pen.arc(ox + pt.x * scale, oy + pt.y * scale, radius * .98, 0, Math.PI * 2); pen.stroke();
   };
   for (const item of plan.items) {
     if (item.q.type === 'essay') {
@@ -757,7 +758,7 @@ function paintScanPreview(image, canvas) {
     for (const bubble of item.bubbles.filter(b => marked.includes(b.value))) ring(item, bubble, scanStatusColors[status] || scanStatusColors.unresolved);
     if (status === 'wrong') {
       const key = item.bubbles.find(b => Number(b.value) === Number(item.q.answer));
-      if (key) ring(item, key, '#f4bd16', 3);
+      if (key) ring(item, key, '#f4bd16');
     } else if (status === 'blank' || status === 'unresolved') {
       const point = map(item.x - 8, item.y + 8);
       pen.strokeStyle = scanStatusColors[status]; pen.lineWidth = 2; pen.beginPath();
