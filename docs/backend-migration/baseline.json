@@ -1,0 +1,108 @@
+{
+  "phase": 1,
+  "created_date_riyadh": "2026-11-08",
+  "repository": "alatwi777/waraqa",
+  "published_baseline_commit": "cf13a92452dd73a88f16bb99ec0e9a1e39cf0a96",
+  "published_baseline_tree": "b17d5ef33ed0266e19e77d875e7adda04b8823a9",
+  "successful_pages_run": 42415368364,
+  "backup_branch": "backup/stable-before-backend-20261108",
+  "development_branch": "development/backend-migration",
+  "repository_visibility": "public",
+  "private_backend_repository_created": false,
+  "backend_implementation_started": false,
+  "production_runtime_changed": false,
+  "paid_services_activated": false,
+  "browser_data_backup": {
+    "status": "pending_owner_download",
+    "contains_local_storage_and_indexeddb_images": true,
+    "uploaded_to_repository": false
+  },
+  "initial_cjs_suite": {
+    "passed": 14,
+    "total": 16,
+    "test_harness_failures": [
+      "question-files.cjs: direct CommonJS import of browser script is incompatible with repository ESM package configuration",
+      "voice.cjs: obsolete expectations for old 80/24 character limits"
+    ]
+  },
+  "development_test_harness_updates": [
+    "Use isolated VM loading for the browser question parser; keep parser behavior unchanged",
+    "Verify long dictated questions and options remain intact, matching the approved product behavior"
+  ],
+  "verified_cjs_tests": [
+    {
+      "test": "tests/camera.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/continuous-camera.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/document-batch.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/email-quota.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/export-grade.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/grading.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/local-storage.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/owner-messages.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/question-files.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/results-review.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/scan-precision.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/scan-preview.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/student-identity.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/student-import.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/subscription-live.cjs",
+      "passed": true
+    },
+    {
+      "test": "tests/voice.cjs",
+      "passed": true
+    }
+  ],
+  "build": {
+    "command": "node scripts/build-pages.mjs",
+    "passed": true
+  },
+  "test_limits": [
+    "No comprehensive security audit yet",
+    "No physical iPhone/iPad camera test",
+    "No access to actual owner browser data",
+    "External/cloud integration tests require separately configured dependencies and test environment"
+  ]
+}

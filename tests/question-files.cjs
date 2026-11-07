@@ -1,7 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const Q=require('../public/question-files.js');
+const vm=require('node:vm'),parserContext={module:{exports:{}}};vm.createContext(parserContext);vm.runInContext(fs.readFileSync(require.resolve('../public/question-files.js'),'utf8'),parserContext);
+const Q={parse:text=>JSON.parse(JSON.stringify(parserContext.module.exports.parse(text))),normalizeAnswerLines:parserContext.module.exports.normalizeAnswerLines};
 const stem='أي مصدر مائي تجمعت مياهه في باطن الأرض منذ العصور الجيولوجية القديمة؟ '.repeat(2);
 const option='المياه الجوفية العميقة المخزنة في باطن الأرض منذ آلاف السنين';
 const question=key=>`اختياري 01: ${stem}\nأ: ${option}\nب: المياه السطحية\nج: مياه الأمطار\nد: مياه الصرف المعالجة\n${key}`;
@@ -28,7 +29,7 @@ for(const source of [joined,split]){for(const text of [source,Q.normalizeAnswerL
 const twoPages=question('اإلجابة الصحيحة: أ | الدرجة: 1')+'\nالوحدة الثانية: موارد المملكة العربية السعودية | صفحة 1 من 3\nالدراسات الاجتماعية - الصف الثالث المتوسط\nالوحدة الثانية: موارد المملكة العربية السعودية\nصح وخطأ 01: المياه مهمة. اإلجابة الصحيحة: صح | الدرجة: 1';
 const cleaned=Q.parse(twoPages);assert.deepEqual(cleaned.errors,[]);assert.equal(cleaned.questions.length,2);assert.equal(cleaned.questions[1].text,'المياه مهمة.');assert.equal(cleaned.questions[1].answer,0);assert.ok(!JSON.stringify(cleaned.questions).includes('الإجابة'));assert.ok(!JSON.stringify(cleaned.questions).includes('صفحة 1'));
 console.log('PASS: joined/split PDF answer labels, lam-alef variants, vertical separators and page headers never leak into printable questions/options.');
-const vm=require('node:vm'),context={module:{exports:{}},console};vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../public/question-files.js'),'utf8'),context);
+const context={module:{exports:{}},console};vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../public/question-files.js'),'utf8'),context);
 const dirty={id:'keep-id',type:'mcq',text:'سؤال؟',options:['أول','ثاني','ثالث','رابع اإلجابة الصحيحة: ب | الدرجة: 1 الوحدة الثانية: موارد المملكة | صفحة 1 من 3'],answer:null,points:3};
 context.dirty=dirty;const repaired=vm.runInContext('cleanImportedQuestionMetadata(dirty)',context);assert.equal(repaired.id,'keep-id');assert.equal(repaired.points,3);assert.equal(repaired.answer,1);assert.equal(repaired.options[3],'رابع');assert.equal(dirty.options[3].includes('الصحيحة'),true);context.dirty={...dirty,answer:2};assert.equal(vm.runInContext('cleanImportedQuestionMetadata(dirty)',context).answer,2);
 context.dirty={...dirty,options:['أول','ثاني','ثالث','رابع']};assert.equal(vm.runInContext('cleanImportedQuestionMetadata(dirty)',context),null);

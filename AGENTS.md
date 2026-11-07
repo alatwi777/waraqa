@@ -9,3 +9,13 @@ Current user requirement: FREE GitHub Pages only. Do not require Cloudflare, R2,
 - Keep the repository public for the owner's requested GitHub Free hosting unless they request a visibility change. Never upload real student records, personal images, backups, passwords or tokens.
 - Cloudflare worker files are retained from the earlier optional setup and are NOT used by the default build or Pages workflow. Preserve owner binding IDs if those files are touched; do not deploy them automatically.
 - Run the local storage tests and relevant existing functionality tests after changes. Do not change OMR template geometry without a new version and scan compatibility.
+
+# Authorized backend migration preparation (2026-11-08)
+
+The owner has chosen a future server-side grading architecture and authorized phase 1: preserve the published baseline and prepare isolated development. The earlier free-Pages-only requirement remains the production behavior until migration is tested and an actual hosting/billing decision is made.
+
+- Baseline and scope: `docs/backend-migration/README.md` and `baseline.json` in this development branch.
+- Keep `main` and its Pages deployment unchanged during preparation.
+- `development/backend-migration` is in a PUBLIC repository; do not put new proprietary backend implementation or secrets here. Establish an owner-controlled private backend repository before that implementation.
+- Preserve authentication UIDs, local data keys, original images and OMR version compatibility.
+- No real student data, personal backups, paid service activation, cloud deployment or production migration is authorized by phase-1 preparation alone.
