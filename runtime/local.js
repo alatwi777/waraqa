@@ -1,5 +1,5 @@
 'use strict';
-// GitHub Pages has no private server. Records and images stay in this browser.
+// Records and images are stored in this browser; grading requests use the private backend.
 const LocalStore={key:null,revision:0,blocked:false,error:null};
 function localDataKey(uid){const path=new URL('.',location.href).pathname,legacy='waraqa-pages-v1:'+path,ownerKey='waraqa-pages-owner:'+path,own='waraqa-pages-v2:'+path+':'+uid;if(!window.WaraqaIsAdmin){let owner=localStorage.getItem(ownerKey);if(!owner)owner=uid;return owner===uid?legacy:own;}if(localStorage.getItem(legacy)!==null)return legacy;const owner=localStorage.getItem(ownerKey),ownerRecord=owner?'waraqa-pages-v2:'+path+':'+owner:null;if(ownerRecord&&localStorage.getItem(ownerRecord)!==null)return ownerRecord;if(localStorage.getItem(own)!==null)return own;const prefix='waraqa-pages-v2:'+path+':',candidates=[];for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.startsWith(prefix)&&localStorage.getItem(key)!==null)candidates.push(key);}return candidates.length===1?candidates[0]:own;}
 function validLocalData(v){return v&&['students','groups','exams','results'].every(k=>Array.isArray(v[k]))&&v.exams.every(e=>Array.isArray(e.questions));}

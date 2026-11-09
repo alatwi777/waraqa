@@ -183,20 +183,21 @@ function handleScanPaperClick(ev) {
 
 // Saving captures a draft; approval happens later from the result review.
 async function persistScanDraft(s, e, batch = false) {
+  if(s.remoteError||s.remotePending||!s.remoteReady)throw Error(s.remoteError||"انتظر اكتمال التصحيح على الخادم");
   let st = db.students.find(x => x.id === s.student);
   let r = db.results.find(x => x.id === s.savedResultId) || (st && db.results.find(x => x.exam === e.id && resultMatchesStudent(x, st, e.id)));
   if (r && r.captureStatus !== 'ungraded' && (JSON.stringify(r.snapshot.questions) !== JSON.stringify(e.questions) || (r.snapshot.paperVersion || 1) !== (s.version || 8))) throw Error('تغير الاختبار بعد التصحيح. أنشئ اختبارًا منفصلًا للنسخة المعدلة.');
   const previousRecord = r;
   if (r) r = JSON.parse(JSON.stringify(r));
   if (!r) r = { id: uid(), exam: e.id, student: st?.id || '', name: st?.name || 'طالب غير محدد — للمراجعة', number: st?.number || '', group: st?.group || '', snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: {}, reviewed: {}, date: new Date().toISOString() };
-  const key = r.id + '-' + s.p + '-' + uid();
+  const retained=db.results.find(item=>item.id===s.remoteRetainedId); const key=retained&&s.remoteInputUrl===s.url?retained.pages[0]:r.id+'-'+s.p+'-'+uid();
   // Write the image before changing an existing result. A failed image write leaves it intact.
   await filePut(key, s.url);
   st = db.students.find(x => x.id === s.student);
   if (r.captureStatus === 'ungraded') { r.snapshot = { ...JSON.parse(JSON.stringify(e)), paperVersion:s.version || 8 }; r.pages = {}; }
   r.captureStatus = 'graded';
   if (st) { r.student = st.id; r.name = st.name; r.number = st.number; r.group = st.group; }
-  r.pages[s.p] = key; r.markings ??= {}; r.markings[s.p] = {}; r.reviewPending ??= {}; r.reviewPending[s.p] = true;
+  r.pages[s.p] = key; r.remoteGeometry??={};r.remoteGeometry[s.p]={corners:s.corners,bubbleRegistration:s.bubbleRegistration}; r.markings ??= {}; r.markings[s.p] = {}; r.reviewPending ??= {}; r.reviewPending[s.p] = true;
   for (const { i, q } of scanPlan(s, e).items) {
     r.answers[i] = s.answers[i] ?? null;
     if (q.type === 'essay') {
@@ -212,7 +213,7 @@ async function persistScanDraft(s, e, batch = false) {
   const recordIndex = db.results.findIndex(x => x.id === r.id);
   if (recordIndex < 0) db.results.push(r); else db.results[recordIndex] = r;
   try { if (save() === false) throw Error('تعذر حفظ بيانات النتيجة؛ الصورة السابقة ما زالت محفوظة.'); } catch(error) { if (recordIndex < 0) db.results = db.results.filter(x=>x.id!==r.id); else db.results[recordIndex] = previousRecord; throw error; }
-  s.savedResultId = r.id; s.savedThisVisit = true; return r;
+  s.savedResultId = r.id; s.savedThisVisit = true; cleanupRemoteInput(s,r); return r;
 }
 async function saveScan(advance = true) {
   const s = scanState, e = db.exams.find(x => x.id === s?.exam);
@@ -453,7 +454,7 @@ async function correctAllPending() {
         const nextPage = Array.from({length: expected}, (_,i)=>i).find(i => !r.pages[i]);
         if (nextPage !== undefined) page = nextPage;
       }
-      if (Number(s.p || 0) !== page) { s.p = page; detectAndRead(); }
+      if (Number(s.p || 0) !== page) { s.p = page; await detectAndRead(); }
       await persistScanDraft(s, e, true);
       done++;
     } catch (err) { failed.push(scanQueue[scanIndex]?.name || `ورقة ${scanIndex + 1}`); }
@@ -527,9 +528,9 @@ drawResultOverlay = function (r, p, im = document.querySelector('#result-image')
 function getResultHitContext(r, p, im = document.querySelector('#result-image'), c = document.querySelector('#result-overlay')) {
   if (!im?.complete || !im.naturalWidth || !c?.width) return null;
   const tmp = document.createElement('canvas'); tmp.width = im.naturalWidth; tmp.height = im.naturalHeight; tmp.getContext('2d').drawImage(im, 0, 0);
-  const corners = findMarkers(tmp); if (!corners) return null;
+  const corners = r.remoteGeometry?.[p]?.corners||findMarkers(tmp); if (!corners) return null;
   const version = r.snapshot?.paperVersion || 1, e = resultExam(r), state = { version, p, answers: r.answers, essay: r.essay, markings: r.markings?.[p] || {} }, plan = scanPlan(state, e);
-  try { const map = homography(corners, version), registration = typeof registerBubbleRings === 'function' ? registerBubbleRings(tmp, map, plan) : null; state.bubbleRegistration = registration;
+  try { const map = homography(corners, version), registration = r.remoteGeometry?.[p]?.bubbleRegistration||null; state.bubbleRegistration = registration;
     const scale = Math.min(c.clientWidth / im.naturalWidth, c.clientHeight / im.naturalHeight), ox = (c.clientWidth - im.naturalWidth * scale) / 2, oy = (c.clientHeight - im.naturalHeight * scale) / 2;
     return { r, p, im, c, state, plan, map, scale, ox, oy };
   } catch { return null; }

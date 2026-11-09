@@ -23,18 +23,14 @@ async function drainContinuousCameraCorrections(){
     }
   }}finally{ContinuousCameraJobs.running=false;}
 }
-function readCameraBubbles(s,e){
-  // OMR is synchronous. Restore the user's active screen before awaiting OCR or storage.
-  const previousScan=scanState,previousExam=currentExam;
-  try{scanState=s;currentExam=e.id;detectAndRead();}finally{scanState=previousScan;currentExam=previousExam;}
-}
+async function readCameraBubbles(s,e){await remoteReadScan(s,e);}
 async function correctContinuousCameraRecord(r){
   const e=db.exams.find(x=>x.id===r.exam);if(!e||capturedPageNumber(r,e)===null)return;
   const url=await fileGet(r.pages[0]);if(!url)throw Error('صورة الورقة غير متاحة');
   const image=await imageLoad(url),factor=Math.min(1,2600/Math.max(image.width,image.height)),canvas=document.createElement('canvas');
   canvas.width=Math.max(1,Math.round(image.width*factor));canvas.height=Math.max(1,Math.round(image.height*factor));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
   const oriented=orientScanCanvas(canvas,e,8),s={canvas:oriented,url:oriented.toDataURL('image/jpeg',.95),exam:e.id,identityExam:e,backgroundIdentity:true,savedResultId:r.id,savedThisVisit:true,captureGroup:r.captureGroup||'',student:'',version:8,p:capturedPageNumber(r,e),orientationReady:oriented.scanOrientation?.confident!==false,corners:null,answers:{},essay:{},flags:{},readings:{}};
-  readCameraBubbles(s,e);if(!s.corners||s.orientationReady===false)return;
+  await readCameraBubbles(s,e);if(!s.corners||s.orientationReady===false)return;
   await identifyScanStudent(s);
   // A user may have deleted the retained sheet while recognition was running.
   if(!db.results.some(x=>x.id===r.id))return;

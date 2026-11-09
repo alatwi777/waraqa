@@ -1310,6 +1310,7 @@ showGate("تسجيل الدخول والاشتراك");
       }, () => revoke("تعذر متابعة صلاحية الاشتراك. سجّل الدخول مجددًا للتحقق.")));
     }
   }
+  window.WaraqaGetIdToken=async()=>{if(!window.WaraqaAuthorized||!auth?.currentUser||auth.currentUser.isAnonymous)throw Error("سجّل الدخول أولًا");return auth.currentUser.getIdToken();};
   async function authorize(user) {
     const version = ++authorizationVersion;
     stopLicenseWatch();
