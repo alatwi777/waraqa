@@ -11,22 +11,22 @@ async function remoteReadScan(s,e){
  const revision=s.remoteRevision=(s.remoteRevision||0)+1,canvas=s.canvas,version=s.version||8,p=s.p||0,owner=window.WaraqaFirebaseUid,examSnapshot=JSON.stringify(e.questions),corners=s.corners?.map(x=>({...x}));
  s.remotePending=true;s.remoteReady=false;s.remoteError=null;
  if(typeof retainRemoteInput==='function')try{await retainRemoteInput(s,e);}catch(error){s.remotePending=false;s.remoteError=error.message;throw error;}
- remoteStatus('جارٍ الاتصال بخادم التصحيح…');
+ remoteStatus('جارٍ التصحيح أو انتظار الدور على الخادم…');
  const job=RemoteQueue.then(async()=>{
   if(!window.WaraqaAuthorized||window.WaraqaFirebaseUid!==owner)throw Error('سجّل الدخول للتحقق من الاشتراك.');
   const dataUrl=canvas.toDataURL('image/jpeg',.95),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
   if(corners)body.corners=corners;
   // Retry only explicit 429 rejections, which have not run the grader.
   await fetch(remoteEndpoint('/healthz'),{signal:AbortSignal.timeout(90000),cache:'no-store'});
-  let response,result;
-  for(let attempt=0;attempt<3;attempt++){
+  let response,result;const retryUntil=Date.now()+15*60*1000;
+  for(let attempt=0;attempt<60;attempt++){
    if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');
    const token=await window.WaraqaGetIdToken();
    response=await fetch(remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
    result=await response.json();
-   if(response.status!==429||!['RATE_LIMITED','GRADER_BUSY'].includes(result.error)||attempt===2)break;
-   const requested=Number(response.headers?.get('Retry-After')),seconds=Math.max(1,Math.min(65,requested>0?requested:result.error==='RATE_LIMITED'?61:3));
-   remoteStatus('الخادم مشغول مؤقتًا؛ ستستأنف الدفعة تلقائيًا بعد '+seconds+' ثانية.');
+   if(response.status!==429||!['RATE_LIMITED','GRADER_BUSY'].includes(result.error)||attempt===59||Date.now()>=retryUntil)break;
+   const requested=Number(response.headers?.get('Retry-After')),minimum=Math.max(1,Math.min(65,requested>0?requested:result.error==='RATE_LIMITED'?61:3)),seconds=result.error==='GRADER_BUSY'?Math.max(minimum,Math.min(30,3+attempt*2+Math.random()*2)):minimum;
+   remoteStatus('طلبك محفوظ؛ ستستأنف الدفعة تلقائيًا بعد '+Math.ceil(seconds)+' ثانية.');
    await remoteWait(seconds*1000);
   }
   if(!response.ok)throw Error(remoteError(result.error,response.status));

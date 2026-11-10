@@ -13,3 +13,9 @@ Firebase UIDs, owner administration, Pages origin/path, localStorage keys and ac
 The owner reported successful experimental scanner upload/review/save tests. Before merging: deploy the backend hardening commit; confirm the owner has an active server-readable license; suspend the synthetic test account and verify a new grading request is refused; reactivate it and confirm grading resumes. Use synthetic papers. No server-side owner bypass was added.
 
 This draft does not change the published Pages site. Production deployment requires explicit owner approval after these checks. Record the backend version used. Roll back frontend to cf13a92452dd73a88f16bb99ec0e9a1e39cf0a96 if needed; browser records remain local. Free Render cold starts, throttling and resource limits apply. Tests do not establish commercial capacity. Previously published client source/history cannot be recalled.
+
+## Congestion update — 2026-11-11
+
+The private API now has a bounded ready-request queue: one outstanding request per authenticated UID, one active worker, up to 15 waiting requests, and a conservative 64 MiB input reservation budget before body reads. Waiting admission expires after 40 seconds; a queued subscription is checked again before processing. The backend waits for worker termination before opening the next worker to avoid overlapping native image allocations. This is an in-memory queue, not durable job storage or a capacity promise for 100 simultaneous subscribers.
+
+The browser retries only explicit HTTP429 busy/quota rejections, with bounded jitter/backoff (at most 60 attempts and a 15-minute elapsed retry budget per paper). Timeouts, connection failures and other ambiguous errors are not automatically replayed. Inputs remain locally retained for explicit recovery. Deploy the updated private backend before production activation. The owner still needs an active server-readable license.
