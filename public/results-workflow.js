@@ -379,6 +379,56 @@ async function exportAnswerSheets() {
   toast(`تم تجهيز ${ar(pages.length)} صفحة${skipped.length ? ` · تعذر ${ar(skipped.length)}` : ''}`);
 }
 
+function openNoorTransfer() {
+  const exam = db.exams.find(item => item.id === resultsExamFilter);
+  if (!exam) return toast('اختر اختبارًا محددًا من صفحة النتائج أولًا');
+  const groups = [...new Set(db.results.filter(r => r.exam === exam.id).map(r => r.group).filter(Boolean))];
+  if (!groups.length) return toast('اربط النتائج بالطلاب ومجموعاتهم أولًا');
+  modal('رصد في نور', `<p>افتح كشف الصف والمادة والفترة في نور واتركه مفتوحًا. اختر المجموعة لإرسال أرقام الطلاب والدرجات المعتمدة إلى الإضافة للمعاينة.</p><label class="field">المجموعة<select id="noor-transfer-group"><option value="">اختر المجموعة</option>${options(groups.map(group => [group, group]), '')}</select></label><button type="button" class="btn gold" onclick="sendNoorGrades(this)">معاينة الدرجات في نور</button><p id="noor-transfer-status" role="status"></p>`);
+}
+
+async function sendNoorGrades(button) {
+  const status = $('#noor-transfer-status');
+  const group = $('#noor-transfer-group').value;
+  const exam = db.exams.find(item => item.id === resultsExamFilter);
+  if (!group || !exam) { status.textContent = 'اختر الاختبار والمجموعة.'; return; }
+  const records = db.results.filter(r => r.exam === exam.id && r.group === group);
+  if (!records.length || records.some(r => resultNeedsReview(r) || resultApprovalBlocker(r))) {
+    status.textContent = 'أكمل تصحيح واعتماد جميع النتائج المسجلة لهذه المجموعة أولًا.';
+    return;
+  }
+  const rows = records.map(r => ({
+    id: resultNumberKey(r.number),
+    score: score(r)
+  }));
+  if (rows.some(row => !/^\d{8,12}$/.test(row.id) || !Number.isFinite(row.score) ||
+      row.score < 0 || row.score > total(exam)) || new Set(rows.map(row => row.id)).size !== rows.length) {
+    status.textContent = 'راجع أرقام الطلاب والدرجات. يلزم رقم مطابق لنور لكل طالب دون تكرار.';
+    return;
+  }
+
+  button.disabled = true;
+  status.textContent = 'جارٍ البحث عن كشف نور المفتوح…';
+  const id = uid();
+  const result = await new Promise(resolve => {
+    const finish = value => {
+      clearTimeout(timer);
+      window.removeEventListener('message', receive);
+      resolve(value);
+    };
+    const receive = event => {
+      if (event.source === window && event.origin === location.origin &&
+          event.data?.type === 'WARAQA_NOOR_REPLY' && event.data.id === id) finish(event.data.result);
+    };
+    const timer = setTimeout(() => finish(null), 5000);
+    window.addEventListener('message', receive);
+    window.postMessage({type: 'WARAQA_NOOR_PREVIEW', id, rows}, location.origin);
+  });
+  button.disabled = false;
+  status.textContent = result?.ok ? 'وصلت الدرجات إلى كشف نور للمعاينة.' :
+    result?.error || 'لم تستجب إضافة نور. تأكد من تثبيت نسخة الربط في Chrome وحدّث الصفحة.';
+}
+
 async function exportResultsExcel() {
   if (!db.results.some(r=>r.captureStatus!=='ungraded')) return toast('صحّح الأوراق أولًا قبل تصدير الدرجات');
   try {
@@ -427,7 +477,7 @@ results = function () {
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${resultNeedsReview(r) ? 'محفوظة — تحتاج مراجعة' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
   const noResults = !db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : empty('لا توجد أوراق مطابقة للتصفية','غيّر الاختبار أو اختر جميع الأوراق من القائمة أعلاه.');
-  $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')+btn('تصدير Excel','exportResultsExcel()','light')+btn('تصدير CSV','exportResults()','light')) + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
+  $('#app').innerHTML = head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')+btn('تصدير Excel','exportResultsExcel()','light')+btn('تصدير CSV','exportResults()','light')+btn('رصد في نور','openNoorTransfer()','gold')) + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
 };
 
 function startBatchReview() { if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
