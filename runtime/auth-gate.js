@@ -25,7 +25,7 @@ window.WaraqaAuthorized = false;
   gate.innerHTML = `
     <style>
       #waraqa-auth-gate{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:#e9f0ec;direction:rtl;font-family:inherit;color:#163b32}
-      #waraqa-auth-gate[hidden],#wa-mail-retry[hidden]{display:none!important}
+      #waraqa-auth-gate[hidden],#waraqa-auth-gate .wa-card[hidden],#wa-mail-retry[hidden]{display:none!important}
       #waraqa-auth-gate *{box-sizing:border-box}
       .wa-receipt-button{padding:8px 12px;margin:3px;border:0;border-radius:9px;background:#0a7058;color:#fff;font:700 13px system-ui,sans-serif;cursor:pointer}
       .wa-card{width:min(1080px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:32px;background:#fff;border:1px solid #dce8df;border-radius:28px;box-shadow:0 28px 90px #0004}.wa-page-heading{text-align:center;margin:0 auto 24px;max-width:720px}.wa-page-heading h1{margin:0 0 8px;font-size:clamp(26px,3vw,36px);color:#153e32}.wa-page-heading p{margin:0;color:#718179;line-height:1.8}.wa-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}.wa-section{padding:24px;border:1px solid #e0eae4;border-radius:22px;background:#fff;box-shadow:0 12px 32px #173b2d0a}.wa-section h2{margin:0 0 6px;font-size:22px;color:#173d32}.wa-section-intro{margin:0 0 16px;color:#718179;line-height:1.7;font-size:14px}.wa-brand{margin-bottom:12px}.wa-section .wa-brand{margin-bottom:16px}.wa-price-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:16px;border-radius:16px;background:linear-gradient(135deg,#f5efe1,#fff9ec);border:1px solid #ead9b5}.wa-price-card small{display:block;color:#697a71}.wa-price-value{font-size:28px;font-weight:900;color:#a36a16;white-space:nowrap}.wa-price-value small{display:inline;color:#8a6b39;font-size:13px;font-weight:700}.wa-transfer{margin-top:16px;padding:16px;border:1px dashed #b6c8bd;border-radius:16px;background:#f7faf8}.wa-transfer-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-weight:900;color:#244b3e}.wa-setup-badge{padding:4px 9px;border-radius:999px;background:#fff0ce;color:#835b13;font-size:11px;white-space:nowrap}.wa-transfer p{margin:7px 0;color:#687b72;font-size:13px;line-height:1.8}.wa-plan-submit{width:100%;margin-top:15px;padding:13px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,#0a7058,#14866b);color:#fff;font:800 15px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 18px #0a70582b}.wa-plan-submit:hover{filter:brightness(1.05);transform:translateY(-1px)}.wa-plan-note{margin:10px 0 0;color:#718179;font-size:12px;text-align:center;line-height:1.7}.wa-plan-select{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #cbd9d1;border-radius:11px;background:#fbfdfc;color:#182f28;font:inherit}.wa-transfer .wa-field{margin-bottom:0}.wa-login-section{background:linear-gradient(150deg,#fff,#f8fbf9)}.wa-login-section .wa-brand{margin-bottom:14px}.wa-login-section .wa-field{margin:14px 0}.wa-login-section .wa-actions .wa-button{flex:1}.wa-section .wa-message{min-height:26px}@media(max-width:760px){#waraqa-auth-gate{padding:12px}.wa-card{padding:22px 18px;max-height:calc(100vh - 24px);border-radius:22px}.wa-columns{grid-template-columns:1fr;gap:12px}.wa-section{padding:19px}.wa-page-heading{margin-bottom:18px}.wa-section h2{font-size:20px}}
@@ -1314,6 +1314,8 @@ showGate("تسجيل الدخول والاشتراك");
   async function authorize(user) {
     const version = ++authorizationVersion;
     stopLicenseWatch();
+    gate.querySelector("#wa-windows-download")?.remove();
+    gate.querySelector(".wa-card").hidden = false;
     if (!user) {
       window.WaraqaIsAdmin = false;
       setWorkspaceLocked(true);
@@ -1342,20 +1344,24 @@ showGate("إرسال طلب الاشتراك");
       accessNotice = "";
       if (document.body.dataset.waraqaMode === "windows-download") {
         const card = gate.querySelector(".wa-card");
-        const style = gate.querySelector("style");
-        card.innerHTML = `
-          <h1 id="wa-title" tabindex="-1">تنزيل ورقة لويندوز</h1>
+        const download = document.createElement("div");
+        download.id = "wa-windows-download";
+        download.className = "wa-card";
+        download.setAttribute("role", "dialog");
+        download.setAttribute("aria-modal", "true");
+        download.setAttribute("aria-labelledby", "wa-download-title");
+        download.innerHTML = `
+          <h1 id="wa-download-title" tabindex="-1">تنزيل ورقة لويندوز</h1>
           <p class="wa-intro">تم التحقق من اشتراكك. النسخة التجريبية مخصصة لأجهزة ويندوز 64 بت.</p>
           <a class="wa-receipt-button" href="https://github.com/alatwi777/waraqa/actions/workflows/windows-pilot.yml?query=branch%3Awindows-pilot">تنزيل ورقة لويندوز</a>
           <p class="wa-intro">سجّل الدخول إلى GitHub، ثم اختر أحدث عملية بناء ناجحة وحمّل Waraqa-Windows-x64 من قسم Artifacts.</p>
           <button class="wa-button alt" type="button">تسجيل الخروج</button>
         `;
-        if (style.parentElement !== gate) gate.prepend(style);
-        card.querySelector("button").addEventListener("click", async () => {
-          await firebase.signOut(auth);
-          location.reload();
-        });
-        card.querySelector("h1").focus();
+        card.hidden = true;
+        gate.hidden = false;
+        gate.append(download);
+        download.querySelector("button").addEventListener("click", () => firebase.signOut(auth));
+        download.querySelector("h1").focus();
         return;
       }
       setWorkspaceLocked(false);
