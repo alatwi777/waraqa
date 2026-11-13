@@ -1,5 +1,13 @@
+function examPaperVersion(e){return e?.orientation==='portrait'?9:8}
+function examPaperDirection(e){return examPaperVersion(e)===9?'عمودي':'أفقي'}
+function examChoiceCount(e){
+ if(e.choiceCount===3||e.choiceCount===4)return e.choiceCount;
+ const questions=e.questions?.filter(q=>q.type==='mcq')||[];
+ return questions.length&&questions.every(q=>q.options.length===3)?3:4;
+}
 /* Shared geometry: printing, OMR, overlays and saved-page membership use this plan. */
-function paperPlan(e,version=8){
+function paperPlan(e,version=examPaperVersion(e)){
+  if(version===9)return portraitPaperPlan(e);
   if(version===8)return polishedPaperPlan(e);
   if(version===7)return sectionPaperPlan(e);
   if(version===6)return aggregatePaperPlan(e);
@@ -19,7 +27,7 @@ function paperPlan(e,version=8){
   }while(m<mcq.length||t<tf.length||a<essay.length);
   return pages;
 }
-function pageCount(e,version=8){return paperPlan(e,version).length}
+function pageCount(e,version=examPaperVersion(e)){return paperPlan(e,version).length}
 function scanPlan(s,e){const page=paperPlan(e,s.version||8)[s.p]||{version:s.version||8,items:[]};return s.version>=6?{...page,items:[...page.items.filter(v=>v.q.type!=='essay'),...(page.essayGrade?[page.essayGrade]:[])]}:page}
 function questionNumber(e,i){return e.questions.slice(0,i+1).filter(q=>q.type===e.questions[i].type).length}
 function essayMaximum(e){return e.questions.filter(q=>q.type==='essay').reduce((n,q)=>n+Number(q.points),0)}
@@ -28,7 +36,7 @@ function wrapPaperText(text,max=50){const words=String(text).split(/\s+/),lines=
 function svgRTL(text,x,y,width,size=11.5,max=50){return wrapPaperText(text,max).map((line,k)=>`<text x="${x}" y="${y+k*12}" text-anchor="start" direction="rtl" font-size="${size}" ${line.length*size*.55>width?`textLength="${width}" lengthAdjust="spacingAndGlyphs"`:''}>${esc(line)}</text>`).join('')}
 function compactPaperSVG(e,p,student=null){const plan=paperPlan(e,2),page=plan[p];if(!page)return '';const mc=page.items.some(v=>v.q.type==='mcq'),tf=page.items.some(v=>v.q.type==='tf');return `<svg xmlns="http://www.w3.org/2000/svg" width="794" height="1123" viewBox="0 0 794 1123" dir="rtl"><rect width="794" height="1123" fill="white"/>${[[32,32],[762,32],[762,1091],[32,1091]].map(([x,y])=>`<rect x="${x-9}" y="${y-9}" width="18" height="18" fill="black"/>`).join('')}<g fill="#111" font-family="Arial,Tahoma,sans-serif"><text x="739" y="65" text-anchor="start" direction="rtl" font-size="21" font-weight="bold" ${e.title.length>42?'textLength="675" lengthAdjust="spacingAndGlyphs"':''}>${esc(e.title)}</text><text x="739" y="92" text-anchor="start" direction="rtl" font-size="12">${esc(e.subject)} · ${esc(e.group||'جميع المجموعات')} · ${e.duration} دقيقة · ${ar(total(e))} درجة</text><text x="739" y="120" text-anchor="start" direction="rtl" font-size="13">الطالب: ${esc(student?.name||'...................................')}　 الرقم: ${esc(student?.number||'................')}</text>${svgRTL(e.notes||'ظلّل دائرة إجابة واحدة لكل سؤال. فقاعات الدرجة للمعلم فقط.',739,141,680,10,110)}<path d="M54 159H740M397 164V1043" stroke="#aaa" stroke-width=".6"/><text x="739" y="174" text-anchor="start" direction="rtl" font-size="10" font-weight="bold">${mc?'الاختيار من متعدد — ظلّل إجابة واحدة':''}</text><text x="376" y="174" text-anchor="start" direction="rtl" font-size="10" font-weight="bold">${tf?'صح وخطأ':'الأسئلة المقالية — الدرجة للمعلم'}</text>${page.items.map(v=>{const {q,i,x,y,bubbles}=v;return `<g data-question="${i}" data-type="${q.type}">${svgRTL(ar(i+1)+'. '+(q.text||'نص السؤال'),x,y+10,q.type==='tf'?240:330,11.5,q.type==='tf'?40:53)}${q.type==='essay'?`<path d="M62 ${y+44}H375M62 ${y+65}H375M62 ${y+86}H375" stroke="#aaa" stroke-width=".5" stroke-dasharray="2 3"/><text x="376" y="${y+111}" text-anchor="start" direction="rtl" font-size="9.5">للمعلم: ظلّل درجة واحدة بعد التصحيح (من ${ar(q.points)})</text>`:''}${bubbles.map((b,j)=>`<g data-bubble="${b.value}"><circle cx="${b.x}" cy="${b.y}" r="${b.r}" fill="white" stroke="#111" stroke-width=".8"/><text x="${b.x}" y="${b.y+3.3}" text-anchor="middle" direction="ltr" font-size="${q.type==='essay'?8.5:10}">${esc(b.label)}</text>${q.type==='mcq'?`<text x="${b.x-14}" y="${b.y+3.5}" text-anchor="start" direction="rtl" font-size="11" ${q.options[j].length>21?'textLength="140" lengthAdjust="spacingAndGlyphs"':''}>${esc(q.options[j])}</text>`:''}</g>`).join('')}<path d="M${v.column==='right'?411:54} ${y+v.height-1}H${x}" stroke="#ddd" stroke-width=".45"/></g>`}).join('')}<text x="397" y="1066" text-anchor="middle" font-size="9">ورقة · نموذج مضغوط V2 · ${esc(e.id.slice(0,8))} · صفحة ${p+1} / ${plan.length} · لا تطوِ علامات الزوايا</text></g></svg>`}
 /* V3 uses deterministic text wrapping, shared across browsers and scans. */
-function paperGeometry(version=4){const width=version>=3?1123:794,height=version>=3?794:1123;return{width,height,markers:[[32,32],[width-32,32],[width-32,height-32],[32,height-32]]}}
+function paperGeometry(version=4){const width=version>=3&&version<9?1123:794,height=version>=3&&version<9?794:1123;return{width,height,markers:[[32,32],[width-32,32],[width-32,height-32],[32,height-32]]}}
 function landscapeLines(text,width,size=15){const unit=c=>/\s/.test(c)?.3:/[\u0600-\u06ff]/.test(c)?.56:/[A-Z]/.test(c)?.68:/[.,:;!?،؛؟]/.test(c)?.33:.57;const measure=t=>Array.from(t).reduce((n,c)=>n+unit(c)*size,0);const lines=[];let line='';for(const word of String(text).trim().split(/\s+/)){if(line&&measure(line+' '+word)>width){lines.push(line);line=''}if(measure(word)>width){for(const c of word){if(line&&measure(line+c)>width){lines.push(line);line=''}line+=c}}else line+=(line?' ':'')+word}if(line||!lines.length)lines.push(line);return lines}
 function landscapeItem(q,i,x,y){const width=327,lineHeight=17,lines=landscapeLines(ar(i+1)+'. '+(q.text||'نص السؤال'),q.type==='tf'?235:width,15),stem=lines.length*lineHeight;let height,bubbles=[],optionLines=[];
  if(q.type==='mcq'){optionLines=q.options.map(t=>landscapeLines(t,139,14));let cy=y+stem+12;for(let row=0;row<2;row++){const count=Math.max(...optionLines.slice(row*2,row*2+2).map(l=>l.length),1);for(let j=row*2;j<Math.min(row*2+2,q.options.length);j++)bubbles.push({x:x-11-(j%2)*169,y:cy,r:9,value:j,label:letters[j]});cy+=Math.max(19,count*16+3)}height=cy-y-2;}
@@ -87,3 +95,62 @@ function polishedMetadataSVG(e,student){
  return `<g data-exam-metadata="single-line" data-print-style="framed"><rect x="50" y="20" width="1023" height="29" rx="3" fill="none" stroke="#444" stroke-width="1.1"/><path d="M155 20V49M300 20V49M550 20V49M755 20V49" stroke="#999" stroke-width=".65"/>${cells.map(c=>`<text data-header-field="${c.number?'student-number':c.label}" x="${c.x}" y="39" text-anchor="start" direction="rtl" font-size="14" ${((c.label+': '+c.value).length*7>c.w)?`textLength="${c.w}" lengthAdjust="spacingAndGlyphs"`:''}><tspan font-size="12" font-weight="bold">${esc(c.label)}: </tspan><tspan font-weight="${c.number?'bold':'normal'}">${esc(c.value)}</tspan></text>`).join('')}</g>`;
 }
 function polishedPaperSVG(e,p,student=null){const plan=paperPlan(e,8),page=plan[p];if(!page)return'';const g=paperGeometry(8),essays=page.essayGrade?[page.essayGrade]:[];return `<svg xmlns="http://www.w3.org/2000/svg" width="1123" height="794" viewBox="0 0 1123 794" dir="rtl"><rect width="1123" height="794" fill="white"/>${g.markers.map(([x,y])=>`<rect x="${x-9}" y="${y-9}" width="18" height="18" fill="black"/>`).join('')}<g fill="#111" font-family="Arial,Tahoma,sans-serif">${polishedMetadataSVG(e,student)}<g data-essay-grades="header-row">${essays.length?`<rect data-grade-frame="aggregate" x="50" y="53" width="1023" height="26" rx="3" fill="none" stroke="#444" stroke-width="1.1"/><path d="M850 53V79" stroke="#777" stroke-width=".7"/>`:''}${essays.map(v=>`<g data-grade-question="${v.i}"><text x="${1060-v.gradeSlot*(essays.length===3?341:511)}" y="70" text-anchor="start" direction="rtl" font-size="${essays.length===3?10:11.5}">${'للمعلم: مجموع المقالي / '+ar(essayMaximum(e))}</text>${v.bubbles.map(b=>`<g data-grade="${b.value}"><circle cx="${b.x}" cy="${b.y}" r="${b.r}" fill="white" stroke="#111" stroke-width="1.1"/><text x="${b.x}" y="${b.y+3.5}" text-anchor="middle" direction="ltr" font-size="${essays.length===3?9:10}">${esc(b.label)}</text></g>`).join('')}</g>`).join('')}</g><path data-column-rules="print" d="M385 ${page.top-3}V745M735 ${page.top-3}V745" fill="none" stroke="#707070" stroke-width="1.05"/>${page.items.map(v=>{const {q,i,x,y,lines,bubbles,optionLines,height}=v,stem=lines.length*17;return `<g data-question="${i}" data-type="${q.type}">${v.sectionTitle?`<text data-section-heading="${q.type}" x="${x}" y="${v.sectionY}" text-anchor="start" direction="rtl" font-size="12" font-weight="bold">${v.sectionTitle}</text>`:''}<g stroke="#111" stroke-width=".12" paint-order="stroke fill">${landscapeText(lines,x,y+15)}</g>${q.type==='essay'?`<path d="M${x-327} ${y+stem+20}H${x}M${x-327} ${y+stem+40}H${x}" stroke="#999" stroke-dasharray="2 3"/>`:bubbles.map((b,j)=>`<g data-bubble="${b.value}"><circle cx="${b.x}" cy="${b.y}" r="${b.r}" fill="white" stroke="#111" stroke-width="1.1"/><text x="${b.x}" y="${b.y+3.5}" text-anchor="middle" direction="ltr" font-size="11">${esc(b.label)}</text>${q.type==='mcq'?landscapeText(optionLines[j],b.x-15,b.y+4,14,16):''}</g>`).join('')}<path d="M${x-327} ${y+height-3}H${x}" stroke="#ccc" stroke-width=".55"/></g>`}).join('')}<text x="561.5" y="767" text-anchor="middle" font-size="10">ورقة · أفقي V8 · ${esc(e.id.slice(0,8))} · صفحة ${p+1} / ${plan.length} · طباعة A4 أفقي ١٠٠٪</text></g></svg>`}
+
+// V9 uses full-width question rows with one cell for each answer option.
+function portraitPaperPlan(e){
+ const top=essayMaximum(e)?116:86,bottom=1065,x=740,width=686;
+ const sections={mcq:'اختيار من متعدد',tf:'صح وخطأ',essay:'أجب عن الأسئلة التالية'};
+ const ordered=Object.keys(sections).flatMap(type=>e.questions.map((q,i)=>({q,i})).filter(v=>v.q.type===type));
+ const pages=[{version:9,top,items:[]}];
+ let y=top;
+ for(const {q,i} of ordered){
+  const number=questionNumber(e,i),sectionTitle=number===1?sections[q.type]:'';
+  const gap=sectionTitle?17:0;
+  const lines=landscapeLines(ar(number)+'. '+(q.text||'نص السؤال'),q.type==='tf'?width-110:width-15,15);
+  const stem=lines.length*17;
+  const cell=width/Math.max(1,q.options.length);
+  const optionLines=q.type==='mcq'?q.options.map(t=>landscapeLines(t,cell-34,14)):[];
+  const height=q.type==='mcq'?stem+Math.max(20,Math.max(1,...optionLines.map(l=>l.length))*16+4):q.type==='tf'?Math.max(24,stem+7):stem+52;
+  if(top+gap+height>bottom)throw Error('نص السؤال أطول من مساحة الصفحة. اختصره قبل الطباعة.');
+  if(y+gap+height>bottom){pages.push({version:9,top,items:[]});y=top}
+  const row=y+gap;
+  const bubbles=q.type==='essay'?[]:q.options.map((_,j)=>({
+   x:q.type==='mcq'?x-11-j*cell:103-j*36,
+   y:q.type==='mcq'?row+stem+10:row+height/2,
+   r:9,value:j,label:q.type==='tf'?(j?'خ':'ص'):letters[j]
+  }));
+  pages.at(-1).items.push({q,i,x,y:row,width,height,lines,optionLines,bubbles,sectionTitle,sectionY:y+11});
+  y+=gap+height;
+ }
+ if(essayMaximum(e)){
+  pages.at(-1).essayGrade={i:-1,q:{type:'essay',text:'مجموع درجات جميع الأسئلة المقالية',points:essayMaximum(e)},gradeSlot:0,
+   bubbles:Array.from({length:15},(_,n)=>({x:540-n*32,y:94,r:9,value:n+1,label:ar(n+1)}))};
+ }
+ return pages;
+}
+
+function portraitPaperSVG(e,p,student=null){
+ const plan=paperPlan(e,9),page=plan[p];
+ if(!page)return '';
+ const {width,height,markers}=paperGeometry(9);
+ const bubble=(b,kind)=>`<g data-${kind}="${b.value}"><circle cx="${b.x}" cy="${b.y}" r="${b.r}" fill="white" stroke="#111" stroke-width="1.1"/><text x="${b.x}" y="${b.y+3.5}" text-anchor="middle" direction="ltr" font-size="11">${esc(b.label)}</text></g>`;
+ const metadata=`<g data-exam-metadata="portrait">
+  <rect x="54" y="18" width="686" height="57" rx="3" fill="none" stroke="#444"/>
+  <path d="M54 46H740M250 46V75" stroke="#999" stroke-width=".7"/>
+  ${svgRTL(e.title,728,36,425,17,100)}
+  ${svgRTL((e.group||'كل المجموعات')+' · '+ar(e.duration)+' دقيقة',285,36,219,12,100)}
+  ${svgRTL('اسم الطالب: '+(student?.name||'................................'),728,65,465,14,150)}
+  ${svgRTL('رقم الطالب:',238,65,70,12,50)}
+  <text data-header-field="student-number" x="107" y="65" text-anchor="middle" direction="ltr" font-size="15" font-weight="bold">${esc(student?.number||'........')}</text>
+ </g>`;
+ const grade=page.essayGrade?`<g data-essay-grades="header-row" data-grade-question="-1"><rect data-grade-frame="aggregate" x="54" y="81" width="686" height="26" rx="3" fill="none" stroke="#444"/>${landscapeText(['للمعلم: مجموع المقالي / '+ar(essayMaximum(e))],728,98,12)}${page.essayGrade.bubbles.map(b=>bubble(b,'grade')).join('')}</g>`:'';
+ const body=page.items.map(v=>{
+  const {q,i,x,y,width,height,lines,optionLines,bubbles,sectionTitle,sectionY}=v;
+  const stem=lines.length*17;
+  const answers=q.type==='essay'
+   ?`<path d="M${x-width} ${y+stem+20}H${x}M${x-width} ${y+stem+40}H${x}" stroke="#999" stroke-dasharray="2 3"/>`
+   :bubbles.map((b,j)=>bubble(b,'bubble')+(q.type==='mcq'?landscapeText(optionLines[j],b.x-15,b.y+4,14,16):'')).join('');
+  return `<g data-question="${i}" data-type="${q.type}">${sectionTitle?`<g data-section-heading="${q.type}" font-weight="bold">${landscapeText([sectionTitle],x,sectionY,12)}</g>`:''}${landscapeText(lines,x,y+15)}${answers}<path d="M${x-width} ${y+height-.5}H${x}" stroke="#ccc" stroke-width=".55"/></g>`;
+ }).join('');
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" dir="rtl"><rect width="${width}" height="${height}" fill="white"/>${markers.map(([x,y])=>`<rect x="${x-9}" y="${y-9}" width="18" height="18" fill="black"/>`).join('')}<g fill="#111" font-family="Arial,Tahoma,sans-serif">${metadata}${grade}${body}${e.notes?svgRTL(e.notes,740,1079,686,11,200):''}<text x="397" y="1093" text-anchor="middle" direction="rtl" font-size="11">ورقة · عمودي V9 · ${esc(e.id.slice(0,8))} · صفحة ${p+1} / ${plan.length} · طباعة A4 عمودي ١٠٠٪</text></g></svg>`;
+}

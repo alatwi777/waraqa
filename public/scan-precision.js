@@ -22,8 +22,9 @@ async function getNumberOCR(){
 function studentNumberCrop(s,variant=0){
  // V8 number is at the left of its RTL cell. Keep the Arabic label out of OCR.
  // Alternate exposures and a wider crop support printed/scanned and shifted headers.
- if((s.version||8)!==8||!s.corners||s.orientationReady===false)return null;const c=s.canvas,w=c.width,h=c.height,source=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data,map=homography(s.corners,8);
- const wide=variant>=2,top=wide?16:22,bottom=wide?53:46,x0=wide?156:160,x1=wide?248:242,scale=5,out=document.createElement('canvas');out.width=(x1-x0)*scale+40;out.height=(bottom-top)*scale+40;const ctx=out.getContext('2d'),dst=ctx.createImageData(out.width,out.height);dst.data.fill(255);
+ const version=s.version||8,portrait=version===9;
+ if((version!==8&&!portrait)||!s.corners||s.orientationReady===false)return null;const c=s.canvas,w=c.width,h=c.height,source=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data,map=homography(s.corners,version);
+ const wide=variant>=2,top=portrait?49:wide?16:22,bottom=portrait?73:wide?53:46,x0=portrait?56:wide?156:160,x1=portrait?157:wide?248:242,scale=5,out=document.createElement('canvas');out.width=(x1-x0)*scale+40;out.height=(bottom-top)*scale+40;const ctx=out.getContext('2d'),dst=ctx.createImageData(out.width,out.height);dst.data.fill(255);
  // Interpolate the same local curve correction from the registered grade/header rings.
  const anchors=scanPlan(s,s.identityExam||db.exams.find(e=>e.id===s.exam)||getExam()).items.flatMap(v=>v.bubbles.filter(b=>b.y<100).map(b=>{const o=s.bubbleRegistration?.offsets[v.i+':'+b.value];return o?.reliable?{...b,...o}:null})).filter(Boolean);
  for(let y=20;y<out.height-20;y++)for(let x=20;x<out.width-20;x++){const px=x0+(x-20)/scale,py=top+(y-20)/scale;let dx=0,dy=0,weight=0;for(const a of anchors){const t=1/(100+(px-a.x)**2);dx+=a.dx*t;dy+=a.dy*t;weight+=t}const p=map(px+((variant===0||variant===1)&&weight?dx/weight:0),py+((variant===0||variant===1)&&weight?dy/weight:0)),xx=Math.round(p.x),yy=Math.round(p.y);if(xx<0||yy<0||xx>=w||yy>=h)continue;const n=(yy*w+xx)*4,k=(y*out.width+x)*4;const v=.299*source[n]+.587*source[n+1]+.114*source[n+2];const value=v;dst.data[k]=dst.data[k+1]=dst.data[k+2]=value;dst.data[k+3]=255}
@@ -44,7 +45,7 @@ async function readScanStudent(s){
  if(s.orientationReady===false){s.identityStatus='صحّح اتجاه الورقة أولًا؛ يجب أن يكون عنوان الاختبار في الأعلى.';refreshIdentityUI(s);return}
  const students=identityStudentsForScan(s);
  if(!students.length){s.identityStatus='لا توجد قائمة طلاب على هذا الجهاز. استعد بيانات الطلاب أولًا.';refreshIdentityUI(s);return}
- const crop=studentNumberCrop(s);if(!crop){s.identityStatus='يلزم قالب V8 ورقم طالب مطبوع وزوايا صحيحة لقراءة الاسم تلقائيًا.';refreshIdentityUI(s);return}
+ const crop=studentNumberCrop(s);if(!crop){s.identityStatus='يلزم قالب V8 أو V9 ورقم طالب مطبوع وزوايا صحيحة لقراءة الاسم تلقائيًا.';refreshIdentityUI(s);return}
  s.identityStatus='جارٍ قراءة رقم الطالب تلقائيًا…';refreshIdentityUI(s);
  try{await getNumberOCR();if(!studentIdentityActive(s)||job!==s.identityJob||s.student)return;
  const readings=[];let matched=null;

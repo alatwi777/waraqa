@@ -284,7 +284,7 @@ function exportedSheetGrade(r) {
 }
 function exportedGradePlacement(r) {
   const version=r.snapshot?.paperVersion||1,g=paperGeometry(version);
-  return version>=6&&essayMaximum(resultExam(r))>0?{x:265,y:66,height:22,maxWidth:210}:{x:g.width-140,y:g.height-26,height:20,maxWidth:180};
+  return version>=6&&version<9&&essayMaximum(resultExam(r))>0?{x:265,y:66,height:22,maxWidth:210}:{x:g.width-140,y:g.height-26,height:20,maxWidth:180};
 }
 function drawExportedSheetGrade(ctx,width,height,r,map=null) {
   const grade=exportedSheetGrade(r);if(!grade)return;
