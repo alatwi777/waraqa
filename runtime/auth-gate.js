@@ -997,13 +997,23 @@ showGate("تسجيل الدخول والاشتراك");
           stop.type = "button"; stop.className = "wa-admin-action"; stop.textContent = "إيقاف";
           stop.addEventListener("click", async () => {
             stop.disabled = true;
+            stop.textContent = "جارٍ الإيقاف…";
+            const feedback = actionCell.querySelector('[role="status"]') || document.createElement("span");
+            feedback.textContent = "";
+            feedback.setAttribute("role", "status");
+            stop.after(feedback);
             try {
               await firebase.updateDoc(firebase.doc(db, "licenses", record.id), { active: false });
-              adminStatus("تم إيقاف اشتراك " + email + ".");
+              stop.textContent = "تم الإيقاف";
               await loadAdminLicenses();
+              adminStatus("تم إيقاف اشتراك " + email + ".");
             } catch (error) {
               stop.disabled = false;
-              adminStatus("تعذر تعديل الترخيص. تأكد من نشر قواعد Firestore الجديدة.", true);
+              stop.textContent = "إيقاف";
+              feedback.textContent = error?.code === "permission-denied"
+                ? "رفض Firestore تعديل سجل الاشتراك."
+                : "تعذر إيقاف الاشتراك. حاول مجددًا.";
+              adminStatus(feedback.textContent, true);
             }
           });
           actionCell.appendChild(stop);
