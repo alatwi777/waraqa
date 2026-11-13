@@ -1,20 +1,6 @@
 'use strict';
 // Local registration follows printed rings on gently curved pages. OMR and overlay share these offsets.
-function registerBubbleRings(canvas,map,plan){
- const w=canvas.width,h=canvas.height,data=canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
- const gray=(x,y)=>{const p=map(x,y),a=Math.round(p.x),b=Math.round(p.y);if(a<0||b<0||a>=w||b>=h)return 255;const n=(b*w+a)*4;return .299*data[n]+.587*data[n+1]+.114*data[n+2]};
- const ring=(b,dx,dy)=>{let total=0,support=0;for(let j=0;j<16;j++){const a=j*Math.PI/8,c=Math.cos(a)*b.r,s=Math.sin(a)*b.r;const x=b.x+dx,y=b.y+dy,ink=Math.min(gray(x+c*.86,y+s*.86),gray(x+c,y+s),gray(x+c*1.12,y+s*1.12));const white=gray(b.x+dx+c*1.55,b.y+dy+s*1.55);const contrast=Math.max(0,(white-ink)/Math.max(100,white));total+=contrast;if(contrast>.16)support++}return support>=10?total/16:0};
- const offsets={};let reliable=0,count=0;
- for(const v of plan.items){const bb=v.bubbles;if(!bb.length)continue;const r=bb[0].r,probe=bb.length>3?[bb[0],bb[Math.floor(bb.length/2)],bb[bb.length-1]]:bb;const merit=(dx,dy)=>probe.reduce((a,b)=>a+ring(b,dx,dy),0)/probe.length-.014*Math.hypot(dx,dy)/r;
- let best={dx:0,dy:0,score:merit(0,0)};
- for(let dy=-Math.ceil(r*1.7);dy<=r*1.7;dy+=3)for(let dx=-Math.ceil(r*1.15);dx<=r*1.15;dx+=3){const score=merit(dx,dy);if(score>best.score+.002)best={dx,dy,score}}
- for(const b of bb){let local={dx:best.dx,dy:best.dy,score:ring(b,best.dx,best.dy)};
- for(let dy=best.dy-2;dy<=best.dy+2;dy++)for(let dx=best.dx-2;dx<=best.dx+2;dx++){const score=ring(b,dx,dy)-.006*Math.hypot(dx-best.dx,dy-best.dy);if(score>local.score+.012)local={dx,dy,score}}
- const good=local.score>.17;offsets[v.i+':'+b.value]={dx:good?local.dx:0,dy:good?local.dy:0,reliable:good,score:local.score};reliable+=good;count++;
- }
- }
- return{offsets,reliable,count};
-}
+
 function bubblePointMap(s,map,i,b){const offset=s.bubbleRegistration?.offsets[i+':'+b.value];return(x,y)=>map(x+(offset?.dx||0),y+(offset?.dy||0))}
 function identityStudentsForScan(s){return db.students.filter(st=>!s.captureGroup||st.group===s.captureGroup)}
 function studentIdentityActive(s){return s?.backgroundIdentity===true||scanState===s}

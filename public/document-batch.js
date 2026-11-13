@@ -122,7 +122,7 @@ async function readCapturedSheet(r) {
   const url=await fileGet(r.pages[0]);if(!url)throw Error('صورة الورقة غير متاحة على هذا الجهاز');
   currentExam=e.id;scanIndex=0;scanQueue=[{url,name:r.name,captureGroup:r.captureGroup,resultId:r.id}];scanState=null;bulkWaiting=false;bulkReviewActive=true;
   await originalOpenScan();const s=scanState;if(!s||s.exam!==r.exam)throw Error('تعذر فتح صورة الورقة');
-  if(s.p!==printedPage){s.p=printedPage;detectAndRead();renderScan();}
+  if(s.p!==printedPage){s.p=printedPage;await detectAndRead();renderScan();}
   if(typeof identifyScanStudent==='function')await identifyScanStudent(s);
   return {s,e};
 }

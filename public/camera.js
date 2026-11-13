@@ -108,26 +108,8 @@ async function capturePaperFrame(automatic=false){
  try{const c=document.createElement('canvas'),k=Math.min(1,3200/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);playPaperCameraShutter();const url=c.toDataURL('image/jpeg',.95);closePaperCamera();scanQueue=[{name:s.documentScan?'مسح ضوئي للهاتف':'تصوير الهاتف',url,documentScan:s.documentScan,cameraScan:true}];scanIndex=0;await openScan();toast('تم التصوير. تجري قراءة رقم الطالب والإجابات تلقائيًا.')}catch{s.busy=false;if(cameraActive(s)){$('#paper-camera-capture').disabled=false;s.timer=setTimeout(()=>analysePaperFrame(s),240)}toast('تعذر التقاط الصورة. أعد المحاولة.')}
 }
 // Compare printed bubble rings across all rotations, rather than inferring orientation from aspect alone.
-function paperOrientation(c,exam,version=8){
- const corners=findMarkers(c);if(!corners)return{turn:0,confident:false};
- const bubbles=scanPlan({version,p:0},exam).items.flatMap(v=>v.bubbles),g=paperGeometry(version);
- const sample=bubbles.filter((_,i)=>i%Math.max(1,Math.floor(bubbles.length/40))===0).slice(0,45),w=c.width,h=c.height,d=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
- const pixel=p=>{const x=Math.round(p.x),y=Math.round(p.y);if(x<0||y<0||x>=w||y>=h)return 255;const i=(y*w+x)*4;return(d[i]+d[i+1]+d[i+2])/3};
- const length=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),ratio=(length(corners[0],corners[1])+length(corners[3],corners[2]))/(length(corners[0],corners[3])+length(corners[1],corners[2]));
- const expected=(g.width-64)/(g.height-64),parity=(ratio>1)===(expected>1)?0:1;
- const scores=Array.from({length:2},(_,k)=>{const turn=parity+k*2,map=homography(corners.map((_,i)=>corners[(i+turn)%4]),version);let score=0;
- for(const b of sample){let ring=0,white=0;for(let j=0;j<16;j++){const a=j*Math.PI/8;ring+=Math.min(...[.9,1,1.1].map(r=>pixel(map(b.x+Math.cos(a)*b.r*r,b.y+Math.sin(a)*b.r*r))));white+=pixel(map(b.x+Math.cos(a)*b.r*1.55,b.y+Math.sin(a)*b.r*1.55))}score+=Math.max(0,(white-ring)/(16*255))}
- let header=0,n=0;for(let y=18;y<=58;y+=2)for(let x=100;x<g.width-100;x+=4){const ink=pixel(map(x,y)),background=Math.max(pixel(map(x+4,y)),pixel(map(x-4,y)),pixel(map(x,y+4)),pixel(map(x,y-4)));header+=background>130?Math.max(0,(background-ink)/background):0;n++}
- return{turn,score:score/Math.max(1,sample.length),header:header/n};}).sort((a,b)=>(b.score+b.header*.8)-(a.score+a.header*.8));
- const ringConfident=scores[0].score>.1&&scores[0].score-scores[1].score>.045;
- const headerBest=[...scores].sort((a,b)=>b.header-a.header),headerConfident=version>=3&&headerBest[0].header>.025&&headerBest[0].header-headerBest[1].header>.015;
- const best=ringConfident?scores[0]:headerConfident?headerBest[0]:scores[0];
- return{turn:best.turn,confident:ringConfident||headerConfident,scores};
-}
-function orientScanCanvas(c,exam,version=8){
- const orientation=paperOrientation(c,exam,version);c.scanOrientation=orientation;if(!orientation.confident||!orientation.turn)return c;
- const turns=(4-orientation.turn)%4,out=document.createElement('canvas');out.width=turns%2?c.height:c.width;out.height=turns%2?c.width:c.height;const ctx=out.getContext('2d');ctx.translate(out.width/2,out.height/2);ctx.rotate(turns*Math.PI/2);ctx.drawImage(c,-c.width/2,-c.height/2);out.scanOrientation=orientation;return out;
-}
+
+function orientScanCanvas(canvas){return canvas;}
 function rectifyDocumentCanvas(c,version=8){
  const corners=findMarkers(c);if(!corners)throw Error('أظهر المربعات الأربع لقص الورقة تلقائيًا');
  const g=paperGeometry(version),out=document.createElement('canvas'),scale=2.4;out.width=Math.round(g.width*scale);out.height=Math.round(g.height*scale);
