@@ -1,0 +1,27 @@
+{
+  "name": "waraqa-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "build:windows": "electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "com.waraqa.desktop",
+    "productName": "Waraqa",
+    "files": [
+      "main.cjs"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "Waraqa-Setup-x64.exe"
+    },
+    "nsis": {
+      "createDesktopShortcut": true
+    }
+  }
+}
