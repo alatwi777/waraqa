@@ -1429,7 +1429,12 @@ showGate("إرسال طلب الاشتراك");
       const pin = normalizePin($("#wa-pin").value);
       if (!$("#wa-form").reportValidity()) return;
       setBusy(true); setMessage("جارٍ تسجيل الدخول…");
-      try { await authSdk.signInWithEmailAndPassword(auth, email, pin); $("#wa-pin").value = ""; }
+      try {
+        const previousUid = auth.currentUser?.uid;
+        const { user } = await authSdk.signInWithEmailAndPassword(auth, email, pin);
+        $("#wa-pin").value = "";
+        if (previousUid === user.uid && !window.WaraqaAuthorized) await authorize(user);
+      }
       catch (error) { setMessage(authErrorText(error, "login"), "error"); }
       finally { setBusy(false); }
     });
