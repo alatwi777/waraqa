@@ -1340,6 +1340,24 @@ showGate("إرسال طلب الاشتراك");
     if (version !== authorizationVersion || auth?.currentUser?.uid !== user.uid) return;
     if (license.valid) {
       accessNotice = "";
+      if (document.body.dataset.waraqaMode === "windows-download") {
+        const card = gate.querySelector(".wa-card");
+        const style = gate.querySelector("style");
+        card.innerHTML = `
+          <h1 id="wa-title" tabindex="-1">تنزيل ورقة لويندوز</h1>
+          <p class="wa-intro">تم التحقق من اشتراكك. النسخة التجريبية مخصصة لأجهزة ويندوز 64 بت.</p>
+          <a class="wa-receipt-button" href="https://github.com/alatwi777/waraqa/actions/workflows/windows-pilot.yml?query=branch%3Awindows-pilot">تنزيل ورقة لويندوز</a>
+          <p class="wa-intro">سجّل الدخول إلى GitHub، ثم اختر أحدث عملية بناء ناجحة وحمّل Waraqa-Windows-x64 من قسم Artifacts.</p>
+          <button class="wa-button alt" type="button">تسجيل الخروج</button>
+        `;
+        if (style.parentElement !== gate) gate.prepend(style);
+        card.querySelector("button").addEventListener("click", async () => {
+          await firebase.signOut(auth);
+          location.reload();
+        });
+        card.querySelector("h1").focus();
+        return;
+      }
       setWorkspaceLocked(false);
       $("#wa-logout")?.remove();
       if (window.WaraqaLoadedUid && window.WaraqaLoadedUid !== user.uid) { location.reload(); return; }
