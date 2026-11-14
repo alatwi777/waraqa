@@ -42,7 +42,94 @@ function repairImportedQuestionMetadata(){let changed=false;for(const exam of db
 
 let questionPdfSession=0,questionPdfState=null;
 function questionFileButtons(){return btn('قالب أسئلة Word','wordTemplateModal()','light')+btn('استيراد أسئلة PDF','questionPdfModal()','light')+btn('تصدير أسئلة PDF','questionExportModal()','light');}
-function wordTemplateModal(){modal('قالب أسئلة Word مفرّغ',`<p class="sub">اختر عدد الأسئلة، ثم افتح القالب في Word واكتب أسئلتك مكان النصوص الإرشادية.</p><div class="template-options">${[10,15].map(n=>`<a class="template-option" href="templates/questions-${n}-${n}.docx" download="قالب-أسئلة-${n}-${n}.docx"><strong>${ar(n)} اختياري + ${ar(n)} صح وخطأ</strong><span>تنزيل ملف Word قابل للتعديل ↓</span></a>`).join('')}</div><div class="callout">بعد التعبئة: في Word اختر «حفظ باسم» أو «تصدير» بصيغة PDF، ثم اضغط «استيراد أسئلة PDF» هنا. أبق عناوين الأسئلة وحروف الخيارات. يمكن ترك مفتاح الإجابة فارغًا وتحديده في الموقع. استخدم PDF نصيًا، وليس صورة ممسوحة.</div>`);}
+function wordTemplateModal(){
+ modal('قالب أسئلة Word',`<form onsubmit="downloadWordQuestionTemplate(event)">
+ <label class="field">اتجاه القالب<select name="orientation"><option value="landscape">أفقي</option><option value="portrait">عمودي</option></select></label>
+ <div class="template-options">
+ <label class="field">عدد الأسئلة الاختيارية<input name="mcq" type="number" min="0" max="25" value="10" required></label>
+ <label class="field">عدد أسئلة الصح والخطأ<input name="tf" type="number" min="0" max="25" value="10" required></label>
+ <label class="field">عدد خيارات السؤال الاختياري<select name="choices"><option value="3">ثلاثة خيارات (أ، ب، ج)</option><option value="4" selected>أربعة خيارات (أ، ب، ج، د)</option></select></label>
+ </div>
+ <p class="note">يمكن اختيار صفر لأحد النوعين، والحد الأعلى ٢٥ سؤالًا لكل نوع.</p>
+ <button class="btn gold" type="submit">تنزيل قالب Word</button>
+ </form><div class="callout">بعد التعبئة احفظ الملف من Word بصيغة PDF نصي، ثم اختر «استيراد أسئلة PDF». أبقِ عناوين الأسئلة وحروف الخيارات لتسهيل الاستيراد.</div>`);
+}
+
+function downloadWordQuestionTemplate(event){
+ event.preventDefault();
+ const form=event.currentTarget;
+ const data=new FormData(form);
+ const mcq=Number(data.get('mcq')), tf=Number(data.get('tf')), choices=Number(data.get('choices'));
+ if(![mcq,tf].every(n=>Number.isInteger(n)&&n>=0&&n<=25)||![3,4].includes(choices))return;
+ if(!mcq&&!tf){toast('اختر سؤالًا واحدًا على الأقل');return;}
+ const landscape=data.get('orientation')==='landscape';
+ const blob=new Blob([wordQuestionTemplate(mcq,tf,choices,landscape)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;
+ link.download=`قالب-أسئلة-${landscape?'أفقي':'عمودي'}-${mcq}-${tf}.docx`;
+ link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+
+function wordQuestionTemplate(mcq,tf,choices,landscape){
+ const paragraph=(value,keepNext=false)=>`<w:p><w:pPr>${keepNext?'<w:keepNext/>':''}<w:bidi/><w:spacing w:after="80"/><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:rtl/><w:szCs w:val="26"/></w:rPr><w:t>${value}</w:t></w:r></w:p>`;
+ const blocks=[];
+ for(let i=1;i<=mcq;i++){
+  blocks.push(paragraph(`اختياري ${i}: اكتب نص السؤال هنا`,true));
+  for(const letter of ['أ','ب','ج','د'].slice(0,choices))blocks.push(paragraph(letter+': اكتب الخيار هنا',true));
+  blocks.push(paragraph('الإجابة الصحيحة:'));
+ }
+ for(let i=1;i<=tf;i++){
+  blocks.push(paragraph(`صح وخطأ ${i}: اكتب العبارة هنا`,true));
+  blocks.push(paragraph('الإجابة الصحيحة:'));
+ }
+ const size=landscape?'w:w="16838" w:h="11906" w:orient="landscape"':'w:w="11906" w:h="16838"';
+ return storeWordTemplateZip({
+  '[Content_Types].xml':'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+  '_rels/.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+  'word/document.xml':`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${blocks.join('')}<w:sectPr><w:pgSz ${size}/><w:pgMar w:top="950" w:right="950" w:bottom="950" w:left="950"/></w:sectPr></w:body></w:document>`
+ });
+}
+
+// DOCX is a ZIP archive. Store the three small XML parts without compression.
+function storeWordTemplateZip(files){
+ const encoder=new TextEncoder(),local=[],central=[];
+ let offset=0,centralSize=0;
+ for(const [path,xml] of Object.entries(files)){
+  const name=encoder.encode(path),data=encoder.encode(xml);
+  let crc=-1;
+  for(const byte of data){
+   crc^=byte;
+   for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+  }
+  const entry=new Uint8Array(30+name.length),header=new DataView(entry.buffer);
+  header.setUint32(0,0x04034b50,true);
+  header.setUint16(4,20,true);
+  header.setUint16(12,33,true);
+  header.setUint32(14,~crc,true);
+  header.setUint32(18,data.length,true);
+  header.setUint32(22,data.length,true);
+  header.setUint16(26,name.length,true);
+  entry.set(name,30);
+  const directory=new Uint8Array(46+name.length),record=new DataView(directory.buffer);
+  record.setUint32(0,0x02014b50,true);
+  record.setUint16(4,20,true);
+  directory.set(entry.subarray(4,30),6);
+  record.setUint32(42,offset,true);
+  directory.set(name,46);
+  local.push(entry,data);
+  central.push(directory);
+  offset+=entry.length+data.length;
+  centralSize+=directory.length;
+ }
+ const end=new Uint8Array(22),footer=new DataView(end.buffer);
+ footer.setUint32(0,0x06054b50,true);
+ footer.setUint16(8,central.length,true);
+ footer.setUint16(10,central.length,true);
+ footer.setUint32(12,centralSize,true);
+ footer.setUint32(16,offset,true);
+ return [...local,...central,end];
+}
 function questionPdfModal(){questionPdfSession++;questionPdfState={target:getExam()?.id||null,parsed:null};const e=getExam();modal('استيراد أسئلة من PDF',`<p class="note">ارفع ملف PDF المحفوظ من قالب Word. تُقرأ الأسئلة داخل المتصفح، ثم تراجعها قبل إضافتها. الصور والملفات الممسوحة لا تُحوّل إلى نص هنا.</p><label class="field">ملف الأسئلة PDF<input id="question-pdf-file" type="file" accept="application/pdf,.pdf" onchange="readQuestionPDF(this.files[0])"></label><div class="form-grid"><label class="field">طريقة الإضافة<select id="question-pdf-mode" onchange="reviewQuestionPDF()"><option value="new">إنشاء اختبار جديد</option>${e?`<option value="append" ${!e.questions.length?'selected':''}>إضافة إلى ${esc(e.title)}</option>`:''}</select></label><label class="field">عنوان الاختبار الجديد<input id="question-pdf-title" maxlength="65" value="اختبار مستورد"></label><label class="field">المادة<input id="question-pdf-subject" maxlength="40" value="${esc(e?.subject||'')}"></label></div><label class="field">النص المستخرج قابل للمراجعة والتعديل<textarea id="question-pdf-text" rows="10" oninput="reviewQuestionPDF(true)" placeholder="ستظهر هنا الأسئلة بعد قراءة الملف…"></textarea></label><div id="question-pdf-preview" aria-live="polite"></div><label class="switch-row note"><input type="checkbox" id="question-pdf-reviewed">راجعت نصوص الأسئلة والخيارات والدرجات</label>${btn('إضافة الأسئلة إلى الموقع','commitQuestionPDF()')}`);}
 async function readQuestionPDF(file){if(!file)return;const session=++questionPdfSession,preview=$('#question-pdf-preview');preview.innerHTML='<p class="note" role="status">جارٍ استخراج الأسئلة…</p>';questionPdfState.parsed=null;$('#question-pdf-text').value='';try{if(file.size>20*1024*1024)throw Error('الحد الأقصى للملف ٢٠ ميغابايت');const lib=await getPdf(),doc=await lib.getDocument({data:await file.arrayBuffer()}).promise;try{if(doc.numPages>30)throw Error('الحد الأقصى ٣٠ صفحة');const lines=[];for(let p=1;p<=doc.numPages;p++){const content=await(await doc.getPage(p)).getTextContent();lines.push(...QuestionFiles.linesFromItems(content.items));}if(session!==questionPdfSession||!$('#question-pdf-text'))return;if(!lines.length)throw Error('الملف لا يحتوي نصًا قابلًا للاستخراج. احفظ PDF من Word مباشرة بدل تصويره');$('#question-pdf-text').value=QuestionFiles.normalizeAnswerLines(lines.join('\n'));$('#question-pdf-title').value=file.name.replace(/\.pdf$/i,'').slice(0,65);reviewQuestionPDF();}finally{await doc.destroy();}}catch(e){if(session!==questionPdfSession||!$('#question-pdf-preview'))return;questionPdfState.parsed=null;preview.innerHTML=`<p class="import-error" role="alert">${esc(e.message)}</p>`;}}
 function reviewQuestionPDF(userEdit=false){if(userEdit)questionPdfSession++;if(!questionPdfState||!$('#question-pdf-text'))return;const target=$('#question-pdf-mode').value==='append'?db.exams.find(e=>e.id===questionPdfState.target):null;const result=QuestionFiles.parse($('#question-pdf-text').value,target?examChoiceCount(target):4);questionPdfState.parsed=result;$('#question-pdf-reviewed').checked=false;$('#question-pdf-preview').innerHTML=`<p class="note">${ar(result.questions.filter(q=>q.type==='mcq').length)} اختياري · ${ar(result.questions.filter(q=>q.type==='tf').length)} صح وخطأ · ${ar(result.questions.filter(q=>q.type==='essay').length)} مقالي · ${ar(result.skipped)} سؤال فارغ متجاوز</p>${result.errors.length?`<div class="import-error" role="alert">${result.errors.slice(0,10).map(esc).join('<br>')}</div>`:'<div class="callout">الأسئلة جاهزة للمراجعة. يمكنك تعديل النصوص الطويلة في قسم الاختبارات قبل الطباعة. الإجابات التي لم تحددها تبقى فارغة في مفتاح الإجابة.</div>'}<div class="question-import-preview">${result.questions.slice(0,5).map(q=>`<div class="review-q"><b>${esc(q.text)}</b>${q.type==='mcq'?`<p class="note">${q.options.map((o,i)=>letters[i]+': '+esc(o)).join(' · ')}</p>`:''}<p class="note">${ar(q.points)} درجة · المفتاح: ${q.answer===null?'غير محدد':q.type==='tf'?(q.answer?'خطأ':'صح'):letters[q.answer]}</p></div>`).join('')}</div>`;}
