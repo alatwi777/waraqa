@@ -400,13 +400,31 @@ showGate("تسجيل الدخول والاشتراك");
         });
         form.reset();
         status.textContent = "أُرسلت الرسالة.";
-      } catch {
-        status.textContent = "تعذر إرسال الرسالة.";
+      } catch (error) {
+        status.textContent = error?.code === "permission-denied"
+          ? "رفض Firestore الإرسال. تحقق من نشر قواعد الإشعارات وصلاحية حساب المالك."
+          : "تعذر إرسال الرسالة. تحقق من الاتصال ثم أعد المحاولة.";
       } finally {
         button.disabled = false;
       }
     };
   }
+
+  function closeAccountMenu() {
+    const menu = document.querySelector(".wa-account-menu[open]");
+    if (menu) menu.open = false;
+  }
+
+  document.addEventListener("click", event => {
+    if (!event.target.closest?.(".wa-account-menu")) closeAccountMenu();
+  }, true);
+  window.addEventListener("hashchange", closeAccountMenu);
+  document.addEventListener("keydown", event => {
+    const menu = document.querySelector(".wa-account-menu[open]");
+    if (event.key !== "Escape" || !menu) return;
+    closeAccountMenu();
+    menu.querySelector("summary")?.focus();
+  });
 
   function addAccountChip(email, logout, isAdmin = false) {
     const target = document.querySelector(".header-left");
