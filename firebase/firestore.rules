@@ -44,6 +44,7 @@ service cloud.firestore {
     }
 
     match /customerInbox/{recipient}/messages/{messageId} {
+      allow delete: if isAdmin() || (signedIn() && (request.auth.uid == recipient || (request.auth.token.email is string && request.auth.token.email.lower() == recipient)));
       allow read: if isAdmin() || (signedIn() &&
         (request.auth.uid == recipient ||
           (request.auth.token.email is string && request.auth.token.email.lower() == recipient)));
