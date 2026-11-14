@@ -43,6 +43,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /customerInbox/{recipient}/messages/{messageId} {
+      allow read: if isAdmin() || (signedIn() &&
+        (request.auth.uid == recipient ||
+          (request.auth.token.email is string && request.auth.token.email.lower() == recipient)));
+      allow create: if isAdmin()
+        && exists(/databases/$(database)/documents/licenses/$(recipient))
+        && request.resource.data.keys().hasOnly(['text', 'sentAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.sentAt == request.time;
+    }
+
     match /subscriptionRequests/{uid} {
       function validRequest() {
         let data = request.resource.data;
