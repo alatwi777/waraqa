@@ -375,8 +375,9 @@ showGate("تسجيل الدخول والاشتراك");
       try { localStorage.setItem(inboxKey, JSON.stringify([...inboxSeen])); } catch {}
       document.querySelector("#wa-inbox-content").innerHTML = messages.length
         ? messages.map(m => '<article class="callout"><small>' + invoiceDate(new Date(m.time)) +
-          '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + invoiceEscape(m.text) + '</p></article>').join("")
+          '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + invoiceEscape(m.text) + '</p><button type="button" class="btn light small wa-delete-message">حذف</button></article>').join("")
         : "<p>لا توجد رسائل من المالك.</p>";
+      bindMessageDeletes(document.querySelector("#wa-inbox-content"), messages);
     }
     const bell = document.querySelector(".notification-btn");
     if (!bell) return;
@@ -409,7 +410,7 @@ showGate("تسجيل الدخول والاشتراك");
   function unpackInbox(snapshot, recipient) {
     return snapshot.docs.map(doc => {
       const data = doc.data();
-      return { id: recipient + "/" + doc.id, text: data.text, time: data.sentAt?.toMillis() || 0 };
+      return { ref: doc.ref, id: recipient + "/" + doc.id, text: data.text, time: data.sentAt?.toMillis() || 0 };
     });
   }
 
@@ -436,30 +437,51 @@ showGate("تسجيل الدخول والاشتراك");
     renderInbox();
   };
 
-  async function openSentMessages() {
+  function bindMessageDeletes(container, messages) {
+    container.querySelectorAll(".wa-delete-message").forEach((button, i) => {
+      button.onclick = async () => {
+        if (!confirm("حذف الرسالة نهائيًا من الإشعارات وسجل المالك؟")) return;
+        button.disabled = true;
+        try {
+          await firebase.deleteDoc(messages[i].ref);
+          button.closest("article").remove();
+        } catch {
+          toast("تعذر حذف الرسالة.");
+          button.disabled = false;
+        }
+      };
+    });
+  }
+
+  function openSentMessages() {
     const uid = requireOwner();
-    modal("الرسائل المرسلة", '<div id="wa-sent-messages" role="status">جارٍ تحميل الرسائل…</div>');
+    modal("الرسائل المرسلة", '<form id="wa-sent-search"><label class="field">بريد العميل<input type="email" name="email" required></label><button class="btn light small">بحث</button></form><div id="wa-sent-messages" aria-live="polite"></div>');
+    const form = document.getElementById("wa-sent-search");
     const container = document.getElementById("wa-sent-messages");
-    try {
-      const licenses = await firebase.getDocs(firebase.collection(db, "licenses"));
-      const rows = [];
-      for (let i = 0; i < licenses.docs.length; i += 10) {
+    let version = 0;
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const current = ++version;
+      const email = form.elements.email.value.trim().toLowerCase();
+      container.textContent = "جارٍ البحث…";
+      try {
         requireOwner(uid);
-        const batch = await Promise.all(licenses.docs.slice(i,i+10).map(async license =>
-          unpackInbox(await firebase.getDocs(inboxQuery(license.id)), license.id)
-            .map(message => ({...message, recipient: license.data().email || license.id}))));
-        rows.push(...batch.flat());
+        const licenses = await firebase.getDocs(firebase.query(firebase.collection(db, "licenses"), firebase.where("email", "==", email)));
+        requireOwner(uid);
+        const recipients = new Set([email, ...licenses.docs.map(doc => doc.id)]);
+        const rows = (await Promise.all([...recipients].map(async recipient =>
+          unpackInbox(await firebase.getDocs(inboxQuery(recipient)), recipient)))).flat().sort((a,b) => b.time-a.time);
+        requireOwner(uid);
+        if (!container.isConnected || current !== version) return;
+        container.innerHTML = rows.length ? rows.map(m => '<article class="callout"><small>' +
+          invoiceDate(new Date(m.time)) + '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' +
+          invoiceEscape(m.text) + '</p><button type="button" class="btn light small wa-delete-message">حذف</button></article>').join("")
+          : "<p>لا توجد رسائل مرسلة لهذا البريد.</p>";
+        bindMessageDeletes(container, rows);
+      } catch {
+        if (container.isConnected && current === version) container.textContent = "تعذر تحميل الرسائل المرسلة.";
       }
-      requireOwner(uid);
-      if (!container.isConnected) return;
-      container.innerHTML = rows.length ? rows.sort((a,b) => b.time-a.time).map(m =>
-        '<article class="callout"><b>' + invoiceEscape(m.recipient) +
-        '</b> <small>' + invoiceDate(new Date(m.time)) +
-        '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + invoiceEscape(m.text) +
-        '</p></article>').join("") : "<p>لا توجد رسائل مرسلة.</p>";
-    } catch {
-      if (container.isConnected) container.textContent = "تعذر تحميل الرسائل المرسلة.";
-    }
+    };
   }
 
   function composeCustomerMessage(recipient, email) {
