@@ -87,7 +87,10 @@ window.WaraqaAuthorized = false;
 #wa-quota-updated{display:block;color:#7a8491;font-size:11px;line-height:1.8}.wa-quota-details{margin-top:18px;padding-top:14px;border-top:1px solid #e8e1d8}.wa-quota-details summary{cursor:pointer;font-weight:800;font-size:13px;color:#1c4267}.wa-quota-details form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:12px;align-items:end;margin-top:15px}.wa-quota-details label{display:block;font-size:12px;color:#5b6d82;font-weight:700}.wa-quota-details input{display:block;width:100%;box-sizing:border-box;min-width:0;border:1px solid #d0dce8;border-radius:9px;background:#fff;padding:11px;margin-top:7px;font:inherit;color:#193452}.wa-quota-details button{border:0;border-radius:9px;padding:12px 16px;background:#173a5e;color:#fff;font:700 13px system-ui,sans-serif;cursor:pointer}.wa-quota-details p{font-size:12px;color:#52705d}
 @media(max-width:700px){.wa-admin-panel{padding:16px;border-radius:20px}.wa-admin-head{margin:-16px -16px 18px;padding:20px 16px;border-radius:19px 19px 0 0}.wa-admin-head h2{font-size:20px}.wa-admin-stats{grid-template-columns:1fr}.wa-email-quota{padding:16px}.wa-quota-numbers{gap:7px}.wa-quota-numbers>div{padding:12px 9px}.wa-quota-numbers span{font-size:11px}.wa-quota-numbers strong{font-size:27px}.wa-quota-details form{grid-template-columns:1fr}.wa-quota-link{font-size:12px}}
 
-      </style>
+        .notification-btn{position:relative}
+      .wa-inbox-badge{position:absolute;inset-block-start:-6px;inset-inline-end:-6px;min-width:19px;padding:2px 4px;border-radius:20px;background:#ac2934;color:white;font:700 11px/15px system-ui;text-align:center}
+      #wa-admin-overlay .wa-admin-action,#wa-admin-overlay .wa-admin-form-button{padding:5px 9px!important;font-size:12px!important;line-height:1.5;min-height:30px;border-radius:7px;margin:3px!important;box-shadow:none}
+    </style>
     <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="wa-title">
       <div class="wa-page-heading">
         <div class="wa-brand wa-brand-centered" style="justify-content:center"><img class="wa-brand-logo" src="data:image/png;base64,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" alt="ورقة"></div>
@@ -364,25 +367,100 @@ showGate("تسجيل الدخول والاشتراك");
     }
   }
 
-  window.openCustomerInbox = async () => {
-    const user = auth.currentUser;
-    if (!user || user.isAnonymous || !window.WaraqaAuthorized) return;
-    try {
-      const recipients = [...new Set([user.uid, user.email?.toLowerCase()].filter(Boolean))];
-      const snapshots = await Promise.all(recipients.map(recipient => firebase.getDocs(
-        firebase.query(firebase.collection(db, "customerInbox", recipient, "messages"),
-          firebase.orderBy("sentAt", "desc"), firebase.limit(50)))));
-      if (auth.currentUser?.uid !== user.uid || !window.WaraqaAuthorized) return;
-      const messages = snapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data()))
-        .sort((a, b) => b.sentAt.toMillis() - a.sentAt.toMillis()).slice(0, 50);
-      modal("الإشعارات", messages.length ? messages.map(message =>
-        '<article class="callout"><small>' + invoiceDate(asDate(message.sentAt)) +
-        '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' +
-        invoiceEscape(message.text) + '</p></article>').join("") : "<p>لا توجد رسائل من المالك.</p>");
-    } catch {
-      toast("تعذر تحميل الإشعارات");
+  let inboxStops = [], inboxMessages = new Map(), inboxSeen = new Set(), inboxKey = "", inboxOpen = false;
+  function renderInbox() {
+    const messages = [...inboxMessages.values()].flat().sort((a,b) => b.time-a.time);
+    if (inboxOpen && document.querySelector("#wa-inbox-content") && document.querySelector("#modal")?.open) {
+      for (const message of messages) inboxSeen.add(message.id);
+      try { localStorage.setItem(inboxKey, JSON.stringify([...inboxSeen])); } catch {}
+      document.querySelector("#wa-inbox-content").innerHTML = messages.length
+        ? messages.map(m => '<article class="callout"><small>' + invoiceDate(new Date(m.time)) +
+          '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + invoiceEscape(m.text) + '</p></article>').join("")
+        : "<p>لا توجد رسائل من المالك.</p>";
     }
+    const bell = document.querySelector(".notification-btn");
+    if (!bell) return;
+    const count = messages.filter(m => !inboxSeen.has(m.id)).length;
+    let badge = bell.querySelector(".wa-inbox-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "wa-inbox-badge";
+      bell.append(badge);
+    }
+    badge.hidden = !count;
+    badge.textContent = count > 99 ? "٩٩+" : count.toLocaleString("ar-SA");
+    bell.setAttribute("aria-label", count ? "الإشعارات، غير مقروءة: " + count : "الإشعارات");
+  }
+
+  function stopInbox() {
+    for (const stop of inboxStops.splice(0)) stop();
+    inboxMessages.clear();
+    inboxSeen.clear();
+    inboxOpen = false;
+    if (document.querySelector("#wa-inbox-content")) document.querySelector("#modal")?.close();
+    renderInbox();
+  }
+
+  function inboxQuery(recipient) {
+    return firebase.query(firebase.collection(db, "customerInbox", recipient, "messages"),
+      firebase.orderBy("sentAt", "desc"));
+  }
+
+  function unpackInbox(snapshot, recipient) {
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return { id: recipient + "/" + doc.id, text: data.text, time: data.sentAt?.toMillis() || 0 };
+    });
+  }
+
+  function startInbox(user) {
+    inboxKey = "waraqa-inbox-read:" + user.uid;
+    try { inboxSeen = new Set(JSON.parse(localStorage.getItem(inboxKey) || "[]")); } catch {}
+    for (const recipient of new Set([user.uid, user.email?.toLowerCase()].filter(Boolean))) {
+      inboxStops.push(firebase.onSnapshot(inboxQuery(recipient), snapshot => {
+        if (auth.currentUser?.uid !== user.uid || !window.WaraqaAuthorized) return;
+        inboxMessages.set(recipient, unpackInbox(snapshot, recipient));
+        renderInbox();
+      }, error => {
+        console.warn("Waraqa inbox", error.code);
+        if (inboxOpen) toast("تعذر تحديث الإشعارات");
+      }));
+    }
+  }
+
+  window.openCustomerInbox = () => {
+    if (!window.WaraqaAuthorized) return;
+    modal("الإشعارات", '<div id="wa-inbox-content"></div>');
+    inboxOpen = true;
+    document.querySelector("#modal").addEventListener("close", () => { inboxOpen = false; }, {once:true});
+    renderInbox();
   };
+
+  async function openSentMessages() {
+    const uid = requireOwner();
+    modal("الرسائل المرسلة", '<div id="wa-sent-messages" role="status">جارٍ تحميل الرسائل…</div>');
+    const container = document.getElementById("wa-sent-messages");
+    try {
+      const licenses = await firebase.getDocs(firebase.collection(db, "licenses"));
+      const rows = [];
+      for (let i = 0; i < licenses.docs.length; i += 10) {
+        requireOwner(uid);
+        const batch = await Promise.all(licenses.docs.slice(i,i+10).map(async license =>
+          unpackInbox(await firebase.getDocs(inboxQuery(license.id)), license.id)
+            .map(message => ({...message, recipient: license.data().email || license.id}))));
+        rows.push(...batch.flat());
+      }
+      requireOwner(uid);
+      if (!container.isConnected) return;
+      container.innerHTML = rows.length ? rows.sort((a,b) => b.time-a.time).map(m =>
+        '<article class="callout"><b>' + invoiceEscape(m.recipient) +
+        '</b> <small>' + invoiceDate(new Date(m.time)) +
+        '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' + invoiceEscape(m.text) +
+        '</p></article>').join("") : "<p>لا توجد رسائل مرسلة.</p>";
+    } catch {
+      if (container.isConnected) container.textContent = "تعذر تحميل الرسائل المرسلة.";
+    }
+  }
 
   function composeCustomerMessage(recipient, email) {
     modal("إرسال للعميل", '<p>' + invoiceEscape(email) + '</p><form id="wa-customer-message"><label class="field">الرسالة<textarea name="text" maxlength="1000" required></textarea></label><button class="btn gold" type="submit">إرسال</button><p role="status"></p></form>');
@@ -1028,12 +1106,13 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><button type="button" id="wa-sent-messages-open" class="wa-admin-form-button">الرسائل المرسلة</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
       overlay.querySelector("#wa-admin-form").addEventListener("submit", saveAdminLicense);
       overlay.querySelector("#wa-owner-messages-open").onclick = openOwnerMessages;
+      overlay.querySelector("#wa-sent-messages-open").onclick = openSentMessages;
       overlay.querySelector("#wa-admin-mail-test").onclick = async event => {
         requireOwner();
         const button = event.currentTarget, status = document.getElementById("wa-admin-mail-status");
@@ -1411,6 +1490,7 @@ showGate("تسجيل الدخول والاشتراك");
   }
   window.WaraqaGetIdToken=async()=>{if(!window.WaraqaAuthorized||!auth?.currentUser||auth.currentUser.isAnonymous)throw Error("سجّل الدخول أولًا");return auth.currentUser.getIdToken();};
   async function authorize(user) {
+    stopInbox();
     const version = ++authorizationVersion;
     stopLicenseWatch();
     if (!user) {
@@ -1455,6 +1535,7 @@ showGate("إرسال طلب الاشتراك");
         window.WaraqaAuthorized = false;
         showGate();
       }, isAdmin);
+      startInbox(user);
       window.dispatchEvent(new Event("waraqa-authorized"));
       if (!isAdmin) startLicenseWatch(user, license.expiry);
       return;
