@@ -347,38 +347,115 @@ $("#wa-plan-email").value = auth.currentUser.email || "";
 showGate("تسجيل الدخول والاشتراك");
     }
   }
+  async function openSubscriptionDetails() {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      const email = (user.email || "").toLowerCase();
+      const emailRecord = email && await firebase.getDoc(firebase.doc(db, "licenses", email));
+      const record = emailRecord?.exists() ? emailRecord : await firebase.getDoc(firebase.doc(db, "licenses", user.uid));
+      if (auth.currentUser?.uid !== user.uid) return;
+      const data = record.data();
+      modal("معلومات الاشتراك", data
+        ? "<p>الباقة: " + invoiceEscape(data.plan || "غير مسجلة") + "</p><p>تاريخ الانتهاء: " + invoiceDate(asDate(data.expiresAt)) + "</p>"
+        : "<p>لا يوجد سجل اشتراك لهذا الحساب.</p>");
+    } catch {
+      toast("تعذر تحميل معلومات الاشتراك");
+    }
+  }
+
+  window.openCustomerInbox = async () => {
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous || !window.WaraqaAuthorized) return;
+    try {
+      const recipients = [...new Set([user.uid, user.email?.toLowerCase()].filter(Boolean))];
+      const snapshots = await Promise.all(recipients.map(recipient => firebase.getDocs(
+        firebase.query(firebase.collection(db, "customerInbox", recipient, "messages"),
+          firebase.orderBy("sentAt", "desc"), firebase.limit(50)))));
+      if (auth.currentUser?.uid !== user.uid || !window.WaraqaAuthorized) return;
+      const messages = snapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data()))
+        .sort((a, b) => b.sentAt.toMillis() - a.sentAt.toMillis()).slice(0, 50);
+      modal("الإشعارات", messages.length ? messages.map(message =>
+        '<article class="callout"><small>' + invoiceDate(asDate(message.sentAt)) +
+        '</small><p style="white-space:pre-wrap;overflow-wrap:anywhere">' +
+        invoiceEscape(message.text) + '</p></article>').join("") : "<p>لا توجد رسائل من المالك.</p>");
+    } catch {
+      toast("تعذر تحميل الإشعارات");
+    }
+  };
+
+  function composeCustomerMessage(recipient, email) {
+    modal("إرسال للعميل", '<p>' + invoiceEscape(email) + '</p><form id="wa-customer-message"><label class="field">الرسالة<textarea name="text" maxlength="1000" required></textarea></label><button class="btn gold" type="submit">إرسال</button><p role="status"></p></form>');
+    const form = document.getElementById("wa-customer-message");
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const text = form.elements.text.value.trim();
+      if (!text) return;
+      const button = form.querySelector("button"), status = form.querySelector('[role="status"]');
+      button.disabled = true;
+      try {
+        requireOwner();
+        await firebase.addDoc(firebase.collection(db, "customerInbox", recipient, "messages"), {
+          text, sentAt: firebase.serverTimestamp()
+        });
+        form.reset();
+        status.textContent = "أُرسلت الرسالة.";
+      } catch {
+        status.textContent = "تعذر إرسال الرسالة.";
+      } finally {
+        button.disabled = false;
+      }
+    };
+  }
+
   function addAccountChip(email, logout, isAdmin = false) {
     const target = document.querySelector(".header-left");
     if (!target) return;
-    let chip = document.getElementById("waraqa-account-chip");
-    if (!chip) {
-      chip = document.createElement("div"); chip.id = "waraqa-account-chip"; chip.className = "waraqa-account-chip"; target.prepend(chip);
-    }
-    chip.replaceChildren();
-    if (email) {
-      const identity = document.createElement("div"); identity.className = "wa-account-identity";
-      const caption = document.createElement("small"); caption.textContent = isAdmin ? "حساب المالك" : "حساب المشترك";
-      const label = document.createElement("span"); label.title = email; label.textContent = email; label.dir = "ltr";
-      identity.append(caption,label); chip.append(identity);
-    }
-    const actions = document.createElement("div"); actions.className = "wa-account-actions";
-    const add = (text, handler, variant = "") => {
-      const button = document.createElement("button"); button.type = "button"; button.className = "wa-account-action " + variant;
-      button.textContent = text; button.addEventListener("click", handler); actions.append(button);
+    const chip = document.createElement("div");
+    chip.id = "waraqa-account-chip";
+    chip.className = "waraqa-account-chip";
+    target.replaceChildren(chip);
+    const add = (parent, text, handler) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "wa-account-action";
+      button.textContent = text;
+      button.onclick = handler;
+      parent.append(button);
     };
-    add(email ? "الاشتراك" : "دخول / اشتراك", openAccountPanel, "wa-action-primary");
-    if (email && isAdmin) add("لوحة التحكم", openAdminDashboard, "wa-action-primary");
-    if (email) {
-      add("الفاتورة", () => openSubscriptionInvoice(), "wa-action-invoice");
-      add("تغيير رمز الدخول", openPinDialog);
-      add("تسجيل الخروج", async () => {
-        document.getElementById("wa-subscription-invoice")?.close();
-        await logout();
-      }, "wa-action-logout");
+    if (!email) {
+      add(chip, "دخول / اشتراك", openAccountPanel);
+      return;
     }
-    chip.append(actions);
+    const menu = document.createElement("details");
+    menu.className = "wa-account-menu";
+    menu.innerHTML = '<summary aria-label="قائمة الحساب">☰</summary><div class="wa-account-menu-items"></div>';
+    const items = menu.lastElementChild;
+    const file = document.createElement("input");
+    file.type = "file";
+    file.accept = ".json,application/json";
+    file.hidden = true;
+    file.onchange = () => { const selected = file.files[0]; file.value = ""; if (selected) restore(selected); };
+    const action = (label, run) => add(items, label, () => { menu.open = false; run(); });
+    action("تغيير رمز الدخول", openPinDialog);
+    action("معلومات الاشتراك", openSubscriptionDetails);
+    action("تنزيل نسخة احتياطية", () => backup());
+    action("استعادة نسخة", () => file.click());
+    if (isAdmin) action("لوحة التحكم", openAdminDashboard);
+    action("تسجيل الخروج", logout);
+    const identity = document.createElement("div");
+    identity.className = "wa-account-identity";
+    const name = document.createElement("small"), address = document.createElement("span");
+    const user = auth.currentUser;
+    name.textContent = user?.displayName || readBillingProfile(email).name || (isAdmin ? "حساب المالك" : "حساب المشترك");
+    if (user && !user.displayName) firebase.getDoc(firebase.doc(db, "subscriptionRequests", user.uid)).then(record => {
+      if (name.isConnected && auth.currentUser?.uid === user.uid && record.data()?.name) name.textContent = record.data().name;
+    }).catch(() => {});
+    address.textContent = email;
+    address.dir = "ltr";
+    identity.append(name, address);
+    chip.append(menu, identity, file);
   }
-
 
   function billingProfileKey(email) {
     return "waraqa-billing-profile:v1:" + new URL(".", location.href).pathname + ":" + email;
@@ -1013,6 +1090,10 @@ showGate("تسجيل الدخول والاشتراك");
           remove.onclick = () => deleteInactiveLicense(record, email, remove);
           actionCell.appendChild(remove);
         }
+        const send = document.createElement("button");
+        send.type = "button"; send.className = "wa-admin-action"; send.textContent = "أرسل للعميل";
+        send.onclick = () => composeCustomerMessage(record.id, email);
+        actionCell.append(send);
         row.appendChild(actionCell);
         body.appendChild(row);
       });
