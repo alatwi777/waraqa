@@ -63,7 +63,7 @@ function downloadWordQuestionTemplate(event){
  if(![mcq,tf].every(n=>Number.isInteger(n)&&n>=0&&n<=25)||![3,4].includes(choices))return;
  if(!mcq&&!tf){toast('اختر سؤالًا واحدًا على الأقل');return;}
  const landscape=data.get('orientation')==='landscape';
- const blob=new Blob([wordQuestionTemplate(mcq,tf,choices,landscape)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+ const blob=new Blob(wordQuestionTemplate(mcq,tf,choices,landscape),{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
  const url=URL.createObjectURL(blob),link=document.createElement('a');
  link.href=url;
  link.download=`قالب-أسئلة-${landscape?'أفقي':'عمودي'}-${mcq}-${tf}.docx`;
@@ -87,7 +87,7 @@ function wordQuestionTemplate(mcq,tf,choices,landscape){
  return storeWordTemplateZip({
   '[Content_Types].xml':'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
   '_rels/.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-  'word/document.xml':`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${blocks.join('')}<w:sectPr><w:pgSz ${size}/><w:pgMar w:top="950" w:right="950" w:bottom="950" w:left="950"/></w:sectPr></w:body></w:document>`
+  'word/document.xml':`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${blocks.join('')}<w:sectPr><w:pgSz ${size}/><w:pgMar w:top="950" w:right="950" w:bottom="950" w:left="950" w:header="450" w:footer="450" w:gutter="0"/></w:sectPr></w:body></w:document>`
  });
 }
 
@@ -113,6 +113,7 @@ function storeWordTemplateZip(files){
   entry.set(name,30);
   const directory=new Uint8Array(46+name.length),record=new DataView(directory.buffer);
   record.setUint32(0,0x02014b50,true);
+  record.setUint16(4,20,true);
   record.setUint16(4,20,true);
   directory.set(entry.subarray(4,30),6);
   record.setUint32(42,offset,true);
