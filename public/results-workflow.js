@@ -2,6 +2,10 @@
 let bulkWaiting = false;
 let bulkReviewActive = false;
 let batchProcessing = false;
+let gradingProgress = null;
+function gradingProgressText({total, done, failed}) {
+  return `${ar(Math.floor((done+failed)*100/total))}٪ · صُححت ${ar(done)} من ${ar(total)} · المتبقي ${ar(total-done-failed)}${failed ? ' · تعذّر تصحيح '+ar(failed) : ''}`;
+}
 let batchRunId = '';
 let resultHitContext = null;
 let largeResultPreview = null;
@@ -468,7 +472,7 @@ results = function () {
   mergeDuplicateStudentResults();
   if (currentResult && db.results.some(r => r.id === currentResult)) return reviewResult(currentResult);
   const pendingList = bulkWaiting && scanQueue.length ? `<div class="bulk-file-list" aria-label="الأوراق المضافة">${scanQueue.map((f,i)=>`<span><b>${ar(i+1)}</b> ${esc(f.name)} <small>بانتظار التصحيح</small></span>`).join('')}</div>` : '';
-  const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة أُضيفت إلى النتائج، جاهزة للمعالجة.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div><div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}<p id="batch-progress" class="note" aria-live="polite"></p></section>`;
+  const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة أُضيفت إلى النتائج، جاهزة للمعالجة.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div>${gradingProgress ? `<div id="batch-progress" style="flex:1 1 210px;min-width:0"><div class="note" aria-live="polite">${gradingProgressText(gradingProgress)}</div><progress aria-label="تقدّم تصحيح الدفعة" style="width:100%;accent-color:#315c80" max="${gradingProgress.total}" value="${gradingProgress.done+gradingProgress.failed}"></progress></div>` : ''}<div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}</section>`;
   const examIds = [...new Set(db.results.map(r => r.exam).filter(Boolean))];
   if (!resultsExamFilter || (resultsExamFilter !== 'all' && !examIds.includes(resultsExamFilter))) resultsExamFilter = examIds.at(-1) || 'all';
   const examItems = examIds.map(id => { const e = db.exams.find(x => x.id === id) || db.results.find(x => x.exam === id)?.snapshot; return e ? [id, e.title || 'اختبار'] : null; }).filter(Boolean);
@@ -488,10 +492,11 @@ async function cancelPendingBatch() { if (!confirm('إلغاء الدفعة ال
 
 async function correctAllPending() {
   if (!scanQueue.length || batchProcessing) return toast('لا توجد دفعة جاهزة للتصحيح');
+  gradingProgress = {total:scanQueue.length, done:0, failed:0};
   batchProcessing = true; batchRunId = uid(); bulkReviewActive = false; scanIndex = 0; currentResult = null; results();
   const runButton = document.querySelector('.bulk-batch-panel .btn.gold');
   if (runButton) { runButton.disabled = true; runButton.textContent = 'جارٍ التصحيح…'; }
-  const progress = document.querySelector('#batch-progress'); let done = 0, failed = [];
+  let done = 0, failed = [];
   for (scanIndex = 0; scanIndex < scanQueue.length; scanIndex++) {
     try {
       scanState = null;
@@ -512,8 +517,15 @@ async function correctAllPending() {
       await persistScanDraft(s, e, true);
       done++;
     } catch (err) { failed.push(scanQueue[scanIndex]?.name || `ورقة ${scanIndex + 1}`); }
-    if (progress) progress.textContent = `تم تصحيح ${ar(done)} من ${ar(scanQueue.length)}${failed.length ? ` · تعذر فتح ${ar(failed.length)} ورقة` : ''}`;
+    gradingProgress.done = done;
+    gradingProgress.failed = failed.length;
+    const progress = document.querySelector("#batch-progress");
+    if (progress) {
+      progress.firstElementChild.textContent = gradingProgressText(gradingProgress);
+      progress.lastElementChild.value = done + failed.length;
+    }
   }
+  gradingProgress = null;
   batchProcessing = false; bulkWaiting = false; scanQueue = []; scanState = null; scanIndex = 0; if (db.results.length) resultsExamFilter = db.results.at(-1).exam || resultsExamFilter; save(); results();
   toast(`اكتمل التصحيح الآلي: ${ar(done)} ورقة${failed.length ? `، وتعذر معالجة ${ar(failed.length)}` : ''}`);
 }
