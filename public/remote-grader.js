@@ -11,7 +11,8 @@ async function remoteReadScan(s,e){
  const revision=s.remoteRevision=(s.remoteRevision||0)+1,canvas=s.canvas,version=s.version||8,p=s.p||0,owner=window.WaraqaFirebaseUid,examSnapshot=JSON.stringify(e.questions),corners=s.corners?.map(x=>({...x}));
  s.remotePending=true;s.remoteReady=false;s.remoteError=null;
  if(typeof retainRemoteInput==='function')try{await retainRemoteInput(s,e);}catch(error){s.remotePending=false;s.remoteError=error.message;throw error;}
- remoteStatus('جارٍ التصحيح أو انتظار الدور على الخادم…');
+ const statusNode=document.querySelector('#remote-status');
+ if(statusNode) statusNode.hidden=true;
  const job=RemoteQueue.then(async()=>{
   if(!window.WaraqaAuthorized||window.WaraqaFirebaseUid!==owner)throw Error('سجّل الدخول للتحقق من الاشتراك.');
   const dataUrl=canvas.toDataURL('image/jpeg',.95),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
@@ -37,7 +38,7 @@ async function remoteReadScan(s,e){
   if(result.imageSize.width!==s.canvas.width||result.imageSize.height!==s.canvas.height)throw Error('أبعاد الصورة لا تطابق استجابة الخادم.');
   Object.assign(s,{answers:result.answers,essay:result.essay,flags:result.flags,readings:result.readings,bubbleRegistration:result.bubbleRegistration,corners:result.corners,orientationReady:result.orientationReady,remoteReady:true,remoteError:null});
   if(result.error)throw Error('تعذرت محاذاة الورقة؛ حدد الزوايا أو أعد التصوير.');
-  remoteStatus('اكتمل التصحيح على الخادم — راجع النتيجة.');return result;
+  if(typeof batchProcessing==='undefined'||!batchProcessing) remoteStatus('اكتمل التصحيح على الخادم — راجع النتيجة.');return result;
  });
  RemoteQueue=job.catch(()=>{});
  try{return await job;}catch(error){s.remoteReady=false;s.remoteError=error.name==='TimeoutError'?'انتهت مهلة الاتصال؛ أعد المحاولة.':error.message;remoteStatus(s.remoteError);throw Error(s.remoteError);}
