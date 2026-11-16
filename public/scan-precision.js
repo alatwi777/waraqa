@@ -19,12 +19,12 @@ async function getNumberOCR(){
  await worker.setParameters({tessedit_pageseg_mode:'7',preserve_interword_spaces:'1',user_defined_dpi:'300'});NumberOCR=worker;return worker;
  })().catch(error=>{NumberOCRLoading=null;throw error});return NumberOCRLoading;
 }
-function studentNumberCrop(s,variant=0){
+function studentNumberCrop(s,variant=0,bounds=null){
  // V8 number is at the left of its RTL cell. Keep the Arabic label out of OCR.
  // Alternate exposures and a wider crop support printed/scanned and shifted headers.
  const version=s.version||8,portrait=version===9;
  if((version!==8&&!portrait)||!s.corners||s.orientationReady===false)return null;const c=s.canvas,w=c.width,h=c.height,source=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data,map=homography(s.corners,version);
- const wide=variant>=2,top=portrait?49:wide?16:22,bottom=portrait?73:wide?53:46,x0=portrait?56:wide?156:160,x1=portrait?157:wide?248:242,scale=5,out=document.createElement('canvas');out.width=(x1-x0)*scale+40;out.height=(bottom-top)*scale+40;const ctx=out.getContext('2d'),dst=ctx.createImageData(out.width,out.height);dst.data.fill(255);
+ const wide=variant>=2,top=bounds?.[1]??(portrait?49:wide?16:22),bottom=bounds?.[3]??(portrait?73:wide?53:46),x0=bounds?.[0]??(portrait?56:wide?156:160),x1=bounds?.[2]??(portrait?157:wide?248:242),scale=5,out=document.createElement('canvas');out.width=(x1-x0)*scale+40;out.height=(bottom-top)*scale+40;const ctx=out.getContext('2d'),dst=ctx.createImageData(out.width,out.height);dst.data.fill(255);
  // Interpolate the same local curve correction from the registered grade/header rings.
  const anchors=scanPlan(s,s.identityExam||db.exams.find(e=>e.id===s.exam)||getExam()).items.flatMap(v=>v.bubbles.filter(b=>b.y<100).map(b=>{const o=s.bubbleRegistration?.offsets[v.i+':'+b.value];return o?.reliable?{...b,...o}:null})).filter(Boolean);
  for(let y=20;y<out.height-20;y++)for(let x=20;x<out.width-20;x++){const px=x0+(x-20)/scale,py=top+(y-20)/scale;let dx=0,dy=0,weight=0;for(const a of anchors){const t=1/(100+(px-a.x)**2);dx+=a.dx*t;dy+=a.dy*t;weight+=t}const p=map(px+((variant===0||variant===1)&&weight?dx/weight:0),py+((variant===0||variant===1)&&weight?dy/weight:0)),xx=Math.round(p.x),yy=Math.round(p.y);if(xx<0||yy<0||xx>=w||yy>=h)continue;const n=(yy*w+xx)*4,k=(y*out.width+x)*4;const v=.299*source[n]+.587*source[n+1]+.114*source[n+2];const value=v;dst.data[k]=dst.data[k+1]=dst.data[k+2]=value;dst.data[k+3]=255}
@@ -66,3 +66,51 @@ function identifyScanStudent(s,force=false){
  return task.finally(()=>{if(s.identityPromise===task)s.identityPromise=null});
 }
 function retryStudentIdentity(){if(!scanState)return;scanState.student='';scanState.identityAutomatic=false;identifyScanStudent(scanState,true)}
+
+let arabicHeaderWorker;
+function normalizeScannedHeader(value){
+ return String(value??'').normalize('NFKC').replace(/[\u0640\u064b-\u065f]/g,'').replace(/[أإآ]/g,'ا').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+}
+
+async function identifyBatchHeader(s, exam){
+ if(s.student||!s.corners||s.orientationReady===false||![8,9].includes(s.version))return;
+ const portrait=s.version===9;
+ const fields=portrait?[[251,47,739,74],[55,19,288,45],[290,19,739,45]]
+   :[[310,20,541,48],[560,20,746,48],[765,20,1065,48]];
+ try{
+  await getNumberOCR();
+  arabicHeaderWorker??=Tesseract.createWorker('ara',1,{
+   workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',
+   corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',
+   langPath:'https://tessdata.projectnaptha.com/4.0.0_best',
+   workerBlobURL:true
+  }).catch(error=>{arabicHeaderWorker=null;throw error});
+  const worker=await arabicHeaderWorker;
+  await worker.setParameters({tessedit_pageseg_mode:'7'});
+  const read=async index=>{
+   const {data}=await worker.recognize(studentNumberCrop(s,0,fields[index]));
+   return data.confidence>=75?normalizeScannedHeader(data.text):'';
+  };
+  const name=(await read(0)).replace(/^اسم الطالب\s*/,'');
+  const candidates=name?identityStudentsForScan(s).filter(student=>normalizeScannedHeader(student.name)===name):[];
+  let matched=candidates.length===1?candidates[0]:null;
+  if(!matched){
+   const group=(await read(1)).replace(/^الصف\s+/,'').replace(/\s+[٠-٩0-9]+ دقيقة$/,'');
+   const groups=group?db.groups.filter(value=>normalizeScannedHeader(value).replace(/^الصف\s+/,'')===group):[];
+   if(groups.length===1){
+    const within=candidates.filter(student=>student.group===groups[0]);
+    if(within.length===1)matched=within[0];
+    else s.identityGroup=groups[0];
+   }else{
+    const title=(await read(2)).replace(/^الاختبار\s*/,'');
+    s.identityStatus=title&&title===normalizeScannedHeader(exam.title)
+     ?'تطابق عنوان الاختبار؛ يلزم تحديد الطالب والصف.'
+     :'تعذر تأكيد عنوان الورقة؛ راجع الاختبار والطالب.';
+   }
+  }
+  if(matched&&!s.student){s.student=matched.id;s.identityAutomatic=true;s.identityStatus='تمت مطابقة اسم الطالب المطبوع.';}
+  else if(s.identityGroup)s.identityStatus='تم التعرف على الصف؛ يلزم تحديد الطالب.';
+ }catch{
+  s.identityStatus='تعذرت قراءة رأس الورقة؛ حدد الطالب يدويًا.';
+ }
+}
