@@ -197,6 +197,9 @@ async function persistScanDraft(s, e, batch = false) {
   if (r.captureStatus === 'ungraded') { r.snapshot = { ...JSON.parse(JSON.stringify(e)), paperVersion:s.version || 8 }; r.pages = {}; }
   r.captureStatus = 'graded';
   if (st) { r.student = st.id; r.name = st.name; r.number = st.number; r.group = st.group; }
+  if (!st && s.identityGroup) r.group = s.identityGroup;
+  if (!st && s.identityStatus) r.identityStatus = s.identityStatus;
+  if (st) delete r.identityStatus;
   r.pages[s.p] = key; r.remoteGeometry??={};r.remoteGeometry[s.p]={corners:s.corners,bubbleRegistration:s.bubbleRegistration}; r.markings ??= {}; r.markings[s.p] = {}; r.reviewPending ??= {}; r.reviewPending[s.p] = true;
   for (const { i, q } of scanPlan(s, e).items) {
     r.answers[i] = s.answers[i] ?? null;
@@ -496,6 +499,7 @@ async function correctAllPending() {
       const s = scanState, e = db.exams.find(x => x.id === s?.exam);
       if (!s || !e) throw new Error('تعذر قراءة صفحة الاختبار');
       if (typeof identifyScanStudent === 'function') await identifyScanStudent(s, true);
+      if (!s.student && scanQueue[scanIndex]?.pdf && typeof identifyBatchHeader === 'function') await identifyBatchHeader(s, e);
       const student = db.students.find(x => x.id === s.student);
       let r = student && db.results.find(x => x.exam === e.id && resultMatchesStudent(x, student, e.id));
       let page = Number(s.p || 0);
@@ -529,7 +533,7 @@ reviewResult = async function (id, p = 0) {
   }
   if (!r.student) {
     const answerPanel = document.querySelector('.review-layout > section:last-child');
-    if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">تعذر التعرف على الطالب من رقم الورقة<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.filter(st=>!r.captureGroup||st.group===r.captureGroup).map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
+    if (answerPanel && !answerPanel.querySelector('.unknown-student-select')) answerPanel.insertAdjacentHTML('afterbegin', `<label class="field unknown-student-select">${esc(r.identityStatus || 'تعذر التعرف على الطالب من الورقة')}<select onchange="assignBatchStudent('${r.id}',this.value)"><option value="">اختر الطالب لربط النتيجة</option>${options(db.students.filter(st=>!(r.group||r.captureGroup)||st.group===(r.group||r.captureGroup)).map(st=>[st.id,st.number+' — '+st.name]))}</select></label>`);
   }
   resultExam(r)?.questions.forEach((q, i) => {
     const card = [...document.querySelectorAll('.review-layout > section:last-child .review-q')].find(el => el.querySelector('b')?.textContent.includes(q.text));
