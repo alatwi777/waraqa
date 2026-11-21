@@ -386,12 +386,65 @@ async function exportAnswerSheets() {
   toast(`تم تجهيز ${ar(pages.length)} صفحة${skipped.length ? ` · تعذر ${ar(skipped.length)}` : ''}`);
 }
 
+function noorGradeSources() {
+  return db.exams.flatMap(exam => {
+    const records = db.results.filter(record => record.exam === exam.id);
+    const groups = [...new Set(records.map(record => record.group || 'بدون مجموعة'))];
+    if (!groups.length) groups.push('بدون نتائج');
+    return groups.map(group => {
+      const rows = records.filter(record => (record.group || 'بدون مجموعة') === group).map(record => {
+        const graded = record.captureStatus !== 'ungraded';
+        const value = graded ? score(record) : null;
+        const id = resultNumberKey(record.number);
+        let status = 'جاهز للرصد';
+        if (!graded) status = 'لم تُصحح الورقة';
+        else if (resultNeedsReview(record) || resultApprovalBlocker(record)) status = 'تحتاج مراجعة واعتماد';
+        else if (!/^\d{8,12}$/.test(id)) status = 'راجع رقم الطالب';
+        else if (!Number.isFinite(value) || value < 0 || value > total(resultExam(record) || exam)) status = 'راجع الدرجة';
+        return {id, name:String(record.name || ''), score:Number.isFinite(value) ? value : null,
+          ready:status === 'جاهز للرصد', status};
+      });
+      const ids = rows.map(row => row.id);
+      rows.forEach(row => {
+        if (row.id && ids.filter(id => id === row.id).length > 1) {
+          row.ready = false;
+          row.status = 'رقم الطالب مكرر';
+        }
+      });
+      return {key:JSON.stringify([exam.id, group]), label:exam.title + ' — ' + group, rows};
+    });
+  });
+}
+
+function publishNoorSources() {
+  window.postMessage({type:'WARAQA_NOOR_SOURCES', id:uid(), sources:noorGradeSources()}, location.origin);
+}
+window.addEventListener('waraqa-local-saved', publishNoorSources);
+window.addEventListener('waraqa-noor-request-sources', publishNoorSources);
+
 function openNoorTransfer() {
-  const exam = db.exams.find(item => item.id === resultsExamFilter);
-  if (!exam) return toast('اختر اختبارًا محددًا من صفحة النتائج أولًا');
-  const groups = [...new Set(db.results.filter(r => r.exam === exam.id).map(r => r.group).filter(Boolean))];
-  if (!groups.length) return toast('اربط النتائج بالطلاب ومجموعاتهم أولًا');
-  modal('رصد في نور', `<p>افتح كشف الصف والمادة والفترة في نور واتركه مفتوحًا. اختر المجموعة لإرسال أرقام الطلاب والدرجات المعتمدة إلى الإضافة للمعاينة.</p><label class="field">المجموعة<select id="noor-transfer-group"><option value="">اختر المجموعة</option>${options(groups.map(group => [group, group]), '')}</select></label><button type="button" class="btn gold" onclick="sendNoorGrades(this)">معاينة الدرجات في نور</button><p id="noor-transfer-status" role="status"></p>`);
+  const sources = noorGradeSources();
+  modal('رصد في نور', `<p>سجّل الدخول عبر نفاذ داخل نور، ثم افتح كشف الرصد واختر مصدر الدرجات من شريط «رصد من موقع ورقة».</p>
+    <p id="noor-transfer-status" role="status">${sources.length ? 'جارٍ تجهيز جميع الاختبارات…' : 'لا توجد اختبارات في ورقة.'}</p>
+    <a class="btn light" href="https://noor.moe.gov.sa/" target="_blank" rel="noopener">فتح نور</a>`);
+  const status = $('#noor-transfer-status');
+  const id = uid();
+  const receive = event => {
+    if (event.source !== window || event.origin !== location.origin ||
+        event.data?.type !== 'WARAQA_NOOR_REPLY' || event.data.id !== id) return;
+    clearTimeout(timer);
+    window.removeEventListener('message', receive);
+    status.textContent = event.data.result?.ok
+      ? (sources.length ? 'مصادر الدرجات جاهزة في شريط نور.' : 'لا توجد اختبارات محفوظة.')
+      : event.data.result?.error || 'تعذر تجهيز المصادر.';
+  };
+  const timer = setTimeout(() => {
+    window.removeEventListener('message', receive);
+    status.textContent = 'ثبّت إضافة نور 1.6.10 في Chrome لتظهر مصادر الدرجات داخل نور.';
+  }, 3000);
+  window.addEventListener('message', receive);
+  window.postMessage({type:'WARAQA_NOOR_SOURCES', id, sources}, location.origin);
+  window.open('https://noor.moe.gov.sa/', '_blank', 'noopener');
 }
 
 async function sendNoorGrades(button) {
@@ -484,7 +537,7 @@ results = function () {
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${resultNeedsReview(r) ? 'محفوظة — تحتاج مراجعة' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
   const noResults = !db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : empty('لا توجد أوراق مطابقة للتصفية','غيّر الاختبار أو اختر جميع الأوراق من القائمة أعلاه.');
-  $('#app').innerHTML = '<div class="results-page-heading">' + head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', `<div class="results-action-group" role="group" aria-label="تصدير النتائج">${btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')}${btn('تصدير Excel','exportResultsExcel()','light')}${btn('تصدير CSV','exportResults()','light')}</div><div class="results-action-group results-noor-actions" role="group" aria-label="رصد نور">${btn('رصد في نور','openNoorTransfer()','gold')}<a class="btn light" href="downloads/noor-grade-extension-v1.6.1.zip" download>تحميل إضافة نور لـ Chrome</a></div>`) + '</div>' + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
+  $('#app').innerHTML = '<div class="results-page-heading">' + head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', `<div class="results-action-group" role="group" aria-label="تصدير النتائج">${btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')}${btn('تصدير Excel','exportResultsExcel()','light')}${btn('تصدير CSV','exportResults()','light')}</div><div class="results-action-group results-noor-actions" role="group" aria-label="رصد نور">${btn('رصد في نور','openNoorTransfer()','gold')}<a class="btn light" href="downloads/noor-grade-extension-v1.6.10.zip" download>تحميل إضافة نور 1.6.10 لـ Chrome</a></div>`) + '</div>' + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
 };
 
 function startBatchReview() { if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
