@@ -1,0 +1,68 @@
+:root {
+  --owner-control-bg: #eef3f8;
+  --owner-control-hover: #e2ebf4;
+  --owner-control-border: #ced9e6;
+  --owner-control-ink: #23435e;
+}
+html[data-theme="dark"] {
+  --owner-control-bg: #1a344e;
+  --owner-control-hover: #254866;
+  --owner-control-border: #426784;
+  --owner-control-ink: #eef6ff;
+}
+html body :is(.btn, .icon-btn, .theme-toggle) {
+  border: 1px solid var(--owner-control-border);
+  border-radius: 11px;
+  background: var(--owner-control-bg);
+  color: var(--owner-control-ink);
+  font-weight: 700;
+  box-shadow: none;
+}
+html body :is(.btn, .icon-btn, .theme-toggle):hover:not(:disabled) {
+  background: var(--owner-control-hover);
+}
+html body :is(.btn, .icon-btn, .theme-toggle):focus-visible {
+  outline: 2px solid #5183af;
+  outline-offset: 2px;
+}
+html body :is(.btn.danger, .btn.local-approve-all) {
+  background: #b43f49;
+  border-color: #b43f49;
+  color: #fff;
+}
+html body :is(.btn.danger, .btn.local-approve-all):hover:not(:disabled) {
+  background: #98323e;
+  border-color: #98323e;
+}
+html body .btn.local-approve-all:disabled {
+  opacity: .78;
+  cursor: not-allowed;
+}
+body .results-exam-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) max-content;
+  align-items: end;
+  gap: 10px 14px;
+  padding: 14px 16px;
+}
+body .results-exam-filter .field { display: grid; gap: 5px; min-width: 0; margin: 0; }
+body .results-exam-filter :is(select, .btn) {
+  min-height: 42px;
+  margin: 0;
+  border-radius: 11px;
+}
+body .results-exam-filter select {
+  width: 100%;
+  padding: 7px 11px;
+  color: var(--owner-control-ink);
+  background: var(--owner-control-bg);
+  border: 1px solid var(--owner-control-border);
+}
+body .results-filter-note { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 740px) {
+  body .results-exam-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body .results-exam-filter .local-approve-all { grid-column: 1 / -1; justify-self: start; }
+}
+@media (max-width: 440px) {
+  body .results-exam-filter { grid-template-columns: minmax(0, 1fr); }
+}

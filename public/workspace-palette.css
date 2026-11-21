@@ -1,0 +1,276 @@
+/* Shared subscriber and owner workspace palette. Screen-only so printed exam sheets retain their ink and geometry. */
+@media screen {
+  html:not([data-theme="dark"]) {
+    --ink: #123858;
+    --muted: #5d7285;
+    --green: #315975;
+    --lime: #dbe5eb;
+    --line: #cbd2d7;
+    --bg: #ece8dc;
+    --white: #fbf9f3;
+    --orange: #6d8194;
+    --owner-control-bg: #f1efe7;
+    --owner-control-hover: #e0e7eb;
+    --owner-control-border: #bac8d3;
+    --owner-control-ink: #173d60;
+  }
+  html:not([data-theme="dark"]) body {
+    color: #123858;
+    background: radial-gradient(ellipse at 25% 5%, #fffdf7 0, transparent 55%), #ece8dc;
+  }
+  html:not([data-theme="dark"]) body > aside {
+    background: linear-gradient(160deg, #f6f3eb, #e8e5db);
+    border-color: #cbd2d7;
+    box-shadow: -3px 0 18px #193c5710;
+  }
+  html:not([data-theme="dark"]) body nav a {
+    color: #fff;
+    background: linear-gradient(120deg, #627f95, #3a607b);
+    border: 1px solid #ffffff75;
+    border-radius: 13px;
+    box-shadow: 0 3px 8px #193c5712;
+    margin-bottom: 8px;
+  }
+  html:not([data-theme="dark"]) body nav a.active {
+    color: #fff;
+    background: linear-gradient(120deg, #315e80, #123c60);
+    border-color: #234f72;
+  }
+  html:not([data-theme="dark"]) body nav a.active::after { background: #bed3e2; }
+  html:not([data-theme="dark"]) body :is(.nav-label, .profile small, .stat small, .note, .sub) { color: #5d7285; }
+  html:not([data-theme="dark"]) body :is(.panel, .stat, .home-module, .exam-card, .card) {
+    background: linear-gradient(140deg, #fcfaf5, #efede5);
+    border-color: #cbd2d7;
+    box-shadow: 0 4px 12px #16365312, inset 0 1px 0 #ffffff;
+  }
+  html:not([data-theme="dark"]) body .hero {
+    color: #143c60;
+    background: radial-gradient(ellipse at 25% 20%, #fffefb, transparent 70%), linear-gradient(135deg, #ede8dc, #f8f6ef);
+    border: 1px solid #cbd2d7;
+    box-shadow: 0 5px 15px #16365315;
+  }
+  html:not([data-theme="dark"]) body .hero :is(h2, h3) { color: #123858; }
+  html:not([data-theme="dark"]) body .hero :is(p, .eyebrow) { color: #526d83; }
+  html:not([data-theme="dark"]) body :is(.hero-art, .home-module-icon, .stat .stat-icon) {
+    background: #dce5ec;
+    color: #315f84;
+  }
+  html:not([data-theme="dark"]) body .stat:nth-child(n) .stat-icon { background: #dce5ec; color: #315f84; }
+  html:not([data-theme="dark"]) body main > header.workspace-header {
+    --bar-ink: #173d60;
+    --bar-muted: #5d7285;
+    --bar-line: #cbd2d7;
+    --bar-panel: #f8f6ef;
+    --bar-soft: #eeede7;
+    --bar-primary: #315975;
+    --bar-accent: #dce5ec;
+    --bar-accent-ink: #173d60;
+    background: #f8f6ef;
+    border-color: #cbd2d7;
+  }
+  html:not([data-theme="dark"]) body .btn:not(.light):not(.danger):not(.local-approve-all),
+  html:not([data-theme="dark"]) body .hero .btn {
+    background: linear-gradient(120deg, #527e9c, #193f65);
+    border-color: #315975;
+    color: #fff;
+    box-shadow: 0 2px 5px #173d6015;
+  }
+  html:not([data-theme="dark"]) body .btn.light {
+    background: #f7f5ee;
+    color: #173d60;
+    border-color: #bac8d3;
+  }
+  html:not([data-theme="dark"]) body :is(.btn.danger, .btn.local-approve-all) {
+    background: #b65059;
+    border-color: #b65059;
+    color: #fff;
+  }
+  html:not([data-theme="dark"]) body .bulk-batch-panel {
+    background: #f7f5ed;
+    border-color: #a7b9c8;
+  }
+  html:not([data-theme="dark"]) body :is(thead, th) { background: #e4e9ec; color: #193f60; }
+  html:not([data-theme="dark"]) body :is(td, .panel-title) { border-color: #d7dde0; }
+  html:not([data-theme="dark"]) body :is(.field input, .field select, .field textarea, .results-exam-filter select) {
+    color: #173d60;
+    background: #fbfaf6;
+    border-color: #bac8d3;
+    accent-color: #315975;
+  }
+  html:not([data-theme="dark"]) body :is(dialog:not(.paper-camera-modal):not(.result-preview-modal), .modal-head) {
+    color: #173d60;
+    background: #f8f6ef;
+    border-color: #cbd2d7;
+  }
+  html:not([data-theme="dark"]) body .privacy { background: #e3e8ea; border-color: #bac8d3; color: #315975; }
+  html:not([data-theme="dark"]) body .profile > span { background: #d4e0e8; color: #193f65; }
+  html:not([data-theme="dark"]) body .text-link { color: #315f84; }
+}
+@media screen {
+  html:not([data-theme="dark"]) body .home-module-card {
+    background: linear-gradient(145deg, #fcfaf5, #efede5);
+    border-color: #cbd2d7;
+    box-shadow: 0 5px 13px #193c5717, inset 0 1px 0 #fff;
+  }
+  html:not([data-theme="dark"]) body aside nav a.active svg { color: #d8e7f2; }
+  html:not([data-theme="dark"]) body aside::after {
+    border-color: #8b9eb233;
+    box-shadow: none;
+  }
+  html:not([data-theme="dark"]) body .callout {
+    color: #315975;
+    background: #e6ebed;
+    border-color: #c0cdd5;
+  }
+}
+
+@media screen {
+  html body aside .sidebar-brand-logo {
+    background: transparent;
+    filter: url(#wa-logo-owner-blue);
+    border-radius: 0;
+  }
+}
+/* Keep the owner's local tools together on the right in RTL. */
+html body .workspace-header .waraqa-header-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+}
+html body .workspace-header .waraqa-header-row > .header-left {
+  display: flex;
+  flex: 0 1 auto;
+  width: auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html body .workspace-header .waraqa-header-row > #cloud-status {
+  flex: 0 1 auto;
+  margin: 0;
+}
+@media screen {
+  html body .home-welcome {
+    min-height: 235px;
+    padding: 32px;
+    border: 1px solid #cbd2d7;
+    border-radius: 22px;
+    background: #f1eee5;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 5px 16px #193c5715;
+  }
+  html body .home-welcome > div { max-width: 62%; }
+  html body .home-welcome h1 { color: #123858; }
+  html body .home-welcome p { color: #526d83; }
+  @media (max-width: 640px) {
+    html body .home-welcome { padding: 22px 18px; min-height: 210px; }
+    html body .home-welcome > div { max-width: 100%; }
+  }
+}
+@media screen {
+  html body .home-welcome {
+    background-image: url("assets/workspace-silk-hero.jpg");
+  }
+  html[data-theme="dark"] body .home-welcome {
+    background-image: linear-gradient(#0e25314d, #0e25314d), url("assets/workspace-silk-hero.jpg");
+  }
+  @media (max-width: 640px) {
+    html body .home-welcome {
+      background-image: linear-gradient(#faf7edc9, #faf7edc9), url("assets/workspace-silk-hero.jpg");
+    }
+  }
+}
+
+/* The home tools and introduction share one compact silk surface. */
+@media screen {
+  html body.dashboard-home main > header.workspace-header {
+    background: #f1eee5 url("assets/workspace-silk-hero.jpg") center / cover no-repeat;
+    padding: 18px 24px;
+    gap: 12px;
+    margin-bottom: 0;
+    box-shadow: 0 5px 16px #193c5715;
+  }
+  html body.dashboard-home .workspace-header .waraqa-header-row {
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  html body.dashboard-home .workspace-header .btn.small,
+  html body.dashboard-home .workspace-header .theme-toggle {
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: 12px;
+    background: #faf8f0e8;
+  }
+  html body.dashboard-home .workspace-header #cloud-status { font-size: 11px; }
+  html body.dashboard-home .workspace-header > .top-search {
+    width: min(100%, 480px);
+    min-height: 36px;
+    background: #faf8f0dc;
+  }
+  html body.dashboard-home .workspace-header > .top-search input { padding-block: 8px; }
+  html body.dashboard-home .workspace-header > .home-welcome {
+    width: 100%;
+    min-height: 138px;
+    margin: 0;
+    padding: 12px 0 8px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  html body.dashboard-home .workspace-header .home-welcome h1 { font-size: 25px; }
+  html body.dashboard-home .workspace-header .home-welcome p { font-size: 12px; }
+  html body.dashboard-home #app { padding-top: 22px; }
+  @media(max-width:640px) {
+    html body.dashboard-home main > header.workspace-header {
+      padding: 16px;
+      background-image: linear-gradient(#faf7edbd, #faf7edbd), url("assets/workspace-silk-hero.jpg");
+    }
+    html body.dashboard-home .workspace-header .home-welcome h1 { font-size: 21px; }
+    html body.dashboard-home .workspace-header > .home-welcome { min-height: 112px; }
+  }
+}
+
+
+@media screen {
+ html body #theme-toggle { display:none!important; }
+ html body .wa-account-menu-items { background:#fbf9f3; color:#173d60; border-color:#bac8d3; }
+ html body .waraqa-account-chip { background:#f8f6ef; color:#173d60; border-color:#cbd2d7; }
+ html body .waraqa-account-chip span { max-width:none; }
+ html body .wa-account-menu summary { border-color:#bac8d3; background:#f7f5ee; color:#173d60; }
+ html body :is(.wa-brand-logo, .sidebar-brand-logo) { filter:url(#wa-logo-owner-blue); background:transparent!important; border:0!important; border-radius:0; padding:0; }
+ html body #waraqa-auth-gate { background:radial-gradient(ellipse at 20% 10%,#fffdf7,transparent 60%),#ece8dc!important; color:#123858; }
+ html body #waraqa-auth-gate .wa-card { background:#f8f6ef!important; border:1px solid #cbd2d7!important; box-shadow:0 18px 60px #173d6026!important; }
+ html body #waraqa-auth-gate :is(.wa-login-section,.wa-subscribe-section,.wa-section) { background:linear-gradient(140deg,#fcfaf5,#efede5)!important; border-color:#cbd2d7!important; color:#123858!important; }
+ html body #waraqa-auth-gate :is(h1,h2,.wa-field,.wa-transfer-title,.wa-price-value) { color:#173d60!important; }
+ html body #waraqa-auth-gate :is(.wa-intro,.wa-section-intro,.wa-plan-note,.wa-transfer p,.wa-price-card small,.wa-page-heading p,.wa-small,.wa-local) { color:#5d7285!important; }
+ html body #waraqa-auth-gate :is(.wa-price-card,.wa-transfer,.wa-local,.wa-setup-badge) { background:#e4e9ec!important; border-color:#bac8d3!important; color:#173d60!important; }
+ html body #waraqa-auth-gate :is(.wa-field input,.wa-plan-select) { background:#fbfaf6!important; color:#173d60!important; border-color:#bac8d3!important; }
+ html body #waraqa-auth-gate :is(.wa-button,.wa-plan-submit) { background:linear-gradient(120deg,#527e9c,#193f65)!important; color:white!important; border-color:#315975!important; box-shadow:0 2px 5px #173d6015!important; }
+ html body #waraqa-auth-gate .wa-button.alt { background:#f7f5ee!important; color:#173d60!important; border:1px solid #bac8d3!important; }
+ html body #waraqa-auth-gate :is(.wa-password-toggle,.wa-switch) { color:#315975!important; }
+ html body #waraqa-auth-gate .wa-message { color:#526d83!important; }
+ html body #waraqa-auth-gate .wa-message.error { color:#a42e2e!important; }
+ html body #waraqa-auth-gate .wa-message.ok { color:#23714b!important; }
+ html body #wa-admin-overlay { background:#123858b8; }
+ html body #wa-admin-overlay :is(.wa-admin-panel,.wa-admin-form,.wa-admin-table-wrap,.wa-admin-stat,.wa-email-quota) { background:#f8f6ef; border-color:#cbd2d7; color:#173d60; }
+ html body #wa-admin-overlay .wa-admin-head { background:linear-gradient(120deg,#527e9c,#193f65); border-color:#bac8d3; }
+ html body #wa-admin-overlay :is(h3,.wa-admin-stat b,.wa-admin-form label,.wa-admin-table td,.wa-email-quota h3) { color:#173d60; }
+ html body #wa-admin-overlay .wa-admin-table th { background:#e4e9ec; color:#193f60; }
+ html body #wa-admin-overlay .wa-admin-table tbody tr:nth-child(even) { background:#efede5; }
+ html body #wa-admin-overlay .wa-admin-table tbody tr:hover { background:#e0e7eb; }
+ html body #wa-admin-overlay :is(.wa-admin-form input,.wa-quota-details input) { background:#fbfaf6; border-color:#bac8d3; color:#173d60; }
+ html body #wa-admin-overlay :is(.wa-admin-form-button,.wa-admin-open,.wa-admin-form button,.wa-quota-details button) { background:linear-gradient(120deg,#527e9c,#193f65)!important; color:white!important; border-color:#bac8d3!important; }
+ html body #wa-admin-overlay .wa-admin-close { background:#f1efe7; border-color:#bac8d3; color:#173d60; }
+ html body #wa-admin-overlay .wa-admin-action { background:#b65059; color:white; }
+ html body #wa-pin-dialog { background:#f8f6ef; color:#173d60; border-color:#bac8d3; }
+ html body #wa-pin-dialog :is(h2,label) { color:#173d60; }
+ html body #wa-pin-dialog input { background:#fbfaf6; color:#173d60; border-color:#bac8d3; }
+ html body #wa-pin-dialog button { background:#315975; color:white; border-color:#bac8d3; }
+ html body #wa-pin-dialog button[type=button] { background:#f1efe7; color:#173d60; }
+ html body.dashboard-home .workspace-header .home-welcome > div { max-width:68%; margin-inline-start:0; }
+ @media(max-width:640px) { html body.dashboard-home .workspace-header .home-welcome > div { max-width:100%; } }
+}
+
+@media screen { html body #cloud-boot { background:#ece8dc; color:#173d60; } }
