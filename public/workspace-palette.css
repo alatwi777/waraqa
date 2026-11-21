@@ -274,3 +274,11 @@ html body .workspace-header .waraqa-header-row > #cloud-status {
 }
 
 @media screen { html body #cloud-boot { background:#ece8dc; color:#173d60; } }
+
+/* Keep section titles at the top; account and backup tools remain on Home. */
+body:is([data-section="students"], [data-section="exams"], [data-section="scan"], [data-section="results"]) main > header.workspace-header { display:none; }
+.results-title-search { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.student-paper-list { display:grid; gap:10px; margin-top:14px; }
+.student-paper-item { display:grid; gap:6px; width:100%; text-align:start; padding:14px 16px; border:1px solid var(--owner-control-border); border-radius:12px; color:var(--owner-control-ink); background:var(--owner-control-bg); }
+.student-paper-item span, .student-paper-item small { font-size:12px; }
+.student-paper-item:focus-visible { outline:2px solid #5183af; outline-offset:2px; }
