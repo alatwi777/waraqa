@@ -47,7 +47,7 @@ function harness() {
  let callback;
  const node=()=>({children:[],style:{},dataset:{},appendChild(x){this.children.push(x);},append(...xs){this.children.push(...xs);},setAttribute(){},querySelectorAll(){return[];},replaceChildren(){this.children=[];}});
  const body=node();
- const c={Map,auth:{currentUser:{email:'owner'}},isAdminAccount:()=>true,adminRequestsUnsubscribe:null,adminProvisionBusy:false,adminStatus(){},asDate:()=>null,setCell:(r,t)=>r.appendChild({textContent:t}),generateAccessPin:()=>'',activateSubscriptionRequest(){},document:{getElementById:()=>body,createElement:node},firebase:{collection(){},onSnapshot:(_ref,fn)=>{callback=fn;return()=>{};}},db:{}};
+ const c={DEFAULT_ACCESS_PIN:'123456',Map,auth:{currentUser:{email:'owner'}},isAdminAccount:()=>true,adminRequestsUnsubscribe:null,adminProvisionBusy:false,adminStatus(){},asDate:()=>null,setCell:(r,t)=>r.appendChild({textContent:t}),generateAccessPin:()=>'',activateSubscriptionRequest(){},document:{getElementById:()=>body,createElement:node},firebase:{collection(){},onSnapshot:(_ref,fn)=>{callback=fn;return()=>{};}},db:{}};
  vm.createContext(c);vm.runInContext(source.slice(source.indexOf('  function loadAdminRequests()'),source.indexOf('  async function activateSubscriptionRequest(')),c);
  c.loadAdminRequests();
  callback({docs:[{id:'pending',data:()=>({status:'pending',name:'PENDING'})},{id:'old',data:()=>({status:'activated',name:'OLD'})}]});

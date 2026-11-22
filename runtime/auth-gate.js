@@ -3,6 +3,8 @@ window.WaraqaAuthGate = true;
 window.WaraqaAuthorized = false;
 
 (async () => {
+  const DEFAULT_ACCESS_PIN = "123456";
+  let defaultPinLoginEmail = "";
   const ADMIN_EMAIL = "aaddaa5400@gmail.com";
   const OWNER_NOTIFICATION_EMAIL = "alatwi3@me.com";
   // Public browser identifiers only. The iCloud app password stays in EmailJS.
@@ -104,7 +106,7 @@ window.WaraqaAuthorized = false;
           <form id="wa-form">
             <label class="wa-field">البريد الإلكتروني<input id="wa-email" type="email" autocomplete="email" required></label>
             <label class="wa-field">رمز الدخول<input id="wa-pin" type="password" autocomplete="current-password" required minlength="6" aria-describedby="wa-pin-help"></label>
-            <small id="wa-pin-help">استخدم رمزك الحالي. يمكنك تغييره من زر «تغيير رمز الدخول» بعد الدخول.</small>
+            <small id="wa-pin-help">استخدم رمزك الحالي. للحساب الجديد: 123456. يجب عليك تغيير الرقم السري للخصوصية من «تغيير رمز الدخول» بعد الدخول.</small>
             <div class="wa-actions"><button class="wa-button" id="wa-submit" type="submit">دخول</button></div>
           </form>
           <p class="wa-message" id="wa-message" role="status"></p>
@@ -751,11 +753,11 @@ showGate("تسجيل الدخول والاشتراك");
         #wa-pin-status{line-height:1.7;min-height:28px}
       </style>
       <h2 id="wa-pin-title">تغيير رمز الدخول</h2>
-      <p>اختر رمزًا جديدًا من ٦ أرقام. ستستخدمه في الدخول القادم.</p>
+      <p>اختر رمزًا جديدًا من ٦ إلى ١٠ أرقام. يجب عليك تغيير الرقم السري للخصوصية. ستستخدم الرمز الجديد في الدخول القادم.</p>
       <form id="wa-change-pin-form">
         <label>الرمز الحالي<input name="current" type="password" autocomplete="current-password" required></label>
-        <label>الرمز الجديد<input name="next" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="6" required></label>
-        <label>تأكيد الرمز الجديد<input name="confirm" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="6" required></label>
+        <label>الرمز الجديد<input name="next" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="10" required></label>
+        <label>تأكيد الرمز الجديد<input name="confirm" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" maxlength="10" required></label>
         <p id="wa-pin-status" role="status" aria-live="polite"></p>
         <div class="pin-actions"><button type="submit">حفظ الرمز</button><button type="button" id="wa-pin-close">إلغاء</button></div>
       </form>`;
@@ -772,7 +774,7 @@ showGate("تسجيل الدخول والاشتراك");
       const current = form.elements.current.value;
       const next = normalizePin(form.elements.next.value);
       const confirm = normalizePin(form.elements.confirm.value);
-      if (!/^[0-9]{6}$/.test(next)) { status.textContent = "الرمز الجديد يجب أن يتكوّن من ٦ أرقام."; return; }
+      if (!/^[0-9]{6,10}$/.test(next)) { status.textContent = "الرمز الجديد يجب أن يتكوّن من ٦ إلى ١٠ أرقام."; return; }
       if (next !== confirm) { status.textContent = "تأكيد الرمز لا يطابق الرمز الجديد."; return; }
       if (next === current) { status.textContent = "اختر رمزًا جديدًا مختلفًا عن الحالي."; return; }
       busy = true; controls().forEach(control => control.disabled = true);
@@ -803,12 +805,7 @@ showGate("تسجيل الدخول والاشتراك");
     node.className = "wa-admin-message" + (error ? " error" : "");
   }
 
-  function generateAccessPin() {
-    const value = new Uint32Array(1);
-    const limit = Math.floor(4294967296 / 900000) * 900000;
-    do { crypto.getRandomValues(value); } while (value[0] >= limit);
-    return String(100000 + value[0] % 900000);
-  }
+  function generateAccessPin() { return DEFAULT_ACCESS_PIN; }
   function requireOwner(uid) {
     if (!auth?.currentUser || !isAdminAccount(auth.currentUser) || (uid && auth.currentUser.uid !== uid)) {
       const error = new Error("owner-session-changed"); error.code = "waraqa/owner-session-changed"; throw error;
@@ -823,18 +820,15 @@ showGate("تسجيل الدخول والاشتراك");
     try {
       secondaryAuth = authSdk.initializeAuth(secondaryApp, { persistence: authSdk.inMemoryPersistence });
       try {
-        await authSdk.createUserWithEmailAndPassword(secondaryAuth, email, pin);
+        await authSdk.createUserWithEmailAndPassword(secondaryAuth, email, DEFAULT_ACCESS_PIN);
       } catch (error) {
         if (error.code !== "auth/email-already-in-use") throw error;
-        // A retry after an interrupted activation may reuse the account just created.
-        // Authenticate with the supplied code; never reset an existing user's password.
-        try { await authSdk.signInWithEmailAndPassword(secondaryAuth, email, pin); }
-        catch (loginError) {
-          if (!["auth/invalid-credential","auth/wrong-password","auth/user-not-found"].includes(loginError.code)) throw loginError;
-          const existing = new Error("existing-account"); existing.code = "waraqa/existing-account"; throw existing;
-        }
+        // Renewal never authenticates as the subscriber or replaces their password.
+        requireOwner(ownerUid);
+        return false;
       }
       requireOwner(ownerUid);
+      return true;
     } finally {
       if (secondaryAuth) { try { await authSdk.signOut(secondaryAuth); } catch {} }
       try { await firebase.deleteApp(secondaryApp); } catch {}
@@ -1092,7 +1086,7 @@ showGate("تسجيل الدخول والاشتراك");
       (pin ? "\nرمز الدخول: " + pin : "\nادخل باستخدام رمزك الحالي.") +
       "\nصالح حتى: " + expiresAt.toLocaleDateString("ar-SA") +
       "\nرابط الموقع: https://alatwi777.github.io/waraqa/" +
-      (pin ? "\nيمكنك تغيير الرمز بعد الدخول من «تغيير رمز الدخول» أعلى الصفحة." : "");
+      (pin ? "\nيجب عليك تغيير الرقم السري للخصوصية. اختر من ٦ إلى ١٠ أرقام من «تغيير رمز الدخول» أعلى الصفحة." : "");
     text.setAttribute("aria-label", "رسالة تفعيل الاشتراك");
     const copy = document.createElement("button");
     copy.type = "button"; copy.className = "wa-admin-form-button"; copy.textContent = "نسخ رسالة التفعيل";
@@ -1128,7 +1122,7 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><button type="button" id="wa-sent-messages-open" class="wa-admin-form-button">الرسائل المرسلة</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد (اختياري للتجديد)<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="٦ أرقام — فارغ للتجديد فقط"></label><button id="wa-admin-generate-pin" type="button">توليد رمز</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><button type="button" id="wa-sent-messages-open" class="wa-admin-form-button">الرسائل المرسلة</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد الافتراضي<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" value="123456" readonly placeholder="123456"></label><button id="wa-admin-generate-pin" type="button">الرمز الافتراضي</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
@@ -1261,6 +1255,13 @@ showGate("تسجيل الدخول والاشتراك");
         devicesButton.type = "button"; devicesButton.className = "wa-admin-action"; devicesButton.textContent = "الأجهزة";
         devicesButton.onclick = () => manageSubscriberDevices(record.id, email);
         actionCell.append(devicesButton);
+        if (email.includes("@") && email.toLowerCase() !== ADMIN_EMAIL) {
+          const reset = document.createElement("button");
+          reset.type = "button"; reset.className = "wa-admin-action";
+          reset.textContent = "تحديث الرقم للافتراضي";
+          reset.onclick = () => resetSubscriberPin(email);
+          actionCell.append(reset);
+        }
         row.appendChild(actionCell);
         body.appendChild(row);
       });
@@ -1268,6 +1269,37 @@ showGate("تسجيل الدخول والاشتراك");
     } catch (error) {
       adminStatus("تعذر قراءة الاشتراكات. انشر قواعد Firestore المحدّثة من مجلد firebase أولًا.", true);
     }
+  }
+  function resetSubscriberPin(email) {
+    const ownerUid = requireOwner();
+    if (!window.confirm("هل تريد فعلًا إرجاع الرقم إلى 123456؟ بعدها يجب على العميل تغييره للخصوصية. ستنتهي جلسات دخوله السابقة.")) return;
+    modal("تحديث الرقم للافتراضي", '<p>' + invoiceEscape(email) + '</p><p>أدخل رمز المالك لتأكيد الاستعادة. لا تتغير مدة الاشتراك أو الأجهزة المسجّلة.</p><form id="wa-reset-pin-form"><label class="field">رمز دخول المالك<input name="ownerPin" type="password" autocomplete="current-password" required></label><button class="btn gold" type="submit">تأكيد إعادة الرقم إلى 123456</button><p role="status"></p></form>');
+    const form = document.getElementById("wa-reset-pin-form");
+    const status = form.querySelector('[role="status"]');
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const button = form.querySelector('button'); button.disabled = true;
+      status.textContent = "جارٍ التحقق من المالك…";
+      try {
+        requireOwner(ownerUid);
+        const owner = auth.currentUser;
+        await authSdk.reauthenticateWithCredential(owner, authSdk.EmailAuthProvider.credential(owner.email, form.elements.ownerPin.value));
+        form.elements.ownerPin.value = "";
+        requireOwner(ownerUid);
+        const token = await owner.getIdToken(true);
+        const origin = document.querySelector('meta[name="waraqa-grading-origin"]').content;
+        const response = await fetch(origin + '/v1/admin/password-reset', {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({email,confirm:true}),signal:AbortSignal.timeout(30000)});
+        const result = await response.json();
+        if (!response.ok || result.reset !== true) throw Object.assign(new Error('reset-failed'),{code:result.error || 'RESET_UNAVAILABLE'});
+        requireOwner(ownerUid);
+        status.textContent = "تم تحديث الرقم إلى 123456. يجب على العميل تغييره للخصوصية إلى رمز من ٦ إلى ١٠ أرقام. لم يتغيّر الاشتراك.";
+        form.querySelector('label').hidden = true; button.hidden = true;
+
+      } catch (error) {
+        form.elements.ownerPin.value = "";
+        status.textContent = error.code === 'OWNER_REAUTH_REQUIRED' ? "أعد تأكيد دخول المالك." : error.code === 'RESET_RATE_LIMITED' ? "انتظر دقيقة قبل محاولة أخرى." : error.code === 'RESET_UNAVAILABLE' ? "تعذرت الاستعادة من الخادم. تحقق من صلاحية إدارة الحسابات." : error.name === 'TimeoutError' ? "لم يصل تأكيد الاستعادة؛ لا تعِد الطلب تلقائيًا. تحقق من الدخول أولًا." : "لم تكتمل الاستعادة. تحقق من رمز المالك واتصال الخادم.";
+      } finally { button.disabled = false; }
+    };
   }
   function loadAdminRequests() {
     if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
@@ -1305,12 +1337,12 @@ showGate("تسجيل الدخول والاشتراك");
             if (request.data.status === "pending") {
               const pin = document.createElement("input");
               pin.type = "password"; pin.inputMode = "numeric"; pin.maxLength = 6; pin.autocomplete = "new-password";
-              pin.placeholder = "رمز الدخول — ٦ أرقام"; pin.setAttribute("aria-label", "رمز دخول الحساب الجديد");
+              pin.placeholder = "الرمز الافتراضي 123456"; pin.readOnly = true; pin.setAttribute("aria-label", "رمز دخول الحساب الجديد");
               pin.dataset.waPin = ""; pin.dataset.waRequestPin = ""; pin.dataset.requestId = request.id;
-              pin.className = "wa-provision-control"; pin.value = enteredPins.get(request.id) || "";
+              pin.className = "wa-provision-control"; pin.value = DEFAULT_ACCESS_PIN;
               pin.style.cssText = "display:block;width:180px;padding:9px;border:1px solid #b7c9bd;border-radius:8px;margin-bottom:8px;direction:ltr";
               const generate = document.createElement("button");
-              generate.type = "button"; generate.className = "wa-admin-form-button wa-provision-control"; generate.textContent = "توليد رمز";
+              generate.type = "button"; generate.className = "wa-admin-form-button wa-provision-control"; generate.textContent = "الرمز الافتراضي";
               generate.onclick = () => { pin.type = "text"; pin.value = generateAccessPin(); };
               const activate = document.createElement("button");
               activate.type = "button"; activate.className = "wa-admin-form-button wa-provision-control"; activate.textContent = "تفعيل وإنشاء الحساب";
@@ -1336,7 +1368,7 @@ showGate("تسجيل الدخول والاشتراك");
   }
   async function activateSubscriptionRequest(uid, rawPin = "", existingAccount = false) {
     if (adminProvisionBusy || !auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
-    const pin = existingAccount ? "" : normalizePin(rawPin);
+    let pin = existingAccount ? "" : DEFAULT_ACCESS_PIN;
     if (!existingAccount && !/^[0-9]{6}$/.test(pin)) { adminStatus("أدخل رمزًا من ٦ أرقام أو اضغط «توليد رمز».", true); return; }
     if (!window.confirm("هل تحققت من وصول المبلغ؟ " + (existingAccount ? "سيُفعّل الاشتراك مع إبقاء رمز الحساب الحالي." : "سيُنشأ حساب الدخول ويُفعّل الاشتراك."))) return;
     const ownerUid = requireOwner();
@@ -1351,7 +1383,7 @@ showGate("تسجيل الدخول والاشتراك");
       const email = String(request.email || "").trim().toLowerCase();
       const months = Number(request.months);
       if (!email || months !== 1) { const error = new Error("request-changed"); error.code = "waraqa/request-changed"; throw error; }
-      if (!existingAccount) await provisionSubscriber(email, pin);
+      if (!existingAccount && !await provisionSubscriber(email, pin)) pin = "";
       requireOwner(ownerUid);
       const licenseRef = firebase.doc(db, "licenses", email);
       const expiresAt = await firebase.runTransaction(db, async transaction => {
@@ -1406,7 +1438,7 @@ showGate("تسجيل الدخول والاشتراك");
       adminStatus("أدخل بريدًا صحيحًا ومدة بين يوم و١٠ سنوات.", true);
       return;
     }
-    const pin = normalizePin(document.getElementById("wa-admin-new-pin").value);
+    let pin = DEFAULT_ACCESS_PIN;
     if (pin && !/^[0-9]{6}$/.test(pin)) { adminStatus("رمز الحساب الجديد يجب أن يكون ٦ أرقام.", true); return; }
     const ownerUid = requireOwner();
     setProvisionBusy(true); clearActivationMessage();
@@ -1415,7 +1447,7 @@ showGate("تسجيل الدخول والاشتراك");
       const ref = firebase.doc(db, "licenses", email);
       let previous = null;
       try { const existing = await firebase.getDoc(ref); if (existing.exists()) previous = existing.data(); } catch {}
-      if (pin) await provisionSubscriber(email, pin);
+      if (!await provisionSubscriber(email, pin)) pin = "";
       requireOwner(ownerUid);
       const now = new Date();
       const priorExpiry = asDate(previous?.expiresAt);
@@ -1429,7 +1461,7 @@ showGate("تسجيل الدخول والاشتراك");
         expiresAt: firebase.Timestamp.fromDate(expiresAt)
       }, { merge: true });
       document.getElementById("wa-admin-email").value = "";
-      document.getElementById("wa-admin-new-pin").value = "";
+      document.getElementById("wa-admin-new-pin").value = DEFAULT_ACCESS_PIN;
       await showActivationMessage(email, pin, expiresAt);
       const receipt = document.getElementById("wa-activation-message");
       if (receipt) receipt.dataset.email = email;
@@ -1639,6 +1671,10 @@ showGate("إرسال طلب الاشتراك");
       startInbox(user);
       window.dispatchEvent(new Event("waraqa-authorized"));
       if (!isAdmin) startLicenseWatch(user, license.expiry);
+      if (!isAdmin && defaultPinLoginEmail === String(user.email || "").toLowerCase()) {
+        defaultPinLoginEmail = "";
+        openPinDialog();
+      }
       return;
     }
     window.WaraqaAuthorized = false;
@@ -1677,9 +1713,10 @@ showGate("إرسال طلب الاشتراك");
       const email = $("#wa-email").value.trim().toLowerCase();
       const pin = normalizePin($("#wa-pin").value);
       if (!$("#wa-form").reportValidity()) return;
+      defaultPinLoginEmail = pin === DEFAULT_ACCESS_PIN ? email : "";
       setBusy(true); setMessage("جارٍ تسجيل الدخول…");
       try { await authSdk.signInWithEmailAndPassword(auth, email, pin); $("#wa-pin").value = ""; }
-      catch (error) { setMessage(authErrorText(error, "login"), "error"); }
+      catch (error) { defaultPinLoginEmail = ""; setMessage(authErrorText(error, "login"), "error"); }
       finally { setBusy(false); }
     });
     authSdk.onAuthStateChanged(auth, authorize);
