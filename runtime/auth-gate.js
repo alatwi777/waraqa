@@ -5,6 +5,7 @@ window.WaraqaAuthorized = false;
 (async () => {
   const DEFAULT_ACCESS_PIN = "123456";
   let defaultPinLoginEmail = "";
+  let tabSession = null;
   const ADMIN_EMAIL = "aaddaa5400@gmail.com";
   const OWNER_NOTIFICATION_EMAIL = "alatwi3@me.com";
   // Public browser identifiers only. The iCloud app password stays in EmailJS.
@@ -1767,6 +1768,7 @@ showGate("إرسال طلب الاشتراك");
       $("#wa-logout")?.remove();
       if (window.WaraqaLoadedUid && window.WaraqaLoadedUid !== user.uid) { location.reload(); return; }
       window.WaraqaFirebaseUid = user.uid;
+      if (tabSession) document.title = (user.email || ("تبويب " + tabSession.slot)).split("@")[0] + " — ورقة";
       const sitePath = new URL(".", location.href).pathname;
       const ownerKey = "waraqa-pages-owner:" + sitePath;
       if (!localStorage.getItem(ownerKey)) localStorage.setItem(ownerKey, user.uid);
@@ -1820,17 +1822,29 @@ showGate("إرسال طلب الاشتراك");
   }
 
   try {
-    const [appSdk, authModule, storeSdk, devicesModule] = await Promise.all([
+    const [appSdk, authModule, storeSdk, devicesModule, tabsModule] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js"),
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js"),
-      import("./device-access.js?v=two-devices-1")
+      import("./device-access.js?v=two-devices-1"),
+      import("./tab-session.js?v=isolated-tabs-1")
     ]);
     deviceSdk = devicesModule;
     authSdk = authModule;
     firebase = { ...appSdk, ...authSdk, ...storeSdk };
-    const app = appSdk.initializeApp(firebaseConfig);
-    auth = authSdk.getAuth(app);
+    const session = tabsModule.initializeBrowserSession({href:location.href,config:firebaseConfig,appSdk,authSdk,storage:new URL(location.href).searchParams.has("tab-session")?window.sessionStorage:null});
+    const app = session.app;
+    auth = session.auth;
+    tabSession = session.spec;
+    if (tabSession) {
+      document.title = "ورقة — تبويب " + tabSession.slot;
+      const note = document.createElement("p");
+      note.id = "wa-tab-session-note";
+      note.textContent = "تبويب " + tabSession.slot + " — جلسة دخول مستقلة. يمكنك استخدام حساب مختلف في كل تبويب، ثم استعادة نسخته والتصحيح عليه.";
+      note.className = "wa-local";
+      gate.querySelector(".wa-page-heading")?.append(note);
+      gate.querySelector(".wa-subscribe-section")?.setAttribute("hidden", "");
+    }
     db = storeSdk.getFirestore(app);
     $("#wa-form").addEventListener("submit", async (event) => {
       event.preventDefault();
