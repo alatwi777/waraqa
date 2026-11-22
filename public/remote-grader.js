@@ -3,7 +3,19 @@
 let RemoteQueue=Promise.resolve();
 const RemoteOrigin=document.querySelector('meta[name="waraqa-grading-origin"]')?.content||'';
 const remoteEndpoint=path=>RemoteOrigin+path;
-const remoteWait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+// Keep network backoff independent of a hidden tab's window timer budget.
+let RemoteDelayWorker=null,RemoteDelaySerial=0;const RemoteDelays=new Map();
+function remoteWait(milliseconds){return new Promise(resolve=>{
+ const fallback=()=>setTimeout(resolve,milliseconds);
+ try{
+  if(!RemoteDelayWorker){
+   RemoteDelayWorker=new Worker('background-delay.js?v=1');
+   RemoteDelayWorker.onmessage=event=>{const done=RemoteDelays.get(event.data);if(done){RemoteDelays.delete(event.data);done.resolve();}};
+   RemoteDelayWorker.onerror=()=>{RemoteDelayWorker?.terminate();RemoteDelayWorker=null;for(const task of RemoteDelays.values())setTimeout(task.resolve,Math.max(0,task.deadline-Date.now()));RemoteDelays.clear();};
+  }
+  const id=++RemoteDelaySerial;RemoteDelays.set(id,{resolve,deadline:Date.now()+milliseconds});RemoteDelayWorker.postMessage({id,milliseconds});
+ }catch{fallback();}
+});}
 function remoteStatus(message){const node=document.querySelector('#remote-status');if(node){node.hidden=false;node.textContent=message;}}
 function remoteError(code,status){return ({AUTH_REQUIRED:'سجّل الدخول مجددًا.',AUTH_INVALID:'انتهت جلسة الدخول؛ سجّل الدخول مجددًا.',SUBSCRIPTION_INACTIVE:'الاشتراك منتهٍ أو موقوف.',LICENSE_INACTIVE:'الاشتراك غير مفعل.',LICENSE_EXPIRED:'انتهى الاشتراك.',ORIGIN_DENIED:'تعذر اتصال هذه النسخة بالخادم.',GRADER_BUSY:'الخادم يعالج ورقة أخرى؛ أعد المحاولة.',GRADING_TIMEOUT:'استغرقت القراءة وقتًا طويلًا؛ أعد المحاولة.',RATE_LIMITED:'بلغت حد الطلبات المؤقت؛ انتظر دقيقة.'})[code]||'تعذر التصحيح على الخادم ('+status+'). بقيت بياناتك المحلية محفوظة.';}
 // A stable request ID is saved locally BEFORE upload. Network retries address the same job.
