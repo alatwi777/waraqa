@@ -12,15 +12,16 @@ async function durableRemoteScan(s,e,body,owner,ensureCurrent){
  const record=db.results.find(r=>r.id===(s.savedResultId||s.remoteRetainedId));
  if(!record)throw Error('تعذر حفظ مرجع طلب التصحيح محليًا؛ لم تُرسل الورقة.');
  const imageKey=record.pages?.[0],previous=record.remoteJob;
- let jobId=previous?.config===config&&previous.imageKey===imageKey&&(!s.remoteJobImage||s.remoteJobImage===body.image.base64)?previous.id:null;
+ let jobId=previous?.owner===owner&&previous.config===config&&previous.imageKey===imageKey&&(!s.remoteJobImage||s.remoteJobImage===body.image.base64)?previous.id:null;
  let mustSubmit=!jobId;
- if(!jobId){
+ async function rememberJob(){
   const bytes=new TextEncoder().encode(JSON.stringify([owner,body]));
   const digest=await crypto.subtle.digest('SHA-256',bytes);
   jobId=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-  record.remoteJob={id:jobId,config,imageKey};
+  record.remoteJob={id:jobId,owner,config,imageKey};
   if(save()===false)throw Error('تعذر حفظ مرجع طلب التصحيح محليًا؛ لم تُرسل الورقة.');
  }
+ if(!jobId)await rememberJob();
  s.remoteJobImage=body.image.base64;
  const deadline=Date.now()+15*60*1000;let networkFailures=0;
  while(Date.now()<deadline){
@@ -36,7 +37,7 @@ async function durableRemoteScan(s,e,body,owner,ensureCurrent){
    if(networkFailures>=8)throw Error('انقطع الاتصال. الورقة ومرجع طلبها محفوظان؛ أعد التصحيح لاستلام النتيجة نفسها.');
    remoteStatus('انقطع الاتصال مؤقتًا؛ جارٍ التحقق من طلبك المحفوظ…');await remoteWait(Math.min(10000,networkFailures*2000));continue;
   }
-  if(response.status===404&&!mustSubmit){mustSubmit=true;continue;}
+  if(response.status===404&&!mustSubmit){await rememberJob();mustSubmit=true;continue;}
   if(response.status===429){remoteStatus('الطابور مشغول؛ الورقة محفوظة وستُعاد المحاولة تلقائيًا.');await remoteWait(Math.min(65000,Math.max(2000,Number(response.headers?.get('Retry-After')||3)*1000)));continue;}
   if(response.status>=500){mustSubmit=false;await remoteWait(3000);continue;}
   if(!response.ok)throw Error(remoteError(data.error,response.status));

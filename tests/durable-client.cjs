@@ -23,6 +23,15 @@ async function read(ctx,input){ctx.s=input.s;ctx.e=input.e;return vm.runInContex
   assert.equal(options.method,'GET');return{ok:true,status:200,json:async()=>({jobId:id,state:'done',result})};
  },records);
  await read(afterRefresh,reopened);assert.equal(reopened.s.remoteReady,true);
+ // Expired server record: persist the current body ID before a new accepted upload.
+ const expiredRecords=JSON.parse(JSON.stringify(records));expiredRecords[0].remoteJob.id='c'.repeat(64);
+ const expiredInput=input();expiredInput.s.savedResultId=expiredRecords[0].id;let expiredPosts=0;
+ const expired=client(async(url,options)=>{
+  if(url.endsWith('/healthz'))return{ok:true,json:async()=>({durableJobs:true})};
+  if(options.method==='GET')return{ok:false,status:404,json:async()=>({error:'JOB_NOT_FOUND'})};
+  expiredPosts++;const newId=createHash('sha256').update(JSON.stringify(['user',JSON.parse(options.body)])).digest('hex');
+  assert.equal(expired.db.results[0].remoteJob.id,newId);return{ok:true,status:200,json:async()=>({jobId:newId,state:'done',result})};
+ },expiredRecords);await read(expired,expiredInput);assert.equal(expiredPosts,1);
  let sends=0;const blocked=client(async url=>{if(url.endsWith('/healthz'))return{ok:true,json:async()=>({durableJobs:true})};sends++;return{ok:false,status:403,json:async()=>({error:'SUBSCRIPTION_INACTIVE'})};});
  await assert.rejects(read(blocked,input()),/الاشتراك/);assert.equal(sends,1);
  const unsaved=client(async url=>({ok:true,json:async()=>({durableJobs:true})}));vm.runInContext('save=()=>false',unsaved);await assert.rejects(read(unsaved,input()),/حفظ/);
