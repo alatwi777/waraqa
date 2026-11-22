@@ -214,6 +214,8 @@ window.WaraqaAuthorized = false;
   let auth, db, firebase, authSdk;
   let adminRequestsUnsubscribe = null;
   let adminProvisionBusy = false;
+  let bulkOwnerUid = "", bulkBusy = false;
+  const bulkSelection = new Set(), bulkRecords = new Map();
   let provisioningSequence = 0;
 
 
@@ -1120,11 +1122,12 @@ showGate("تسجيل الدخول والاشتراك");
       overlay = document.createElement("section");
       overlay.id = "wa-admin-overlay";
       overlay.className = "wa-admin-overlay";
-      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><button type="button" id="wa-sent-messages-open" class="wa-admin-form-button">الرسائل المرسلة</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد الافتراضي<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" value="123456" readonly placeholder="123456"></label><button id="wa-admin-generate-pin" type="button">الرمز الافتراضي</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
+      overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true" aria-labelledby="wa-admin-title"><div class="wa-admin-head"><div><h2 id="wa-admin-title">لوحة إدارة اشتراكات ورقة</h2><button type="button" id="wa-owner-messages-open" class="wa-admin-form-button" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:#0a7058;color:white;font:inherit;cursor:pointer">رسائل العملاء</button><button type="button" id="wa-sent-messages-open" class="wa-admin-form-button">الرسائل المرسلة</button><p>أضف البريد ومدة الاشتراك، وستُحفظ الصلاحية في Firebase.</p></div><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><div class="wa-admin-stats"><div class="wa-admin-stat">المشتركون النشطون<b id="wa-admin-active">—</b></div><div class="wa-admin-stat">منتهية أو موقوفة<b id="wa-admin-expired">—</b></div><div class="wa-admin-stat">إجمالي السجلات<b id="wa-admin-total">—</b></div></div><section class="wa-admin-mail" style="margin:16px 0;padding:14px;border:1px solid #dbe8e0;border-radius:14px;background:white"><strong>تنبيهات طلبات الاشتراك</strong><p>البريد: <span dir="ltr">alatwi3@me.com</span> — تنبيه تلقائي عبر EmailJS بعد حفظ طلب الاشتراك.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" id="wa-admin-mail-test" class="wa-admin-form-button" style="padding:10px 14px;border-radius:9px;background:#f1f5f2;color:#24473b">إرسال تنبيه تجريبي</button></div><p id="wa-admin-mail-status" role="status"></p></section><form class="wa-admin-form" id="wa-admin-form"><label>بريد العميل<input id="wa-admin-email" type="email" autocomplete="off" required placeholder="name@example.com"></label><label>مدة الاشتراك بالأيام<input id="wa-admin-days" type="number" min="1" max="3650" step="1" value="30" required></label><label>رمز الحساب الجديد الافتراضي<input id="wa-admin-new-pin" data-wa-pin type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" value="123456" readonly placeholder="123456"></label><button id="wa-admin-generate-pin" type="button">الرمز الافتراضي</button><button type="submit">إضافة / تجديد</button></form><div id="wa-activation-message" hidden style="margin:16px 0;padding:16px;border:1px solid #d4af37;border-radius:14px;background:#fffbed"></div><p id="wa-admin-message" class="wa-admin-message" role="status"></p><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>تحديد</th><th>البريد / المعرّف</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>المدة المتبقية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-rows"></tbody></table></div><h3>طلبات الاشتراك الجديدة</h3><div class="wa-admin-table-wrap"><table class="wa-admin-table"><thead><tr><th>العميل</th><th>البريد</th><th>الجوال</th><th>المدة والمبلغ</th><th>مرجع التحويل</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="wa-admin-request-rows"></tbody></table></div></div>';
       document.body.appendChild(overlay);
       overlay.querySelector(".wa-admin-close").addEventListener("click", closeAdminDashboard);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) closeAdminDashboard(); });
       overlay.querySelector("#wa-admin-form").addEventListener("submit", saveAdminLicense);
+      mountBulkActions(overlay);
       overlay.querySelector("#wa-owner-messages-open").onclick = openOwnerMessages;
       overlay.querySelector("#wa-sent-messages-open").onclick = openSentMessages;
       overlay.querySelector("#wa-admin-mail-test").onclick = async event => {
@@ -1197,12 +1200,126 @@ showGate("تسجيل الدخول والاشتراك");
     };
     await render();
   }
+  function rebuildBulkRecords(records) {
+    const ownerUid = requireOwner();
+    if (bulkOwnerUid !== ownerUid) { bulkSelection.clear(); bulkOwnerUid = ownerUid; }
+    bulkRecords.clear();
+    for (const record of records) {
+      const email = String(record.data.email || (record.id.includes('@') ? record.id : '')).trim().toLowerCase();
+      if (!email.includes('@') || email === ADMIN_EMAIL || record.id === ownerUid) continue;
+      if (!bulkRecords.has(email)) bulkRecords.set(email, {email, records:[]});
+      bulkRecords.get(email).records.push(record);
+    }
+    for (const email of bulkSelection) if (!bulkRecords.has(email)) bulkSelection.delete(email);
+  }
+  function updateBulkActions() {
+    const bar = document.getElementById('wa-bulk-actions'); if (!bar) return;
+    bar.querySelector('[data-bulk-count]').textContent = 'المحدد: ' + bulkSelection.size;
+    bar.querySelectorAll('[data-bulk-action]').forEach(button => button.disabled = bulkBusy || !bulkSelection.size);
+    const all = bar.querySelector('[data-bulk-all]');
+    all.disabled = bulkBusy || !bulkRecords.size;
+    all.checked = !!bulkRecords.size && bulkSelection.size === bulkRecords.size;
+    all.indeterminate = bulkSelection.size > 0 && !all.checked;
+    document.querySelectorAll('[data-bulk-email]').forEach(box => { box.checked = bulkSelection.has(box.dataset.bulkEmail); box.disabled = bulkBusy || !bulkRecords.has(box.dataset.bulkEmail); });
+  }
+  function mountBulkActions(overlay) {
+    const bar = document.createElement('section'); bar.id = 'wa-bulk-actions';
+    bar.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px;margin:12px 0;border:1px solid #bdc9d5;border-radius:12px';
+    bar.innerHTML = '<label><input type="checkbox" data-bulk-all> تحديد الكل</label><strong data-bulk-count>المحدد: 0</strong><button type="button" class="wa-admin-action" data-bulk-action="renew">تجديد المحدد</button><button type="button" class="wa-admin-action" data-bulk-action="stop">إيقاف المحدد</button><button type="button" class="wa-admin-action" data-bulk-action="message">رسالة للمحدد</button><button type="button" class="wa-admin-action" data-bulk-action="delete">حذف المحدد نهائيًا</button><button type="button" class="wa-admin-action" data-bulk-clear>إلغاء التحديد</button><small style="width:100%">حتى ٥٠ حسابًا في الدفعة. حساب المالك مستثنى.</small><p data-bulk-progress role="status" aria-live="polite" style="width:100%;margin:0"></p>';
+    const table = overlay.querySelector('#wa-admin-rows').closest('.wa-admin-table-wrap'); table.before(bar);
+    bar.querySelector('[data-bulk-all]').onchange = event => {
+      if (bulkBusy) return;
+      bulkSelection.clear();
+      if (event.target.checked) for (const email of [...bulkRecords.keys()].slice(0,50)) bulkSelection.add(email);
+      if (event.target.checked && bulkRecords.size > 50) adminStatus('حُدد أول ٥٠ حسابًا؛ يمكنك تنفيذ بقية الحسابات في دفعة لاحقة.');
+      updateBulkActions();
+    };
+    bar.querySelector('[data-bulk-clear]').onclick = () => { if (!bulkBusy) {bulkSelection.clear();updateBulkActions();} };
+    bar.querySelectorAll('[data-bulk-action]').forEach(button => button.onclick = () => openBulkAction(button.dataset.bulkAction));
+    updateBulkActions();
+  }
+  async function applyBulkLicenseAction(kind, item, values, ownerUid) {
+    requireOwner(ownerUid);
+    if (kind === 'message') {
+      const recipient = item.records.find(record => record.id === item.email)?.id || item.records[0].id;
+      await firebase.addDoc(firebase.collection(db,'customerInbox',recipient,'messages'), {text:values.message,sentAt:firebase.serverTimestamp()});
+      return;
+    }
+    if (!['renew','stop'].includes(kind)) throw new Error('INVALID_BULK_ACTION');
+    const refs = new Map([[item.email,firebase.doc(db,'licenses',item.email)]]);
+    for (const record of item.records) refs.set(record.id,firebase.doc(db,'licenses',record.id));
+    await firebase.runTransaction(db, async tx => {
+      requireOwner(ownerUid);
+      const snapshots = new Map(); for (const [id,ref] of refs) snapshots.set(id,await tx.get(ref));
+      const primary = snapshots.get(item.email)?.exists() ? snapshots.get(item.email) : [...snapshots.values()].find(snap => snap.exists());
+      if (!primary) throw new Error('SUBSCRIBER_NOT_FOUND');
+      const previous = primary.data(), now = new Date(), oldExpiry = asDate(previous.expiresAt);
+      const start = previous.active === true && oldExpiry && oldExpiry > now ? oldExpiry : now;
+      const expiresAt = kind === 'renew' ? firebase.Timestamp.fromDate(new Date(start.getTime()+values.days*86400000)) : previous.expiresAt;
+      tx.set(refs.get(item.email),{email:item.email,active:kind==='renew',plan:kind==='renew'?values.days+' يوم':previous.plan||'',createdAt:previous.createdAt||firebase.Timestamp.now(),expiresAt},{merge:true});
+      if (kind === 'stop') for (const [id,snap] of snapshots) if (id !== item.email && snap.exists()) tx.update(refs.get(id),{active:false});
+    });
+  }
+  function openBulkAction(kind) {
+    const ownerUid = requireOwner();
+    if (bulkBusy || !['renew','stop','message','delete'].includes(kind)) return;
+    const items = [...bulkSelection].map(email => bulkRecords.get(email)).filter(Boolean).map(item => ({email:item.email,records:[...item.records]}));
+    if (!items.length || items.length > 50) return adminStatus('حدد من حساب واحد إلى ٥٠ حسابًا.',true);
+    const titles = {renew:'تجديد الاشتراكات المحددة',stop:'إيقاف الاشتراكات المحددة',message:'إرسال رسالة داخل الموقع',delete:'حذف الحسابات المحددة نهائيًا'};
+    const extra = kind === 'renew' ? '<label class="field">المدة المضافة بالأيام<input name="days" type="number" min="1" max="3650" step="1" value="30" required></label><p>تُضاف المدة إلى انتهاء الاشتراك النشط، أو تبدأ من اليوم للاشتراك المنتهي. كلمة المرور لا تتغير.</p>' : kind === 'message' ? '<label class="field">نص الرسالة<textarea name="message" maxlength="1000" required></textarea></label><p>تصل الرسالة إلى إشعارات العميل داخل ورقة.</p>' : kind === 'delete' ? '<p>الحذف نهائي من Firebase لحساب الدخول والاشتراك والأجهزة والرسائل والطلبات. لا يمكن التراجع عنه.</p><label class="field">رمز المالك لتأكيد الدفعة<input name="ownerPin" type="password" autocomplete="current-password" required></label>' : '<p>ستتوقف صلاحية الاشتراكات المحددة. تبقى حسابات الدخول وكلمات المرور محفوظة.</p>';
+    modal(titles[kind], '<p>عدد الحسابات: '+items.length+'</p><details><summary>عرض الحسابات المحددة</summary><ul>'+items.map(item=>'<li>'+invoiceEscape(item.email)+'</li>').join('')+'</ul></details><form id="wa-bulk-form">'+extra+'<button class="btn gold" type="submit">تنفيذ على المحدد</button><p role="status" aria-live="polite"></p><ul data-bulk-results></ul></form>');
+    const form = document.getElementById('wa-bulk-form'), status = form.querySelector('[role="status"]'), results = form.querySelector('[data-bulk-results]');
+    form.onsubmit = async event => {
+      event.preventDefault(); if (bulkBusy) return;
+      const days = Number(form.elements.days?.value), message = form.elements.message?.value.trim() || '';
+      if (kind === 'renew' && (!Number.isInteger(days)||days<1||days>3650)) {status.textContent='اختر مدة صحيحة بين يوم و٣٦٥٠ يومًا.';return;}
+      if (kind === 'message' && (!message||message.length>1000)) {status.textContent='اكتب رسالة لا تتجاوز ١٠٠٠ حرف.';return;}
+      if (!window.confirm(titles[kind]+' — '+items.length+' حسابًا؟'+(kind==='delete'?' لا يمكن التراجع.':''))) return;
+      bulkBusy = true; updateBulkActions(); const button = form.querySelector('button'); button.disabled = true;
+      results.replaceChildren(); let token = '', done = 0, success = 0;
+      const progress = text => { status.textContent=text; const node=document.querySelector('#wa-bulk-actions [data-bulk-progress]');if(node)node.textContent=text; };
+      try {
+        requireOwner(ownerUid);
+        if (kind === 'delete') {
+          const owner = auth.currentUser;
+          await authSdk.reauthenticateWithCredential(owner,authSdk.EmailAuthProvider.credential(owner.email,form.elements.ownerPin.value));
+          form.elements.ownerPin.value=''; requireOwner(ownerUid); token=await owner.getIdToken(true);
+        }
+        let cursor=0;
+        const worker=async()=>{while(cursor<items.length){
+          const item=items[cursor++];
+          requireOwner(ownerUid); let ok=false;
+          progress('جارٍ التنفيذ: '+done+' من '+items.length);
+          try {
+            if (kind === 'delete') {
+              const origin=document.querySelector('meta[name="waraqa-grading-origin"]').content;
+              const response=await fetch(origin+'/v1/admin/subscriber-delete',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({email:item.email,confirm:true}),signal:AbortSignal.timeout(60000)});
+              const data=await response.json(); if(!response.ok||data.deleted!==true)throw new Error(data.error||'DELETE_INCOMPLETE');
+              requireOwner(ownerUid);try{await receiptRecord(ownerUid,item.email,null,true);}catch{}
+            } else await applyBulkLicenseAction(kind,item,{days,message},ownerUid);
+            ok=true;success++;bulkSelection.delete(item.email);
+          } catch { /* No automatic replay of messages or ambiguous deletions. */ }
+          done++;const row=document.createElement('li');row.textContent=item.email+' — '+(ok?'تم بنجاح':'لم يُؤكد التنفيذ؛ تحقق قبل إعادة المحاولة');results.append(row);
+        }};
+        const workers=await Promise.allSettled(Array.from({length:Math.min(2,items.length)},worker));
+        if(workers.some(result=>result.status==='rejected'))throw new Error('OWNER_SESSION_CHANGED');
+        progress('انتهت الدفعة: نجح '+success+' من '+items.length+'.'+(success<items.length?' بقي غير الناجح محددًا للمراجعة.':''));
+        button.hidden=true;
+      } catch {progress('توقفت العملية بعد '+done+' من '+items.length+'. تحقق من رمز المالك وجلسة الدخول؛ بقيت بقية الحسابات محددة.');}
+      finally {
+        token='';if(form.elements.ownerPin)form.elements.ownerPin.value='';bulkBusy=false;button.disabled=false;updateBulkActions();
+        if(auth.currentUser?.uid===ownerUid){await loadAdminLicenses();updateBulkActions();}
+      }
+    };
+  }
+
   async function loadAdminLicenses() {
     if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
     adminStatus("جارٍ تحميل الاشتراكات…");
     try {
       const snapshot = await firebase.getDocs(firebase.collection(db, "licenses"));
       const records = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+      rebuildBulkRecords(records);
       const now = Date.now();
       const active = records.filter(record => record.data.active === true && asDate(record.data.expiresAt)?.getTime() > now).length;
       document.getElementById("wa-admin-active").textContent = String(active);
@@ -1215,6 +1332,13 @@ showGate("تسجيل الدخول والاشتراك");
         const row = document.createElement("tr");
         row.dataset.licenseId = record.id;
         const email = record.data.email || (record.id.includes("@") ? record.id : "سجل قديم: " + record.id);
+        const selectionCell = document.createElement("td"), selector = document.createElement("input");
+        selector.type = "checkbox"; selector.dataset.bulkEmail = email.toLowerCase();
+        selector.setAttribute("aria-label", "تحديد " + email);
+        selector.disabled = !bulkRecords.has(email.toLowerCase()) || bulkBusy;
+        selector.checked = bulkSelection.has(email.toLowerCase());
+        selector.onchange = () => { if (selector.checked && bulkSelection.size >= 50) { selector.checked = false; adminStatus("الحد الأقصى ٥٠ حسابًا في الدفعة.", true); return; } selector.checked ? bulkSelection.add(email.toLowerCase()) : bulkSelection.delete(email.toLowerCase()); updateBulkActions(); };
+        selectionCell.append(selector); row.append(selectionCell);
         setCell(row, email);
         setCell(row, record.data.plan || "—");
         const expiry = asDate(record.data.expiresAt);
@@ -1264,6 +1388,7 @@ showGate("تسجيل الدخول والاشتراك");
         row.appendChild(actionCell);
         body.appendChild(row);
       });
+      updateBulkActions();
       adminStatus("تم تحميل " + records.length + " سجل اشتراك.");
     } catch (error) {
       adminStatus("تعذر قراءة الاشتراكات. انشر قواعد Firestore المحدّثة من مجلد firebase أولًا.", true);
