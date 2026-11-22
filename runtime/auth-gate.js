@@ -1033,34 +1033,32 @@ showGate("تسجيل الدخول والاشتراك");
   }
   async function deleteInactiveLicense(record, email, button) {
     const ownerUid = requireOwner();
-    if (!window.confirm("حذف سجل اشتراك " + email + " ورسالته المحفوظة؟ سيبقى حساب الدخول وبيانات العميل المحلية.")) return;
-    button.disabled = true;
-    try {
-      const all = await firebase.getDocs(firebase.collection(db, "licenses"));
-      const related = all.docs.filter(doc => String(doc.data().email || doc.id).trim().toLowerCase() === String(email).trim().toLowerCase());
-      // Re-read related records so a concurrent activation prevents deletion.
-      await firebase.runTransaction(db, async transaction => {
+    if (!email.includes("@") || email.toLowerCase() === ADMIN_EMAIL) { adminStatus("لا يمكن حذف حساب المالك أو سجل دون بريد معروف.", true); return; }
+    if (!window.confirm("هل تريد حذف " + email + " نهائيًا من Firebase؟ سيُحذف حساب الدخول والاشتراك والأجهزة والرسائل وطلبات الاشتراك. لا يمكن التراجع عن هذا الإجراء.")) return;
+    modal("حذف العميل نهائيًا", '<p>' + invoiceEscape(email) + '</p><p>أدخل رمز المالك لتأكيد الحذف النهائي من Firebase. بيانات الطالب والاختبارات المحفوظة على جهاز العميل لا يمكن حذفها عن بُعد.</p><form id="wa-delete-subscriber-form"><label class="field">رمز دخول المالك<input name="ownerPin" type="password" autocomplete="current-password" required></label><button class="btn gold" type="submit">حذف الحساب نهائيًا</button><p role="status"></p></form>');
+    const form = document.getElementById("wa-delete-subscriber-form"), status = form.querySelector('[role="status"]');
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const submit = form.querySelector('button'); submit.disabled = true;
+      status.textContent = "جارٍ تأكيد هوية المالك…";
+      try {
+        requireOwner(ownerUid); const owner = auth.currentUser;
+        await authSdk.reauthenticateWithCredential(owner, authSdk.EmailAuthProvider.credential(owner.email, form.elements.ownerPin.value));
+        form.elements.ownerPin.value = ""; requireOwner(ownerUid);
+        const token = await owner.getIdToken(true), origin = document.querySelector('meta[name="waraqa-grading-origin"]').content;
+        const response = await fetch(origin + '/v1/admin/subscriber-delete', {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({email,confirm:true}),signal:AbortSignal.timeout(60000)});
+        const result = await response.json();
+        if (!response.ok || result.deleted !== true) throw Object.assign(new Error('delete-failed'), {code:result.error});
         requireOwner(ownerUid);
-        const reference = firebase.doc(db, "licenses", record.id), current = await transaction.get(reference);
-        for (const other of related) {
-          if (other.id === record.id) continue;
-          const sibling = await transaction.get(firebase.doc(db, "licenses", other.id));
-          if (sibling.exists() && sibling.data().active === true && asDate(sibling.data().expiresAt)?.getTime() > Date.now()) throw new Error("active-license");
-        }
-        if (!current.exists()) return;
-        const data = current.data(), expiry = asDate(data.expiresAt);
-        if (data.active === true && expiry?.getTime() > Date.now()) throw new Error("active-license");
-        transaction.delete(reference);
-      });
-      requireOwner(ownerUid);
-      try { await receiptRecord(ownerUid, String(email).trim().toLowerCase(), null, true); } catch {}
-      closeOwnerMessages();
-      await loadAdminLicenses();
-      adminStatus("تم حذف سجل الاشتراك. حساب الدخول والبيانات المحلية لم تُحذف.");
-    } catch (error) {
-      button.disabled = false;
-      adminStatus(error?.message === "active-license" ? "الاشتراك مفعّل الآن. أوقفه قبل الحذف." : "تعذر حذف السجل. تحقق من الاتصال وصلاحية حساب المالك.", true);
-    }
+        try { await receiptRecord(ownerUid, email.toLowerCase(), null, true); } catch {}
+        closeOwnerMessages(); clearActivationMessage(); await loadAdminLicenses();
+        status.textContent = "تم حذف حساب الدخول وجميع سجلاته المرتبطة من Firebase نهائيًا.";
+        form.querySelector('label').hidden = true; submit.hidden = true;
+      } catch (error) {
+        form.elements.ownerPin.value = "";
+        status.textContent = error.code === 'DELETE_RATE_LIMITED' ? "انتظر دقيقة قبل محاولة أخرى." : error.code === 'DELETE_INCOMPLETE' ? "لم يكتمل الحذف من Firebase. قد تكون بعض السجلات حُذفت؛ أعد المحاولة لإكماله." : error.name === 'TimeoutError' ? "لم يصل تأكيد الحذف. حدّث قائمة العملاء وتحقق قبل المحاولة مجددًا." : "لم يكتمل الحذف. تحقق من رمز المالك وصلاحيات الخادم.";
+      } finally { submit.disabled = false; }
+    };
   }
 
   function clearActivationMessage() {
@@ -1241,9 +1239,10 @@ showGate("تسجيل الدخول والاشتراك");
             }
           });
           actionCell.appendChild(stop);
-        } else {
+        }
+        if (email.includes("@") && email.toLowerCase() !== ADMIN_EMAIL) {
           const remove = document.createElement("button");
-          remove.type = "button"; remove.className = "wa-admin-action"; remove.textContent = "حذف";
+          remove.type = "button"; remove.className = "wa-admin-action"; remove.textContent = "حذف نهائي";
           remove.onclick = () => deleteInactiveLicense(record, email, remove);
           actionCell.appendChild(remove);
         }
