@@ -6,6 +6,49 @@ const remoteEndpoint=path=>RemoteOrigin+path;
 const remoteWait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 function remoteStatus(message){const node=document.querySelector('#remote-status');if(node){node.hidden=false;node.textContent=message;}}
 function remoteError(code,status){return ({AUTH_REQUIRED:'سجّل الدخول مجددًا.',AUTH_INVALID:'انتهت جلسة الدخول؛ سجّل الدخول مجددًا.',SUBSCRIPTION_INACTIVE:'الاشتراك منتهٍ أو موقوف.',LICENSE_INACTIVE:'الاشتراك غير مفعل.',LICENSE_EXPIRED:'انتهى الاشتراك.',ORIGIN_DENIED:'تعذر اتصال هذه النسخة بالخادم.',GRADER_BUSY:'الخادم يعالج ورقة أخرى؛ أعد المحاولة.',GRADING_TIMEOUT:'استغرقت القراءة وقتًا طويلًا؛ أعد المحاولة.',RATE_LIMITED:'بلغت حد الطلبات المؤقت؛ انتظر دقيقة.'})[code]||'تعذر التصحيح على الخادم ('+status+'). بقيت بياناتك المحلية محفوظة.';}
+// A stable request ID is saved locally BEFORE upload. Network retries address the same job.
+async function durableRemoteScan(s,e,body,owner,ensureCurrent){
+ const config=JSON.stringify({version:body.version,page:body.page,questions:body.exam.questions,corners:body.corners||null});
+ const record=db.results.find(r=>r.id===(s.savedResultId||s.remoteRetainedId));
+ if(!record)throw Error('تعذر حفظ مرجع طلب التصحيح محليًا؛ لم تُرسل الورقة.');
+ const imageKey=record.pages?.[0],previous=record.remoteJob;
+ let jobId=previous?.config===config&&previous.imageKey===imageKey&&(!s.remoteJobImage||s.remoteJobImage===body.image.base64)?previous.id:null;
+ let mustSubmit=!jobId;
+ if(!jobId){
+  const bytes=new TextEncoder().encode(JSON.stringify([owner,body]));
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  jobId=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  record.remoteJob={id:jobId,config,imageKey};
+  if(save()===false)throw Error('تعذر حفظ مرجع طلب التصحيح محليًا؛ لم تُرسل الورقة.');
+ }
+ s.remoteJobImage=body.image.base64;
+ const deadline=Date.now()+15*60*1000;let networkFailures=0;
+ while(Date.now()<deadline){
+  ensureCurrent();
+  let response,data;
+  try{
+   const token=await window.WaraqaGetIdToken();
+   response=await fetch(remoteEndpoint('/v1/grade-jobs'+(mustSubmit?'':'/'+jobId)),{method:mustSubmit?'POST':'GET',headers:{Authorization:'Bearer '+token,...(mustSubmit?{'Content-Type':'application/json'}:{}),...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},...(mustSubmit?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
+   data=await response.json();networkFailures=0;
+  }catch(error){
+   // A lost POST response is ambiguous: query the saved ID before ever resubmitting.
+   mustSubmit=false;networkFailures++;
+   if(networkFailures>=8)throw Error('انقطع الاتصال. الورقة ومرجع طلبها محفوظان؛ أعد التصحيح لاستلام النتيجة نفسها.');
+   remoteStatus('انقطع الاتصال مؤقتًا؛ جارٍ التحقق من طلبك المحفوظ…');await remoteWait(Math.min(10000,networkFailures*2000));continue;
+  }
+  if(response.status===404&&!mustSubmit){mustSubmit=true;continue;}
+  if(response.status===429){remoteStatus('الطابور مشغول؛ الورقة محفوظة وستُعاد المحاولة تلقائيًا.');await remoteWait(Math.min(65000,Math.max(2000,Number(response.headers?.get('Retry-After')||3)*1000)));continue;}
+  if(response.status>=500){mustSubmit=false;await remoteWait(3000);continue;}
+  if(!response.ok)throw Error(remoteError(data.error,response.status));
+  if(data.jobId!==jobId)throw Error('مرجع استجابة التصحيح غير مطابق للورقة.');
+  mustSubmit=false;
+  if(data.state==='done')return data.result;
+  if(data.state==='failed')throw Error(remoteError(data.error,data.status||503));
+  if(!['queued','running'].includes(data.state))throw Error('حالة طلب التصحيح غير متوافقة.');
+  remoteStatus(data.state==='queued'?'طلبك محفوظ في طابور التصحيح…':'جارٍ تصحيح طلبك المحفوظ…');await remoteWait(2000);
+ }
+ throw Error('انتهت مهلة المتابعة. الورقة ومرجع طلبها محفوظان؛ أعد التصحيح لاستلام النتيجة.');
+}
 async function remoteReadScan(s,e){
  if(!s||!e)throw Error('اختر الاختبار أولًا');
  const revision=s.remoteRevision=(s.remoteRevision||0)+1,canvas=s.canvas,version=s.version||8,p=s.p||0,owner=window.WaraqaFirebaseUid,examSnapshot=JSON.stringify(e.questions),corners=s.corners?.map(x=>({...x}));
@@ -18,9 +61,13 @@ async function remoteReadScan(s,e){
   const dataUrl=canvas.toDataURL('image/jpeg',.95),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
   if(corners)body.corners=corners;
   // Retry only explicit 429 rejections, which have not run the grader.
-  await fetch(remoteEndpoint('/healthz'),{signal:AbortSignal.timeout(90000),cache:'no-store'});
+  const healthResponse=await fetch(remoteEndpoint('/healthz'),{signal:AbortSignal.timeout(90000),cache:'no-store'});
+  const health=typeof healthResponse.json==='function'?await healthResponse.json():{};
   let response,result;const retryUntil=Date.now()+15*60*1000;
-  for(let attempt=0;attempt<60;attempt++){
+  if(health.durableJobs){
+   result=await durableRemoteScan(s,e,body,owner,()=>{if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0)||examSnapshot!==JSON.stringify(e.questions))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');});
+   response={ok:true};
+  }else for(let attempt=0;attempt<60;attempt++){
    if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');
    const token=await window.WaraqaGetIdToken();
    response=await fetch(remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
@@ -52,7 +99,7 @@ let scannerGroup='';
 function scan(){
  if(scanState)return renderScan();
  const disabled=currentExam?'':'disabled';
- $('#app').innerHTML=head('التصحيح بالماسح الضوئي','اختر الاختبار، ثم ارفع ملفات الأوراق الممسوحة ضوئيًا.')+`<div class="steps"><div class="step active"><b>١</b> اختر الاختبار</div><div class="step"><b>٢</b> ارفع الملفات</div><div class="step"><b>٣</b> صحّح وراجع</div><div class="step"><b>٤</b> اعتمد النتائج</div></div><section class="panel panel-pad"><div class="form-grid"><label class="field">الاختبار<select id="scan-exam" onchange="currentExam=this.value;scan()"><option value="">اختر اختبارًا</option>${examOptions()}</select></label><label class="field">الصف<select id="scanner-group" onchange="scannerGroup=this.value"><option value="">جميع الصفوف</option>${options(db.groups.map(g=>[g,g]),scannerGroup)}</select></label></div><div class="upload-zone" id="scanner-drop" style="cursor:default"><span class="upload-icon" aria-hidden="true">↑</span><h3>أوراقك الممسوحة ضوئيًا جاهزة للتصحيح</h3><p>ارفع صورة ورقة، أو عدة صور، أو ملف PDF متعدد الصفحات.<br>يمكنك أيضًا اختيار مجلد كامل من جهاز الكمبيوتر.</p><div class="actions" style="justify-content:center;gap:12px;flex-wrap:wrap"><button class="btn" type="button" ${disabled} onclick="document.getElementById('scanner-single').click()">رفع ورقة أو ملف PDF</button><button class="btn gold" type="button" ${disabled} onclick="document.getElementById('scanner-multiple').click()">رفع مجموعة أوراق</button><button class="btn light" type="button" ${disabled} onclick="document.getElementById('scanner-folder').click()">رفع مجلد كامل</button></div><input id="scanner-single" aria-label="رفع ورقة واحدة أو ملف PDF" type="file" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" hidden onchange="loadScannerUploads(this)"><input id="scanner-multiple" aria-label="رفع مجموعة أوراق" type="file" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" multiple hidden onchange="loadScannerUploads(this)"><input id="scanner-folder" aria-label="رفع مجلد كامل" type="file" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" webkitdirectory directory multiple hidden onchange="loadScannerUploads(this)"></div><p class="note">${currentExam?'يمكنك سحب الملفات وإفلاتها في المربع أعلاه.':'اختر الاختبار أولًا لتفعيل أزرار الرفع.'} الصيغ المدعومة: JPG وPNG وPDF. الحد الأقصى ٢٠٠ صفحة في الدفعة، و٤٠ ميغابايت لكل ملف. اختيار المجلد يعتمد على دعم المتصفح.</p><div class="callout">تُرسل صورة الورقة وأسئلة الاختبار ومفتاح الإجابة إلى خادم ورقة لقراءة التظليل، دون إرسال قائمة الطلاب. تُحفظ الصور والنتائج في هذا المتصفح. راجع الإجابات والمقالي قبل اعتماد الدرجة.</div></section><section class="panel panel-pad" style="margin-top:20px"><h2>إعداد الورقة للمسح</h2><p>امسح نموذج ورقة كاملًا دون قص المربعات السوداء الأربع، وباتجاه واضح. اختر اختبارًا مطابقًا للورقة المطبوعة.</p></section>`;
+ $('#app').innerHTML=head('التصحيح بالماسح الضوئي','اختر الاختبار، ثم ارفع ملفات الأوراق الممسوحة ضوئيًا.')+`<div class="steps"><div class="step active"><b>١</b> اختر الاختبار</div><div class="step"><b>٢</b> ارفع الملفات</div><div class="step"><b>٣</b> صحّح وراجع</div><div class="step"><b>٤</b> اعتمد النتائج</div></div><section class="panel panel-pad"><div class="form-grid"><label class="field">الاختبار<select id="scan-exam" onchange="currentExam=this.value;scan()"><option value="">اختر اختبارًا</option>${examOptions()}</select></label><label class="field">الصف<select id="scanner-group" onchange="scannerGroup=this.value"><option value="">جميع الصفوف</option>${options(db.groups.map(g=>[g,g]),scannerGroup)}</select></label></div><div class="upload-zone" id="scanner-drop" style="cursor:default"><span class="upload-icon" aria-hidden="true">↑</span><h3>أوراقك الممسوحة ضوئيًا جاهزة للتصحيح</h3><p>ارفع صورة ورقة، أو عدة صور، أو ملف PDF متعدد الصفحات.<br>يمكنك أيضًا اختيار مجلد كامل من جهاز الكمبيوتر.</p><div class="actions" style="justify-content:center;gap:12px;flex-wrap:wrap"><button class="btn" type="button" ${disabled} onclick="document.getElementById('scanner-single').click()">رفع ورقة أو ملف PDF</button><button class="btn gold" type="button" ${disabled} onclick="document.getElementById('scanner-multiple').click()">رفع مجموعة أوراق</button><button class="btn light" type="button" ${disabled} onclick="document.getElementById('scanner-folder').click()">رفع مجلد كامل</button></div><input id="scanner-single" aria-label="رفع ورقة واحدة أو ملف PDF" type="file" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" hidden onchange="loadScannerUploads(this)"><input id="scanner-multiple" aria-label="رفع مجموعة أوراق" type="file" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" multiple hidden onchange="loadScannerUploads(this)"><input id="scanner-folder" aria-label="رفع مجلد كامل" type="file" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" webkitdirectory directory multiple hidden onchange="loadScannerUploads(this)"></div><p class="note">${currentExam?'يمكنك سحب الملفات وإفلاتها في المربع أعلاه.':'اختر الاختبار أولًا لتفعيل أزرار الرفع.'} الصيغ المدعومة: JPG وPNG وPDF. الحد الأقصى ٢٠٠ صفحة في الدفعة، و٤٠ ميغابايت لكل ملف. اختيار المجلد يعتمد على دعم المتصفح.</p><div class="callout">تُرسل صورة الورقة وأسئلة الاختبار ومفتاح الإجابة إلى خادم ورقة لقراءة التظليل، دون إرسال قائمة الطلاب. تُحفظ الصور والنتائج في هذا المتصفح. يحتفظ الخادم بالطلب مؤقتًا لاستعادته عند الانقطاع؛ تُزال صورة الطلب بعد معالجته، وتبقى النتيجة قابلة للاسترجاع لمدة ٢٤ ساعة. راجع الإجابات والمقالي قبل اعتماد الدرجة.</div></section><section class="panel panel-pad" style="margin-top:20px"><h2>إعداد الورقة للمسح</h2><p>امسح نموذج ورقة كاملًا دون قص المربعات السوداء الأربع، وباتجاه واضح. اختر اختبارًا مطابقًا للورقة المطبوعة.</p></section>`;
  const zone=document.querySelector('#scanner-drop');
  zone.ondragover=event=>{event.preventDefault();zone.style.background='#eaf2df';};
  zone.ondragleave=()=>zone.style.background='';
