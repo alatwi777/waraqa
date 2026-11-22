@@ -23,7 +23,7 @@ async function remoteReadScan(s,e){
   for(let attempt=0;attempt<60;attempt++){
    if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');
    const token=await window.WaraqaGetIdToken();
-   response=await fetch(remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
+   response=await fetch(remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
    result=await response.json();
    if(response.status!==429||!['RATE_LIMITED','GRADER_BUSY'].includes(result.error)||attempt===59||Date.now()>=retryUntil)break;
    const requested=Number(response.headers?.get('Retry-After')),minimum=Math.max(1,Math.min(65,requested>0?requested:result.error==='RATE_LIMITED'?61:3)),seconds=result.error==='GRADER_BUSY'?Math.max(minimum,Math.min(30,3+attempt*2+Math.random()*2)):minimum;

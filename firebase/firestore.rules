@@ -96,6 +96,64 @@ service cloud.firestore {
       allow list, delete: if isAdmin();
     }
 
+    // accountDevices/{email-or-uid}: immutable account identity and at most two
+    // device records {id: 64 hex characters, label: <=80 chars, addedAt: timestamp}.
+    // Customers may append only. The existing owner may remove a device.
+    match /accountDevices/{accountId} {
+      function ownAccount() {
+        return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'
+          && (accountId == request.auth.uid || (request.auth.token.email is string
+            && accountId == request.auth.token.email.lower()));
+      }
+      function licensed() {
+        let email = request.auth.token.email;
+        let primary = /databases/$(database)/documents/licenses/$(email.lower());
+        let legacy = /databases/$(database)/documents/licenses/$(request.auth.uid);
+        let path = exists(primary) ? primary : legacy;
+        return exists(path) && get(path).data.active == true
+          && get(path).data.expiresAt is timestamp && get(path).data.expiresAt > request.time;
+      }
+      function validDevice(device) {
+        return device is map && device.keys().hasOnly(['id', 'label', 'addedAt'])
+          && device.keys().hasAll(['id', 'label', 'addedAt'])
+          && device.id is string && device.id.matches('^[a-f0-9]{64}$')
+          && device.label is string && device.label.size() > 0 && device.label.size() <= 80
+          && device.addedAt is timestamp;
+      }
+      function validDevices() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['uid', 'email', 'devices', 'updatedAt'])
+          && data.keys().hasAll(['uid', 'email', 'devices', 'updatedAt'])
+          && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
+          && data.email is string && data.email.size() > 0 && data.email.size() <= 254
+          && (accountId == data.email || accountId == data.uid)
+          && data.devices is list && data.devices.size() <= 2
+          && (data.devices.size() == 0 || validDevice(data.devices[0]))
+          && (data.devices.size() < 2 || (validDevice(data.devices[1]) && data.devices[0].id != data.devices[1].id))
+          && data.updatedAt == request.time;
+      }
+      function ownIdentity() {
+        return request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == request.auth.token.email.lower();
+      }
+      function freshDevice() {
+        let device = request.resource.data.devices[request.resource.data.devices.size() - 1];
+        return device.addedAt >= request.time - duration.value(5, 'm')
+          && device.addedAt <= request.time + duration.value(5, 'm');
+      }
+      allow get: if isAdmin() || ownAccount();
+      allow list: if false;
+      allow create: if validDevices() && (isAdmin() || (ownAccount() && licensed()
+        && ownIdentity() && request.resource.data.devices.size() == 1 && freshDevice()));
+      allow update: if validDevices()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && (isAdmin() || (ownAccount() && licensed() && ownIdentity()
+          && request.resource.data.devices.size() == resource.data.devices.size() + 1
+          && request.resource.data.devices.hasAll(resource.data.devices) && freshDevice()));
+      allow delete: if false;
+    }
+
     // Student records stay in browser storage; no other Firestore access.
     match /{document=**} {
       allow read, write: if false;

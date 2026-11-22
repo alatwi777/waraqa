@@ -95,7 +95,7 @@ window.WaraqaAuthorized = false;
       <div class="wa-page-heading">
         <div class="wa-brand wa-brand-centered" style="justify-content:center"><img class="wa-brand-logo" src="data:image/png;base64,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" alt="ورقة"></div>
         <h1 id="wa-title">ورقة تجعل تصحيح الاختبارات أسهل</h1>
-        <p class="wa-intro">اشترك لتبدأ، أو سجّل دخولك إذا كان لديك حساب. تبقى بيانات الطلاب والاختبارات محفوظة على جهازك.</p>
+        <p class="wa-intro">اشترك لتبدأ، أو سجّل دخولك إذا كان لديك حساب. اشتراكك يتيح جهازين مسجّلين. تبقى بيانات الطلاب والاختبارات محفوظة على جهازك.</p>
       </div>
       <div class="wa-columns">
         <section class="wa-section wa-login-section" aria-labelledby="wa-login-title">
@@ -1161,6 +1161,50 @@ showGate("تسجيل الدخول والاشتراك");
     row.appendChild(cell);
     return cell;
   }
+  async function manageSubscriberDevices(licenseId, email) {
+    if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
+    const ownerUid = auth.currentUser.uid;
+    const ref = firebase.doc(db, "accountDevices", licenseId);
+    let overlay = document.getElementById("wa-device-manager");
+    if (overlay) overlay.remove();
+    overlay = document.createElement("div"); overlay.id = "wa-device-manager"; overlay.className = "wa-admin-overlay open";
+    overlay.innerHTML = '<div class="wa-admin-panel" role="dialog" aria-modal="true"><div class="wa-admin-head"><h2>الأجهزة المسجّلة — جهازان لكل اشتراك</h2><button type="button" class="wa-admin-close" aria-label="إغلاق">×</button></div><p class="wa-device-email"></p><div class="wa-device-rows"></div><p role="status" class="wa-device-status"></p></div>';
+    overlay.querySelector('.wa-device-email').textContent = email;
+    overlay.querySelector('.wa-admin-close').onclick = () => overlay.remove();
+    document.body.append(overlay);
+    const status = overlay.querySelector('.wa-device-status');
+    const render = async () => {
+      requireOwner(ownerUid);
+      status.textContent = 'جارٍ تحميل الأجهزة…';
+      try {
+        const snap = await firebase.getDoc(ref), devices = snap.exists() ? snap.data().devices || [] : [];
+        requireOwner(ownerUid);
+        const rows = overlay.querySelector('.wa-device-rows'); rows.replaceChildren();
+        status.textContent = devices.length + ' من 2 جهاز مسجّل. المتصفح المختلف يُحسب تسجيلًا مستقلًا.';
+        for (const device of devices) {
+          const row = document.createElement('div'), label = document.createElement('span'), remove = document.createElement('button');
+          row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border-bottom:1px solid #dbe3ee';
+          label.textContent = device.label + (device.addedAt?.toDate ? ' — ' + device.addedAt.toDate().toLocaleDateString('ar-SA') : '');
+          remove.type = 'button'; remove.className = 'wa-admin-action'; remove.textContent = 'إلغاء تسجيل الجهاز';
+          remove.onclick = async () => {
+            if (!confirm('إلغاء تسجيل ' + device.label + '؟ سيُمنع استخدامه حتى يُسجّل مجددًا.')) return;
+            remove.disabled = true;
+            try {
+              await firebase.runTransaction(db, async tx => {
+                requireOwner(ownerUid);
+                const current = await tx.get(ref);
+                if (!current.exists()) return;
+                tx.update(ref,{devices:current.data().devices.filter(item => item.id !== device.id),updatedAt:firebase.serverTimestamp()});
+              });
+              await render();
+            } catch { status.textContent = 'تعذر إلغاء تسجيل الجهاز. أعد المحاولة.'; remove.disabled = false; }
+          };
+          row.append(label,remove); rows.append(row);
+        }
+      } catch { status.textContent = 'تعذر قراءة الأجهزة. تحقق من صلاحية حساب المالك.'; }
+    };
+    await render();
+  }
   async function loadAdminLicenses() {
     if (!auth?.currentUser || !isAdminAccount(auth.currentUser)) return;
     adminStatus("جارٍ تحميل الاشتراكات…");
@@ -1213,6 +1257,10 @@ showGate("تسجيل الدخول والاشتراك");
         send.type = "button"; send.className = "wa-admin-action"; send.textContent = "أرسل للعميل";
         send.onclick = () => composeCustomerMessage(record.id, email);
         actionCell.append(send);
+        const devicesButton = document.createElement("button");
+        devicesButton.type = "button"; devicesButton.className = "wa-admin-action"; devicesButton.textContent = "الأجهزة";
+        devicesButton.onclick = () => manageSubscriberDevices(record.id, email);
+        actionCell.append(devicesButton);
         row.appendChild(actionCell);
         body.appendChild(row);
       });
@@ -1424,6 +1472,8 @@ showGate("تسجيل الدخول والاشتراك");
       return { valid: false, reason: "تعذر الاتصال بـ Firebase للتحقق من الاشتراك. تحقق من الإنترنت ثم أعد المحاولة." };
     }
   }
+  let deviceWatchCleanup = null;
+  let deviceSdk = null;
   let licenseWatchCleanup = null;
   let authorizationVersion = 0;
   let accessNotice = "";
@@ -1512,7 +1562,13 @@ showGate("تسجيل الدخول والاشتراك");
   }
   window.WaraqaGetIdToken=async()=>{if(!window.WaraqaAuthorized||!auth?.currentUser||auth.currentUser.isAnonymous)throw Error("سجّل الدخول أولًا");return auth.currentUser.getIdToken();};
   async function authorize(user) {
+    window.WaraqaAuthorized = false;
+    setWorkspaceLocked(true);
+    document.getElementById("wa-device-manager")?.remove();
     stopInbox();
+    if (deviceWatchCleanup) deviceWatchCleanup();
+    deviceWatchCleanup = null;
+    window.WaraqaDeviceId = null;
     const version = ++authorizationVersion;
     stopLicenseWatch();
     if (!user) {
@@ -1538,6 +1594,16 @@ showGate("إرسال طلب الاشتراك");
     const isAdmin = isAdminAccount(user);
     window.WaraqaIsAdmin = isAdmin;
     const license = isAdmin ? { valid: true } : await checkLicense(user);
+    let enrolledDevice = null;
+    if (license.valid && !isAdmin) {
+      try { enrolledDevice = await deviceSdk.enrollDevice(firebase, db, user); }
+      catch (error) {
+        license.valid = false;
+        license.reason = error.message === 'DEVICE_LIMIT_REACHED'
+          ? 'هذا الاشتراك مسجّل على جهازين. تواصل مع المالك لإلغاء جهاز سابق قبل استخدام جهاز جديد.'
+          : 'تعذر التحقق من الأجهزة المسجّلة. تأكد من الاتصال والسماح بحفظ بيانات الموقع، ثم أعد المحاولة.';
+      }
+    }
     if (version !== authorizationVersion || auth?.currentUser?.uid !== user.uid) return;
     if (license.valid) {
       accessNotice = "";
@@ -1548,7 +1614,20 @@ showGate("إرسال طلب الاشتراك");
       const sitePath = new URL(".", location.href).pathname;
       const ownerKey = "waraqa-pages-owner:" + sitePath;
       if (!localStorage.getItem(ownerKey)) localStorage.setItem(ownerKey, user.uid);
+      window.WaraqaDeviceId = enrolledDevice?.id || null;
       window.WaraqaAuthorized = true;
+      if (enrolledDevice) {
+        const revokeDevice = () => {
+          if (auth?.currentUser?.uid !== user.uid || version !== authorizationVersion) return;
+          accessNotice = 'أُلغي تسجيل هذا الجهاز. تواصل مع المالك لإعادة السماح به. تبقى بياناتك المحلية محفوظة.';
+          window.WaraqaAuthorized = false;
+          setWorkspaceLocked(true);
+          firebase.signOut(auth).catch(() => {});
+        };
+        deviceWatchCleanup = firebase.onSnapshot(enrolledDevice.ref, snapshot => {
+          if (!snapshot.exists() || !snapshot.data().devices?.some(device => device.id === enrolledDevice.id)) revokeDevice();
+        }, revokeDevice);
+      }
       gate.hidden = true;
       setMessage("");
       addAccountChip(user.email || "حساب ورقة", async () => {
@@ -1581,11 +1660,13 @@ showGate("إرسال طلب الاشتراك");
   }
 
   try {
-    const [appSdk, authModule, storeSdk] = await Promise.all([
+    const [appSdk, authModule, storeSdk, devicesModule] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js"),
-      import("https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js")
+      import("https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js"),
+      import("./device-access.js?v=two-devices-1")
     ]);
+    deviceSdk = devicesModule;
     authSdk = authModule;
     firebase = { ...appSdk, ...authSdk, ...storeSdk };
     const app = appSdk.initializeApp(firebaseConfig);
