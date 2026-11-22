@@ -1036,7 +1036,7 @@ showGate("تسجيل الدخول والاشتراك");
   async function deleteInactiveLicense(record, email, button) {
     const ownerUid = requireOwner();
     if (!email.includes("@") || email.toLowerCase() === ADMIN_EMAIL) { adminStatus("لا يمكن حذف حساب المالك أو سجل دون بريد معروف.", true); return; }
-    if (!window.confirm("هل تريد حذف " + email + " نهائيًا من Firebase؟ سيُحذف حساب الدخول والاشتراك والأجهزة والرسائل وطلبات الاشتراك. لا يمكن التراجع عن هذا الإجراء.")) return;
+    if (!window.confirm("هل تريد حذف " + email + " نهائيًا من Firebase؟ سيُحذف حساب الدخول والاشتراك والأجهزة والرسائل وطلبات الاشتراك. لا يمكن التراجع عن هذا الإجراء." + (document.querySelector('meta[name="waraqa-cloud-storage"]')?.content === "enabled" ? " ستُحذف بيانات العميل السحابية المباشرة، وقد تبقى النسخ الاحتياطية المشفرة لمدة ٣٠ يومًا قبل إزالتها." : ""))) return;
     modal("حذف العميل نهائيًا", '<p>' + invoiceEscape(email) + '</p><p>أدخل رمز المالك لتأكيد الحذف النهائي من Firebase. بيانات الطالب والاختبارات المحفوظة على جهاز العميل لا يمكن حذفها عن بُعد.</p><form id="wa-delete-subscriber-form"><label class="field">رمز دخول المالك<input name="ownerPin" type="password" autocomplete="current-password" required></label><button class="btn gold" type="submit">حذف الحساب نهائيًا</button><p role="status"></p></form>');
     const form = document.getElementById("wa-delete-subscriber-form"), status = form.querySelector('[role="status"]');
     form.onsubmit = async event => {
@@ -1274,7 +1274,7 @@ showGate("تسجيل الدخول والاشتراك");
       const days = Number(form.elements.days?.value), message = form.elements.message?.value.trim() || '';
       if (kind === 'renew' && (!Number.isInteger(days)||days<1||days>3650)) {status.textContent='اختر مدة صحيحة بين يوم و٣٦٥٠ يومًا.';return;}
       if (kind === 'message' && (!message||message.length>1000)) {status.textContent='اكتب رسالة لا تتجاوز ١٠٠٠ حرف.';return;}
-      if (!window.confirm(titles[kind]+' — '+items.length+' حسابًا؟'+(kind==='delete'?' لا يمكن التراجع.':''))) return;
+      if (!window.confirm(titles[kind]+' — '+items.length+' حسابًا؟'+(kind==='delete'?' لا يمكن التراجع.'+(document.querySelector('meta[name="waraqa-cloud-storage"]')?.content==='enabled'?' تُحذف البيانات السحابية المباشرة، وقد تبقى النسخ الاحتياطية المشفرة ٣٠ يومًا.':''):''))) return;
       bulkBusy = true; updateBulkActions(); const button = form.querySelector('button'); button.disabled = true;
       results.replaceChildren(); let token = '', done = 0, success = 0;
       const progress = text => { status.textContent=text; const node=document.querySelector('#wa-bulk-actions [data-bulk-progress]');if(node)node.textContent=text; };
