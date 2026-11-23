@@ -194,9 +194,14 @@ async function persistScanDraft(s, e, batch = false) {
   const previousRecord = r;
   if (r) r = JSON.parse(JSON.stringify(r));
   if (!r) r = { id: uid(), exam: e.id, student: st?.id || '', name: st?.name || 'طالب غير محدد — للمراجعة', number: st?.number || '', group: st?.group || '', snapshot: { ...JSON.parse(JSON.stringify(e)), paperVersion: s.version || 8 }, answers: {}, essay: {}, pages: {}, reviewed: {}, date: new Date().toISOString() };
-  const retained=db.results.find(item=>item.id===s.remoteRetainedId); const key=retained&&s.remoteInputUrl===s.url?retained.pages[0]:r.id+'-'+s.p+'-'+uid();
-  // Write the image before changing an existing result. A failed image write leaves it intact.
-  await filePut(key, s.url);
+  const retained = db.results.find(item => item.id === s.remoteRetainedId);
+  // Retention sets remoteInputUrl after the image transaction has committed.
+  const retainedKey = s.remoteInputUrl === s.url && retained?.pages?.[0];
+  const key = retainedKey || r.id + '-' + s.p + '-' + uid();
+  if (!retainedKey) {
+    try { await filePut(key, s.url); }
+    catch (error) { s.storageFailure = true; throw error; }
+  }
   st = db.students.find(x => x.id === s.student);
   if (r.captureStatus === 'ungraded') { r.snapshot = { ...JSON.parse(JSON.stringify(e)), paperVersion:s.version || 8 }; r.pages = {}; }
   r.captureStatus = 'graded';
@@ -219,7 +224,7 @@ async function persistScanDraft(s, e, batch = false) {
   if (batch) r.batchRunId = batchRunId;
   const recordIndex = db.results.findIndex(x => x.id === r.id);
   if (recordIndex < 0) db.results.push(r); else db.results[recordIndex] = r;
-  try { if (save() === false) throw Error('تعذر حفظ بيانات النتيجة؛ الصورة السابقة ما زالت محفوظة.'); } catch(error) { if (recordIndex < 0) db.results = db.results.filter(x=>x.id!==r.id); else db.results[recordIndex] = previousRecord; throw error; }
+  try { if (save() === false) throw Error('تعذر حفظ بيانات النتيجة؛ الصورة السابقة ما زالت محفوظة.'); } catch(error) { if (recordIndex < 0) db.results = db.results.filter(x=>x.id!==r.id); else db.results[recordIndex] = previousRecord; s.storageFailure = true; throw error; }
   s.savedResultId = r.id; s.savedThisVisit = true; cleanupRemoteInput(s,r); return r;
 }
 async function saveScan(advance = true) {
@@ -567,20 +572,23 @@ async function cancelPendingBatch() { if(batchProcessing)return toast('انتظ�
 
 async function correctAllPending() {
   if (!scanQueue.length || batchProcessing) return toast('لا توجد دفعة جاهزة للتصحيح');
+  if(typeof flushLocalChanges==='function'&&!await flushLocalChanges())return toast('تعذر تثبيت الحفظ؛ بقيت الدفعة متوقفة لحماية الأوراق.');
   gradingProgress = {total:scanQueue.length, done:0, failed:0};
   batchProcessing = true; batchRunId = uid(); bulkReviewActive = false; scanIndex = 0; currentResult = null; results();
   const runButton = document.querySelector('.bulk-batch-panel .btn.gold');
   if (runButton) { runButton.disabled = true; runButton.textContent = 'جارٍ التصحيح…'; }
   let done = 0, failed = [];
   const items=scanQueue.slice(),exam=getExam(),owner=window.WaraqaFirebaseUid;
-  const signature=JSON.stringify(exam?.questions),pending=new Map();let cursor=0;
+  const signature=JSON.stringify(exam?.questions),pending=new Map();let cursor=0,storageStopped=false,nextUnfinished=0;for(const item of items)if(item.preparedState)item.preparedState.storageFailure=false;
+  const storageProblem=()=>(typeof LocalStore!=='undefined'&&!!LocalStore.error)||items.some(item=>item.preparedState?.storageFailure);
   const valid=()=>window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
   const schedule=()=>{if(cursor>=items.length)return;const index=cursor++;
-    pending.set(index,(async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const s=await prepareScanItem(items[index],exam,true);await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&items[index].pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;})().then(s=>({s}),error=>({error})));
+    pending.set(index,(async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error})));
   };
   schedule();schedule();
   for (scanIndex = 0; scanIndex < items.length; scanIndex++) {
-    const outcome=await pending.get(scanIndex);pending.delete(scanIndex);schedule();
+    nextUnfinished=scanIndex;
+    const outcome=await pending.get(scanIndex);pending.delete(scanIndex);if(storageProblem()){storageStopped=true;break;}
     try {
       if(outcome.error)throw outcome.error;
       if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');
@@ -595,8 +603,10 @@ async function correctAllPending() {
       }
       if (Number(s.p || 0) !== page) { s.p = page; await remoteReadScan(s,e); }
       await persistScanDraft(s, e, true);
-      done++;
+      done++;nextUnfinished=scanIndex+1;delete items[scanIndex].preparedState;delete items[scanIndex].preparedSignature;
     } catch (err) { failed.push(scanQueue[scanIndex]?.name || `ورقة ${scanIndex + 1}`); }
+    if(storageProblem()){storageStopped=true;break;}
+    schedule();
     gradingProgress.done = done;
     gradingProgress.failed = failed.length;
     const progress = document.querySelector("#batch-progress");
@@ -605,8 +615,13 @@ async function correctAllPending() {
       progress.lastElementChild.value = done + failed.length;
     }
   }
+  if(storageStopped){await Promise.all(pending.values());scanQueue=items.slice(nextUnfinished);gradingProgress=null;batchProcessing=false;bulkWaiting=true;scanState=null;scanIndex=0;results();if(typeof remoteStatus==='function')remoteStatus('توقف التصحيح بسبب الحفظ على الجهاز؛ بقيت الأوراق غير المكتملة في الدفعة.');toast('توقف التصحيح لحماية بياناتك. احتفظ بنسخة احتياطية؛ لا تحذف الدفعة.');return;}
+  await Promise.all(pending.values());for(const doc of new Set(items.map(x=>x.pdf?.doc).filter(Boolean)))try{await doc.destroy();}catch{}
+  const committed=typeof flushLocalChanges!=='function'||await flushLocalChanges();
   gradingProgress = null;
-  batchProcessing = false; bulkWaiting = false; scanQueue = []; scanState = null; scanIndex = 0; if (db.results.length) resultsExamFilter = db.results.at(-1).exam || resultsExamFilter; save(); results();
+  batchProcessing = false; bulkWaiting = false; scanQueue = []; scanState = null; scanIndex = 0; if (db.results.length) resultsExamFilter = db.results.at(-1).exam || resultsExamFilter; results();
+  if(typeof remoteStatus==='function')remoteStatus(typeof LocalStore!=='undefined'&&LocalStore.error?'اكتمل التصحيح، وتعذر تثبيت الحفظ على الجهاز.':'اكتملت معالجة الدفعة؛ راجع النتائج.');
+  if(!committed)return toast('تعذر تثبيت نتائج الدفعة على الجهاز. نزّل نسخة احتياطية قبل إغلاق الصفحة.');
   toast(`اكتمل التصحيح الآلي: ${ar(done)} ورقة${failed.length ? `، وتعذر معالجة ${ar(failed.length)}` : ''}`);
 }
 

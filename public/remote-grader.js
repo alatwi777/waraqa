@@ -4,6 +4,19 @@ let RemoteActive=0;const RemoteWaiting=[];
 async function runRemoteTask(task){if(RemoteActive>=2)await new Promise(resolve=>RemoteWaiting.push(resolve));else RemoteActive++;try{return await task();}finally{const next=RemoteWaiting.shift();if(next)next();else RemoteActive--;}}
 const RemoteOrigin=document.querySelector('meta[name="waraqa-grading-origin"]')?.content||'';
 const remoteEndpoint=path=>RemoteOrigin+path;
+let healthRequest=null,healthExpires=0;
+function gradingCapabilities(){
+ if(!healthRequest||Date.now()>=healthExpires){
+  healthExpires=Date.now()+60000;
+  const request=fetch(remoteEndpoint('/healthz'),{signal:AbortSignal.timeout(30000),cache:'no-store'})
+   .then(response=>{
+    if(response.ok===false)throw Error('تعذر التحقق من خدمة التصحيح.');
+    return typeof response.json==='function'?response.json():{};
+   }).catch(error=>{if(healthRequest===request)healthRequest=null;throw error;});
+  healthRequest=request;
+ }
+ return healthRequest;
+}
 // Keep network backoff independent of a hidden tab's window timer budget.
 let RemoteDelayWorker=null,RemoteDelaySerial=0;const RemoteDelays=new Map();
 function remoteWait(milliseconds){return new Promise(resolve=>{
@@ -31,8 +44,19 @@ async function durableRemoteScan(s,e,body,owner,ensureCurrent){
   const bytes=new TextEncoder().encode(JSON.stringify([owner,body]));
   const digest=await crypto.subtle.digest('SHA-256',bytes);
   jobId=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  const currentJob=record.remoteJob;
   record.remoteJob={id:jobId,owner,config,imageKey};
-  if(save()===false)throw Error('تعذر حفظ مرجع طلب التصحيح محليًا؛ لم تُرسل الورقة.');
+  try{
+   if(save()===false)throw Error('تعذر حفظ مرجع طلب التصحيح محليًا؛ لم تُرسل الورقة.');
+  }catch(error){
+   if(currentJob===undefined)delete record.remoteJob;else record.remoteJob=currentJob;
+   s.storageFailure=true;
+   throw error;
+  }
+  if(typeof flushLocalChanges==='function'&&!await flushLocalChanges()){
+   s.storageFailure=true;
+   throw Error('تعذر تثبيت مرجع التصحيح محليًا؛ لم تُرسل الورقة.');
+  }
  }
  if(!jobId)await rememberJob();
  s.remoteJobImage=body.image.base64;
@@ -67,7 +91,7 @@ async function remoteReadScan(s,e){
  if(!s||!e)throw Error('اختر الاختبار أولًا');
  const revision=s.remoteRevision=(s.remoteRevision||0)+1,canvas=s.canvas,version=s.version||8,p=s.p||0,owner=window.WaraqaFirebaseUid,examSnapshot=JSON.stringify(e.questions),corners=s.corners?.map(x=>({...x}));
  s.remotePending=true;s.remoteReady=false;s.remoteError=null;
- if(typeof retainRemoteInput==='function')try{await retainRemoteInput(s,e);}catch(error){s.remotePending=false;s.remoteError=error.message;throw error;}
+ if(typeof retainRemoteInput==='function')try{await retainRemoteInput(s,e);if(typeof flushLocalChanges==='function'&&!await flushLocalChanges())throw Error('تعذر تثبيت الحفظ على الجهاز؛ لم تُرسل الورقة.');}catch(error){s.storageFailure=true;s.remotePending=false;s.remoteError=error.message;throw error;}
  const statusNode=document.querySelector('#remote-status');
  if(statusNode) statusNode.hidden=true;
  const job=runRemoteTask(async()=>{
@@ -75,8 +99,7 @@ async function remoteReadScan(s,e){
   const dataUrl=canvas.toDataURL('image/jpeg',.85),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
   if(corners)body.corners=corners;
   // Retry only explicit 429 rejections, which have not run the grader.
-  const healthResponse=await fetch(remoteEndpoint('/healthz'),{signal:AbortSignal.timeout(90000),cache:'no-store'});
-  const health=typeof healthResponse.json==='function'?await healthResponse.json():{};
+  const health=await gradingCapabilities();
   let response,result;const retryUntil=Date.now()+15*60*1000;
   if(health.durableJobs){
    result=await durableRemoteScan(s,e,body,owner,()=>{if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0)||examSnapshot!==JSON.stringify(e.questions))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');});

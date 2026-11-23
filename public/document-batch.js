@@ -140,10 +140,36 @@ async function correctCapturedSheet(id) {
 }
 async function correctCapturedBatch() {
   if(capturedGrading)return;const list=db.results.filter(r=>r.captureStatus==='ungraded'&&!(typeof isContinuousCameraPending==='function'&&isContinuousCameraPending(r.id))&&(resultsExamFilter==='all'||r.exam===resultsExamFilter));if(!list.length)return;
-  capturedGrading=true;batchProcessing=true;let count=0,needsCorners=0;
-  const button=document.querySelector('.captured-batch-toolbar button');if(button){button.disabled=true;button.textContent='جارٍ التصحيح…';}
-  try{for(const r of list){try{const {s,e}=await readCapturedSheet(r);if(!s.corners||s.orientationReady===false){needsCorners++;continue}await persistScanDraft(s,e,true);count++}catch{needsCorners++}const progress=$('#captured-grading-progress');if(progress)progress.textContent=`تم تصحيح ${ar(count)} · باقٍ للمراجعة اليدوية ${ar(needsCorners)}`;}}
-  finally{batchProcessing=false;capturedGrading=false;bulkReviewActive=false;scanState=null;scanQueue=[];currentResult=null;results();toast(`تم تصحيح ${ar(count)} ورقة${needsCorners?'، وبقيت '+ar(needsCorners)+' ورقة غير مصححة؛ افتحها لضبط الصورة.':''}`)}
+  capturedGrading=true;batchProcessing=true;
+  let count=0,needsCorners=0,storageStopped=false;
+  const button=document.querySelector('.captured-batch-toolbar button');
+  if(button){button.disabled=true;button.textContent='جارٍ التصحيح…';}
+  try{
+    for(const r of list){
+      scanState=null;
+      try{
+        const {s,e}=await readCapturedSheet(r);
+        if(!s.corners||s.orientationReady===false)needsCorners++;
+        else {await persistScanDraft(s,e,true);count++;}
+      }catch{
+        needsCorners++;
+      }
+      if(scanState?.storageFailure||(typeof LocalStore!=='undefined'&&LocalStore.error)){
+        storageStopped=true;
+        break;
+      }
+      const progress=$('#captured-grading-progress');
+      if(progress)progress.textContent=`تم تصحيح ${ar(count)} · باقٍ للمراجعة اليدوية ${ar(needsCorners)}`;
+    }
+    if(!storageStopped&&typeof flushLocalChanges==='function')storageStopped=!await flushLocalChanges();
+  }finally{
+    batchProcessing=false;capturedGrading=false;bulkReviewActive=false;scanState=null;scanQueue=[];currentResult=null;results();
+    if(storageStopped){
+      const message='توقف تصحيح الأوراق المحفوظة بسبب الحفظ على الجهاز. نزّل نسخة احتياطية قبل الإغلاق.';
+      if(typeof remoteStatus==='function')remoteStatus(message);
+      toast(message);
+    }else toast(`تم تصحيح ${ar(count)} ورقة${needsCorners?'، وبقيت '+ar(needsCorners)+' ورقة غير مصححة؛ افتحها لضبط الصورة.':''}`);
+  }
 }
 const resultsBeforeCapture=results;
 results=function(){resultsBeforeCapture();if(currentResult)return;const count=db.results.filter(r=>r.captureStatus==='ungraded'&&(resultsExamFilter==='all'||r.exam===resultsExamFilter)).length;if(count){document.querySelector('.results-exam-filter')?.insertAdjacentHTML('afterend',`<div class="captured-batch-toolbar"><strong>${ar(count)} ورقة غير مصححة</strong><button class="btn gold small" onclick="correctCapturedBatch()">تصحيح الأوراق المصوّرة</button><span id="captured-grading-progress" class="note" aria-live="polite"></span></div>`)}};

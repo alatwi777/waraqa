@@ -10,6 +10,25 @@ function cloudDetails(){modal('الحفظ على جهازك',`<p class="sub">ه�
 function exportUnreadableLocalData(){download('waraqa-recovery.txt',localStorage.getItem(LocalStore.key)||'','text/plain;charset=utf-8');}
 function startLocal(){const boot=$('#cloud-boot');try{const uid=window.WaraqaFirebaseUid||'local-only';window.WaraqaLoadedUid=uid;LocalStore.key=localDataKey(uid);const record=readLocalRecord();if(record){db=record.data;LocalStore.revision=record.revision;}const privacy=$('#cloud-privacy');if(privacy)privacy.innerHTML='◉ حفظ محلي على جهازك<small>بدون اشتراك تخزين</small>';const account=$('#cloud-account');if(account)account.textContent='هذا المتصفح · حفظ محلي';route();if(boot)boot.hidden=true;localStatus();}catch(e){LocalStore.blocked=true;localStatus('تعذر قراءة البيانات الموجودة. لن نستبدلها ببيانات فارغة.');if(boot)boot.innerHTML='<div><h2>تعذر فتح البيانات المحفوظة</h2><p>احتفظ بنسخة من البيانات الموجودة قبل متابعة الاستعادة أو الإصلاح.</p><button class="btn" onclick="exportUnreadableLocalData()">تنزيل بيانات الاسترداد</button></div>';}}
 window.addEventListener('storage',event=>{if(event.key===LocalStore.key){LocalStore.blocked=true;localStatus('تغيرت البيانات في نافذة أخرى. نزّل نسخة من عملك ثم أعد تحميل الصفحة.');}});
+// IndexedDB holds full records; the synchronous journal remains small and recoverable.
+if(window.WaraqaMetadata||(typeof document!=='undefined'&&document.querySelector('script[data-waraqa-metadata]'))){
+ save=function(){if(LocalStore.blocked||!LocalStore.journal){localStatus('الحفظ متوقف لحماية البيانات؛ احتفظ بنسخة احتياطية.');return false;}return LocalStore.journal.save(db);};
+ startLocal=async function(){const boot=$('#cloud-boot');try{
+  if(!window.WaraqaMetadata)throw Error('METADATA_SCRIPT_UNAVAILABLE');
+  const uid=window.WaraqaFirebaseUid||'local-only';window.WaraqaLoadedUid=uid;LocalStore.key=localDataKey(uid);
+  const journal=await window.WaraqaMetadata.browser({indexedDB,storage:localStorage,key:LocalStore.key,path:new URL('.',location.href).pathname,initial:db,validate:validLocalData,onStatus:({state,error})=>{
+   if(state==='error'){if(error==='METADATA_OTHER_TAB')LocalStore.blocked=true;localStatus(error==='METADATA_OTHER_TAB'?'هناك تعديل في تبويب آخر؛ احتفظ بنسخة من عملك قبل إعادة الفتح.':'تعذر إكمال الحفظ على الجهاز. توقف التصحيح لحماية الأوراق؛ نزّل نسخة احتياطية.');}
+   else if(state==='pending'){LocalStore.error=null;const status=$('#cloud-status');if(status){status.textContent='جارٍ تثبيت الحفظ على الجهاز…';status.dataset.state='pending';}const banner=$('#cloud-banner');if(banner)banner.innerHTML='';}
+   else localStatus();
+  }});
+  LocalStore.journal=journal;db=journal.data;LocalStore.revision=journal.revision;
+  const privacy=$('#cloud-privacy');if(privacy)privacy.innerHTML='◉ حفظ محلي على جهازك<small>البيانات والصور في مساحة تخزين المتصفح</small>';
+  const account=$('#cloud-account');if(account)account.textContent='هذا المتصفح · حفظ محلي';route();if(boot)boot.hidden=true;
+ }catch(error){LocalStore.blocked=true;localStatus('تعذر فتح التخزين. لن نستبدل بياناتك أو نحذفها.');if(boot)boot.innerHTML='<div><h2>تعذر فتح البيانات المحفوظة</h2><p>احتفظ بملف الاسترداد قبل إجراء أي تغيير.</p><button class="btn" onclick="exportLocalRecovery()">تنزيل ملف الاسترداد</button></div>';}};
+}
+async function replaceLocalData(value){if(!LocalStore.journal)return false;const saved=await LocalStore.journal.replace(value);if(saved)db=value;return saved;}
+async function flushLocalChanges(){return LocalStore.journal?LocalStore.journal.flush():!LocalStore.error;}
+async function exportLocalRecovery(){let checkpoint=null;try{const d=await new Promise((resolve,reject)=>{const r=indexedDB.open('waraqa-pages-metadata:'+new URL('.',location.href).pathname,1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});if(d.objectStoreNames.contains('accounts'))checkpoint=await new Promise((resolve,reject)=>{const r=d.transaction('accounts','readonly').objectStore('accounts').get(LocalStore.key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});d.close();}catch{}download('waraqa-local-recovery.json',JSON.stringify({recoveryVersion:1,journal:localStorage.getItem(LocalStore.key),checkpoint}),'application/json');}
 if (window.WaraqaAuthGate) {
   if (window.WaraqaAuthorized) startLocal();
   else window.addEventListener('waraqa-authorized', startLocal, { once: true });
