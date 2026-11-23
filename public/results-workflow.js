@@ -540,8 +540,8 @@ results = function () {
   $('#app').innerHTML = '<div class="results-page-heading">' + head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', `<div class="results-action-group" role="group" aria-label="تصدير النتائج">${btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')}${btn('تصدير Excel','exportResultsExcel()','light')}${btn('تصدير CSV','exportResults()','light')}</div><div class="results-action-group results-noor-actions" role="group" aria-label="رصد نور">${btn('رصد في نور','openNoorTransfer()','gold')}<a class="btn light" href="downloads/noor-grade-extension-v1.6.10.zip" download>تحميل إضافة نور 1.6.10 لـ Chrome</a></div>`) + '</div>' + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
 };
 
-function startBatchReview() { if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
-async function cancelPendingBatch() { if (!confirm('إلغاء الدفعة الحالية؟')) return; const docs = new Set(scanQueue.map(x => x.pdf?.doc).filter(Boolean)); for (const doc of docs) try { await doc.destroy(); } catch {} scanQueue = []; scanState = null; bulkWaiting = bulkReviewActive = false; results(); }
+function startBatchReview() { if(batchProcessing)return; if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
+async function cancelPendingBatch() { if(batchProcessing)return toast('انتظر اكتمال الدفعة قبل إلغائها'); if (!confirm('إلغاء الدفعة الحالية؟')) return; const docs = new Set(scanQueue.map(x => x.pdf?.doc).filter(Boolean)); for (const doc of docs) try { await doc.destroy(); } catch {} scanQueue = []; scanState = null; bulkWaiting = bulkReviewActive = false; results(); }
 
 async function correctAllPending() {
   if (!scanQueue.length || batchProcessing) return toast('لا توجد دفعة جاهزة للتصحيح');
@@ -550,14 +550,19 @@ async function correctAllPending() {
   const runButton = document.querySelector('.bulk-batch-panel .btn.gold');
   if (runButton) { runButton.disabled = true; runButton.textContent = 'جارٍ التصحيح…'; }
   let done = 0, failed = [];
-  for (scanIndex = 0; scanIndex < scanQueue.length; scanIndex++) {
+  const items=scanQueue.slice(),exam=getExam(),owner=window.WaraqaFirebaseUid;
+  const signature=JSON.stringify(exam?.questions),pending=new Map();let cursor=0;
+  const valid=()=>window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
+  const schedule=()=>{if(cursor>=items.length)return;const index=cursor++;
+    pending.set(index,(async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const s=await prepareScanItem(items[index],exam,true);await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&items[index].pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;})().then(s=>({s}),error=>({error})));
+  };
+  schedule();schedule();
+  for (scanIndex = 0; scanIndex < items.length; scanIndex++) {
+    const outcome=await pending.get(scanIndex);pending.delete(scanIndex);schedule();
     try {
-      scanState = null;
-      await originalOpenScan();
-      const s = scanState, e = db.exams.find(x => x.id === s?.exam);
-      if (!s || !e) throw new Error('تعذر قراءة صفحة الاختبار');
-      if (typeof identifyScanStudent === 'function') await identifyScanStudent(s, true);
-      if (!s.student && scanQueue[scanIndex]?.pdf && typeof identifyBatchHeader === 'function') await identifyBatchHeader(s, e);
+      if(outcome.error)throw outcome.error;
+      if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');
+      const s=outcome.s,e=exam;
       const student = db.students.find(x => x.id === s.student);
       let r = student && db.results.find(x => x.exam === e.id && resultMatchesStudent(x, student, e.id));
       let page = Number(s.p || 0);
@@ -566,7 +571,7 @@ async function correctAllPending() {
         const nextPage = Array.from({length: expected}, (_,i)=>i).find(i => !r.pages[i]);
         if (nextPage !== undefined) page = nextPage;
       }
-      if (Number(s.p || 0) !== page) { s.p = page; await detectAndRead(); }
+      if (Number(s.p || 0) !== page) { s.p = page; await remoteReadScan(s,e); }
       await persistScanDraft(s, e, true);
       done++;
     } catch (err) { failed.push(scanQueue[scanIndex]?.name || `ورقة ${scanIndex + 1}`); }

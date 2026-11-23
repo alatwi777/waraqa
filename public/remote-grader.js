@@ -1,6 +1,7 @@
 'use strict';
 // Only the UI and image transport live here. No pixel-based answer reader or fallback.
-let RemoteQueue=Promise.resolve();
+let RemoteActive=0;const RemoteWaiting=[];
+async function runRemoteTask(task){if(RemoteActive>=2)await new Promise(resolve=>RemoteWaiting.push(resolve));else RemoteActive++;try{return await task();}finally{const next=RemoteWaiting.shift();if(next)next();else RemoteActive--;}}
 const RemoteOrigin=document.querySelector('meta[name="waraqa-grading-origin"]')?.content||'';
 const remoteEndpoint=path=>RemoteOrigin+path;
 // Keep network backoff independent of a hidden tab's window timer budget.
@@ -58,7 +59,7 @@ async function durableRemoteScan(s,e,body,owner,ensureCurrent){
   if(data.state==='done')return data.result;
   if(data.state==='failed')throw Error(remoteError(data.error,data.status||503));
   if(!['queued','running'].includes(data.state))throw Error('حالة طلب التصحيح غير متوافقة.');
-  remoteStatus(data.state==='queued'?'طلبك محفوظ في طابور التصحيح…':'جارٍ تصحيح طلبك المحفوظ…');await remoteWait(2000);
+  remoteStatus(data.state==='queued'?'طلبك محفوظ في طابور التصحيح…':'جارٍ تصحيح طلبك المحفوظ…');await remoteWait(500);
  }
  throw Error('انتهت مهلة المتابعة. الورقة ومرجع طلبها محفوظان؛ أعد التصحيح لاستلام النتيجة.');
 }
@@ -69,9 +70,9 @@ async function remoteReadScan(s,e){
  if(typeof retainRemoteInput==='function')try{await retainRemoteInput(s,e);}catch(error){s.remotePending=false;s.remoteError=error.message;throw error;}
  const statusNode=document.querySelector('#remote-status');
  if(statusNode) statusNode.hidden=true;
- const job=RemoteQueue.then(async()=>{
+ const job=runRemoteTask(async()=>{
   if(!window.WaraqaAuthorized||window.WaraqaFirebaseUid!==owner)throw Error('سجّل الدخول للتحقق من الاشتراك.');
-  const dataUrl=canvas.toDataURL('image/jpeg',.95),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
+  const dataUrl=canvas.toDataURL('image/jpeg',.85),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
   if(corners)body.corners=corners;
   // Retry only explicit 429 rejections, which have not run the grader.
   const healthResponse=await fetch(remoteEndpoint('/healthz'),{signal:AbortSignal.timeout(90000),cache:'no-store'});
@@ -100,7 +101,7 @@ async function remoteReadScan(s,e){
   if(result.error)throw Error('تعذرت محاذاة الورقة؛ حدد الزوايا أو أعد التصوير.');
   if(typeof batchProcessing==='undefined'||!batchProcessing) remoteStatus('اكتمل التصحيح على الخادم — راجع النتيجة.');return result;
  });
- RemoteQueue=job.catch(()=>{});
+
  try{return await job;}catch(error){s.remoteReady=false;s.remoteError=error.name==='TimeoutError'?'انتهت مهلة الاتصال؛ أعد المحاولة.':error.message;remoteStatus(s.remoteError);throw Error(s.remoteError);}
  finally{if(s.remoteRevision===revision)s.remotePending=false;}
 }
