@@ -537,8 +537,29 @@ results = function () {
     return `<tr><td><strong>${esc(r.number || '—')}</strong></td><td><span class="avatar">${esc((r.name || '?')[0])}</span>${esc(r.name || 'طالب غير معروف')}</td><td>${esc(e?.title || 'اختبار محذوف')}</td><td><strong>${ar(score(r))}</strong> / ${ar(e ? total(e) : 0)}</td><td><span class="tag ${complete ? '' : 'amber'}">${resultNeedsReview(r) ? 'محفوظة — تحتاج مراجعة' : complete ? 'راجَعها المعلم' : 'صفحات ناقصة'}</span><div class="issue-counts">${[['double','مزدوج'],['blank','متروك'],['wrong','خاطئ']].map(([k,n]) => `<button class="issue-chip ${k}" onclick="openResultIssue('${r.id}','${k}')">${n} ${ar(c[k])}</button>`).join('')}<span class="issue-chip">مقالي للمراجعة ${ar(c.essayPending)}</span></div></td><td><button class="text-link" onclick="reviewResult('${r.id}')">معاينة وتعديل ←</button> <button class="delete-link" type="button" onclick="deleteResult('${r.id}')">حذف</button></td></tr>`;
   }).join('');
   const noResults = !db.results.length ? empty('نتائج تستحق الاحتفاء','ابدأ برفع أول ورقة في قسم التصحيح.',`<a class="btn light small" href="#scan">الانتقال للتصحيح</a>`) : empty('لا توجد أوراق مطابقة للتصفية','غيّر الاختبار أو اختر جميع الأوراق من القائمة أعلاه.');
-  $('#app').innerHTML = '<div class="results-page-heading">' + head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', `<div class="results-action-group" role="group" aria-label="تصدير النتائج">${btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')}${btn('تصدير Excel','exportResultsExcel()','light')}${btn('تصدير CSV','exportResults()','light')}</div><div class="results-action-group results-noor-actions" role="group" aria-label="رصد نور">${btn('رصد في نور','openNoorTransfer()','gold')}<a class="btn light" href="downloads/noor-grade-extension-v1.6.10.zip" download>تحميل إضافة نور 1.6.10 لـ Chrome</a></div>`) + '</div>' + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
+  $('#app').innerHTML = '<div class="results-page-heading">' + head('النتائج والتقارير', 'الورقة الأصلية، الإجابات، والدرجة. كل شيء قابل للمراجعة.', `<div class="results-action-group" role="group" aria-label="تصدير النتائج"><button type="button" class="btn danger" onclick="deleteAllResultPapers()" ${(!db.results.length&&!scanQueue.length)||batchProcessing?'disabled':''}>حذف جميع الأوراق</button>${btn('تصدير أوراق الإجابات','answerSheetsExportModal()','light')}${btn('تصدير Excel','exportResultsExcel()','light')}${btn('تصدير CSV','exportResults()','light')}</div><div class="results-action-group results-noor-actions" role="group" aria-label="رصد نور">${btn('رصد في نور','openNoorTransfer()','gold')}<a class="btn light" href="downloads/noor-grade-extension-v1.6.10.zip" download>تحميل إضافة نور 1.6.10 لـ Chrome</a></div>`) + '</div>' + base + `<section class="panel">${filterBar}<div class="table-wrap"><table><thead><tr><th>رقم الطالب</th><th>الطالب</th><th>الاختبار</th><th>الدرجة</th><th>الحالة والإجابات</th><th>الورقة</th></tr></thead><tbody>${rows}</tbody></table></div>${filtered.length ? '' : noResults}</section>`;
 };
+
+let deletingAllResultPapers=false;
+async function deleteAllResultPapers(){
+ if(deletingAllResultPapers)return;
+ if(batchProcessing||scanState?.remotePending||scanState?.saving||(typeof capturedGrading!=='undefined'&&capturedGrading))return toast('أوقف التصحيح أو انتظر اكتماله قبل حذف الأوراق.');
+ const previous=db.results;
+ if(!previous.length&&!scanQueue.length)return toast('لا توجد أوراق لحذفها.');
+ if(!confirm('هل تريد حذف جميع أوراق النتائج وصورها نهائيًا من هذا الحساب على هذا المتصفح؟\nعدد النتائج: '+ar(previous.length)+'، ويشمل الحذف جميع الاختبارات حتى غير الظاهرة بالتصفية، والدفعة المضافة.\nلن تُحذف أسماء الطلاب أو الاختبارات. لا يمكن التراجع دون نسخة احتياطية.'))return;
+ deletingAllResultPapers=true;
+ const keys=[...new Set(previous.flatMap(r=>Object.values(r.pages||{})).filter(k=>typeof k==='string'))];
+ const docs=new Set(scanQueue.map(x=>x.pdf?.doc).filter(Boolean));
+ db.results=[];
+ try{if(save()===false)throw Error('save');}catch{db.results=previous;deletingAllResultPapers=false;return toast('تعذر حفظ الحذف؛ بقيت أوراقك كما هي.');}
+ currentResult=null;scanState=null;scanQueue=[];scanIndex=0;bulkWaiting=false;bulkReviewActive=false;gradingProgress=null;
+ results();
+ try{
+  if(keys.length){const store=await idb;await new Promise((resolve,reject)=>{const tx=store.transaction('files','readwrite');const files=tx.objectStore('files');for(const key of keys)files.delete(key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}
+  toast('حُذفت جميع أوراق النتائج وصورها. الطلاب والاختبارات باقية.');
+ }catch{toast('حُذفت النتائج، لكن تعذر تنظيف صورها من مساحة هذا المتصفح.');}
+ finally{for(const doc of docs)try{await doc.destroy();}catch{}deletingAllResultPapers=false;}
+}
 
 function startBatchReview() { if(batchProcessing)return; if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
 async function cancelPendingBatch() { if(batchProcessing)return toast('انتظر اكتمال الدفعة قبل إلغائها'); if (!confirm('إلغاء الدفعة الحالية؟')) return; const docs = new Set(scanQueue.map(x => x.pdf?.doc).filter(Boolean)); for (const doc of docs) try { await doc.destroy(); } catch {} scanQueue = []; scanState = null; bulkWaiting = bulkReviewActive = false; results(); }
