@@ -1,7 +1,10 @@
 'use strict';
 // Only the UI and image transport live here. No pixel-based answer reader or fallback.
 let RemoteActive=0;const RemoteWaiting=[];
-async function runRemoteTask(task){if(RemoteActive>=2)await new Promise(resolve=>RemoteWaiting.push(resolve));else RemoteActive++;try{return await task();}finally{const next=RemoteWaiting.shift();if(next)next();else RemoteActive--;}}
+function test04DispatchEnabled(){
+ return window.WaraqaFirebaseUid==='RIq4AVEhBIZ86E8bqY02abeehtj1' && new URLSearchParams(location.search).get('dispatch')==='1';
+}
+async function runRemoteTask(task){if(RemoteActive>=(test04DispatchEnabled()?3:2))await new Promise(resolve=>RemoteWaiting.push(resolve));else RemoteActive++;try{return await task();}finally{const next=RemoteWaiting.shift();if(next)next();else RemoteActive--;}}
 const RemoteOrigin=document.querySelector('meta[name="waraqa-grading-origin"]')?.content||'';
 const remoteEndpoint=path=>RemoteOrigin+path;
 let healthRequest=null,healthExpires=0;
@@ -99,7 +102,8 @@ async function remoteReadScan(s,e){
   const dataUrl=canvas.toDataURL('image/jpeg',.85),body={version,page:p,exam:{questions:e.questions.map(q=>({type:q.type,text:q.text,options:q.options,answer:q.answer,points:q.points}))},image:{mime:'image/jpeg',base64:dataUrl.split(',')[1]}};
   if(corners)body.corners=corners;
   // Retry only explicit 429 rejections, which have not run the grader.
-  const health=await gradingCapabilities();
+  const googleLane=s.dispatchGoogle && test04DispatchEnabled();
+  const health=googleLane?{durableJobs:false}:await gradingCapabilities();
   let response,result;const retryUntil=Date.now()+15*60*1000;
   if(health.durableJobs){
    result=await durableRemoteScan(s,e,body,owner,()=>{if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0)||examSnapshot!==JSON.stringify(e.questions))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');});
@@ -107,7 +111,7 @@ async function remoteReadScan(s,e){
   }else for(let attempt=0;attempt<60;attempt++){
    if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');
    const token=await window.WaraqaGetIdToken();
-   response=await fetch(remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
+   response=await fetch(googleLane?'https://waraqa-dispatch-test04-481064076419.europe-west1.run.app/v1/grade/google':remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
    result=await response.json();
    if(response.status!==429||!['RATE_LIMITED','GRADER_BUSY'].includes(result.error)||attempt===59||Date.now()>=retryUntil)break;
    const requested=Number(response.headers?.get('Retry-After')),minimum=Math.max(1,Math.min(65,requested>0?requested:result.error==='RATE_LIMITED'?61:3)),seconds=result.error==='GRADER_BUSY'?Math.max(minimum,Math.min(30,3+attempt*2+Math.random()*2)):minimum;

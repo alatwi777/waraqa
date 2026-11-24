@@ -585,9 +585,36 @@ async function correctAllPending() {
   const storageProblem=()=>(typeof LocalStore!=='undefined'&&!!LocalStore.error)||items.some(item=>item.preparedState?.storageFailure);
   const valid=()=>window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
   let stageEnd=Math.min(gradingStageSize,items.length);
-  const schedule=()=>{if(cursor>=stageEnd)return;const index=cursor++;
-    pending.set(index,(async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error})));
+  const distributed=typeof test04DispatchEnabled==='function' && test04DispatchEnabled();
+  const prepare=index=>{
+    return (async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;
+    s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%3!==0;
+    try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error}));
   };
+  const schedule=()=>{if(!distributed && cursor<stageEnd){const index=cursor++;pending.set(index,prepare(index));}};
+  // Three stages run independently. Keep decoded canvases only while processing;
+  // commit in original PDF order even when a later stage finishes first.
+  function startGroup(start){
+    for(let lane=0;lane<3;lane++){
+      const first=start+lane*gradingStageSize;
+      let previous=Promise.resolve();
+      for(let index=first;index<Math.min(items.length,first+gradingStageSize);index++){
+        const task=previous.then(async()=>{
+          if(storageProblem()||!valid())return {error:Error('توقفت معالجة الدفعة.')};
+          const result=await prepare(index);
+          if(result.s && index!==scanIndex){
+            const state=result.s;
+            const blob=await new Promise(resolve=>state.canvas.toBlob(resolve,'image/png'));
+            if(blob){state.dispatchCanvas=blob;state.canvas=null;}
+          }
+          return result;
+        }).catch(error=>({error}));
+        pending.set(index,task);
+        previous=task;
+      }
+    }
+  }
+  if(distributed)startGroup(0);
   schedule();schedule();
   for (scanIndex = 0; scanIndex < items.length; scanIndex++) {
     nextUnfinished=scanIndex;
@@ -596,6 +623,13 @@ async function correctAllPending() {
       if(outcome.error)throw outcome.error;
       if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');
       const s=outcome.s,e=exam;
+      if(s.dispatchCanvas){
+        const bitmap=await createImageBitmap(s.dispatchCanvas);
+        try{
+          s.canvas=document.createElement('canvas');s.canvas.width=bitmap.width;s.canvas.height=bitmap.height;
+          s.canvas.getContext('2d').drawImage(bitmap,0,0);delete s.dispatchCanvas;
+        }finally{bitmap.close();}
+      }
       const student = db.students.find(x => x.id === s.student);
       let r = student && db.results.find(x => x.exam === e.id && resultMatchesStudent(x, student, e.id));
       let page = Number(s.p || 0);
@@ -616,6 +650,7 @@ async function correctAllPending() {
         break;
       }
       gradingProgress.stage=Math.floor(stageEnd/gradingStageSize)+1;
+      if(distributed && stageEnd%(3*gradingStageSize)===0)startGroup(stageEnd);
       stageEnd=Math.min(stageEnd+gradingStageSize,items.length);
       schedule();
     }
