@@ -1,7 +1,7 @@
 'use strict';
 // Only the UI and image transport live here. No pixel-based answer reader or fallback.
 let RemoteActive=0;const RemoteWaiting=[];
-async function runRemoteTask(task){if(RemoteActive>=3)await new Promise(resolve=>RemoteWaiting.push(resolve));else RemoteActive++;try{return await task();}finally{const next=RemoteWaiting.shift();if(next)next();else RemoteActive--;}}
+async function runRemoteTask(task){if(RemoteActive>=4)await new Promise(resolve=>RemoteWaiting.push(resolve));else RemoteActive++;try{return await task();}finally{const next=RemoteWaiting.shift();if(next)next();else RemoteActive--;}}
 const RemoteOrigin=document.querySelector('meta[name="waraqa-grading-origin"]')?.content||'';
 const remoteEndpoint=path=>RemoteOrigin+path;
 let healthRequest=null,healthExpires=0;
