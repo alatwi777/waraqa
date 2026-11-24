@@ -30,6 +30,20 @@ function remoteWait(milliseconds){return new Promise(resolve=>{
   const id=++RemoteDelaySerial;RemoteDelays.set(id,{resolve,deadline:Date.now()+milliseconds});RemoteDelayWorker.postMessage({id,milliseconds});
  }catch{fallback();}
 });}
+function scanRequestSignal(s,ms){
+ const timeout=AbortSignal.timeout(ms);
+ return s.batchSignal?AbortSignal.any([s.batchSignal,timeout]):timeout;
+}
+function waitForScan(s,task){
+ const signal=s.batchSignal;
+ if(!signal)return task;
+ signal.throwIfAborted();
+ return new Promise((resolve,reject)=>{
+   const stop=()=>reject(signal.reason);
+   signal.addEventListener('abort',stop,{once:true});
+   task.then(resolve,reject).finally(()=>signal.removeEventListener('abort',stop));
+ });
+}
 function remoteStatus(message){const node=document.querySelector('#remote-status');if(node){node.hidden=false;node.textContent=message;}}
 function remoteError(code,status){return ({AUTH_REQUIRED:'سجّل الدخول مجددًا.',AUTH_INVALID:'انتهت جلسة الدخول؛ سجّل الدخول مجددًا.',SUBSCRIPTION_INACTIVE:'الاشتراك منتهٍ أو موقوف.',LICENSE_INACTIVE:'الاشتراك غير مفعل.',LICENSE_EXPIRED:'انتهى الاشتراك.',ORIGIN_DENIED:'تعذر اتصال هذه النسخة بالخادم.',GRADER_BUSY:'الخادم يعالج ورقة أخرى؛ أعد المحاولة.',GRADING_TIMEOUT:'استغرقت القراءة وقتًا طويلًا؛ أعد المحاولة.',RATE_LIMITED:'بلغت حد الطلبات المؤقت؛ انتظر دقيقة.'})[code]||'تعذر التصحيح على الخادم ('+status+'). بقيت بياناتك المحلية محفوظة.';}
 // A stable request ID is saved locally BEFORE upload. Network retries address the same job.
@@ -62,28 +76,30 @@ async function durableRemoteScan(s,e,body,owner,ensureCurrent){
  s.remoteJobImage=body.image.base64;
  const deadline=Date.now()+15*60*1000;let networkFailures=0;
  while(Date.now()<deadline){
-  ensureCurrent();
+  s.batchSignal?.throwIfAborted();ensureCurrent();
   let response,data;
   try{
-   const token=await window.WaraqaGetIdToken();
-   response=await fetch(remoteEndpoint('/v1/grade-jobs'+(mustSubmit?'':'/'+jobId)),{method:mustSubmit?'POST':'GET',headers:{Authorization:'Bearer '+token,...(mustSubmit?{'Content-Type':'application/json'}:{}),...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},...(mustSubmit?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
+   const token=await waitForScan(s,window.WaraqaGetIdToken());
+   s.batchSignal?.throwIfAborted();
+   response=await fetch(remoteEndpoint('/v1/grade-jobs'+(mustSubmit?'':'/'+jobId)),{method:mustSubmit?'POST':'GET',headers:{Authorization:'Bearer '+token,...(mustSubmit?{'Content-Type':'application/json'}:{}),...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},...(mustSubmit?{body:JSON.stringify(body)}:{}),signal:scanRequestSignal(s,30000)});
    data=await response.json();networkFailures=0;
   }catch(error){
+   s.batchSignal?.throwIfAborted();
    // A lost POST response is ambiguous: query the saved ID before ever resubmitting.
    mustSubmit=false;networkFailures++;
    if(networkFailures>=8)throw Error('انقطع الاتصال. الورقة ومرجع طلبها محفوظان؛ أعد التصحيح لاستلام النتيجة نفسها.');
-   remoteStatus('انقطع الاتصال مؤقتًا؛ جارٍ التحقق من طلبك المحفوظ…');await remoteWait(Math.min(10000,networkFailures*2000));continue;
+   remoteStatus('انقطع الاتصال مؤقتًا؛ جارٍ التحقق من طلبك المحفوظ…');await waitForScan(s,remoteWait(Math.min(10000,networkFailures*2000)));continue;
   }
   if(response.status===404&&!mustSubmit){await rememberJob();mustSubmit=true;continue;}
-  if(response.status===429){remoteStatus('الطابور مشغول؛ الورقة محفوظة وستُعاد المحاولة تلقائيًا.');await remoteWait(Math.min(65000,Math.max(2000,Number(response.headers?.get('Retry-After')||3)*1000)));continue;}
-  if(response.status>=500){mustSubmit=false;await remoteWait(3000);continue;}
+  if(response.status===429){remoteStatus('الطابور مشغول؛ الورقة محفوظة وستُعاد المحاولة تلقائيًا.');await waitForScan(s,remoteWait(Math.min(65000,Math.max(2000,Number(response.headers?.get('Retry-After')||3)*1000))));continue;}
+  if(response.status>=500){mustSubmit=false;await waitForScan(s,remoteWait(3000));continue;}
   if(!response.ok)throw Error(remoteError(data.error,response.status));
   if(data.jobId!==jobId)throw Error('مرجع استجابة التصحيح غير مطابق للورقة.');
   mustSubmit=false;
   if(data.state==='done')return data.result;
   if(data.state==='failed')throw Error(remoteError(data.error,data.status||503));
   if(!['queued','running'].includes(data.state))throw Error('حالة طلب التصحيح غير متوافقة.');
-  remoteStatus(data.state==='queued'?'طلبك محفوظ في طابور التصحيح…':'جارٍ تصحيح طلبك المحفوظ…');await remoteWait(500);
+  remoteStatus(data.state==='queued'?'طلبك محفوظ في طابور التصحيح…':'جارٍ تصحيح طلبك المحفوظ…');await waitForScan(s,remoteWait(500));
  }
  throw Error('انتهت مهلة المتابعة. الورقة ومرجع طلبها محفوظان؛ أعد التصحيح لاستلام النتيجة.');
 }
@@ -100,20 +116,21 @@ async function remoteReadScan(s,e){
   if(corners)body.corners=corners;
   // Retry only explicit 429 rejections, which have not run the grader.
   const googleLane=s.dispatchGoogle === true;
-  const health=googleLane?{durableJobs:false}:await gradingCapabilities();
+  const health=googleLane?{durableJobs:false}:await waitForScan(s,gradingCapabilities());
   let response,result;const retryUntil=Date.now()+15*60*1000;
   if(health.durableJobs){
    result=await durableRemoteScan(s,e,body,owner,()=>{if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0)||examSnapshot!==JSON.stringify(e.questions))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');});
    response={ok:true};
   }else for(let attempt=0;attempt<60;attempt++){
    if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0))throw Error('تغيرت الورقة أو جلسة الدخول؛ أعد القراءة.');
-   const token=await window.WaraqaGetIdToken();
-   response=await fetch(googleLane?'https://waraqa-dispatch-test04-481064076419.europe-west1.run.app/v1/grade/google':remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(90000)});
+   const token=await waitForScan(s,window.WaraqaGetIdToken());
+   s.batchSignal?.throwIfAborted();
+   response=await fetch(googleLane?'https://waraqa-dispatch-test04-481064076419.europe-west1.run.app/v1/grade/google':remoteEndpoint('/v1/grade'),{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(window.WaraqaDeviceId?{'X-Waraqa-Device':window.WaraqaDeviceId}:{})},body:JSON.stringify(body),signal:scanRequestSignal(s,90000)});
    result=await response.json();
    if(response.status!==429||!['RATE_LIMITED','GRADER_BUSY'].includes(result.error)||attempt===59||Date.now()>=retryUntil)break;
    const requested=Number(response.headers?.get('Retry-After')),minimum=Math.max(1,Math.min(65,requested>0?requested:result.error==='RATE_LIMITED'?61:3)),seconds=result.error==='GRADER_BUSY'?Math.max(minimum,Math.min(30,3+attempt*2+Math.random()*2)):minimum;
    remoteStatus('طلبك محفوظ؛ ستستأنف الدفعة تلقائيًا بعد '+Math.ceil(seconds)+' ثانية.');
-   await remoteWait(seconds*1000);
+   await waitForScan(s,remoteWait(seconds*1000));
   }
   if(!response.ok)throw Error(remoteError(result.error,response.status));
   if(!window.WaraqaAuthorized||owner!==window.WaraqaFirebaseUid||revision!==s.remoteRevision||canvas!==s.canvas||p!==(s.p||0)||version!==(s.version||8)||examSnapshot!==JSON.stringify(e.questions))throw Error('تغيرت الورقة أو جلسة الدخول أثناء التصحيح؛ أعد القراءة.');

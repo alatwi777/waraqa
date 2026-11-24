@@ -570,11 +570,19 @@ async function deleteAllResultPapers(){
 }
 
 function startBatchReview() { if(batchProcessing)return; if (!scanQueue.length) return toast('لا توجد دفعة جاهزة'); bulkReviewActive = true; scanIndex = 0; currentResult = null; location.hash = 'scan'; openScan(); }
-async function cancelPendingBatch() { if(batchProcessing)return toast('انتظر اكتمال الدفعة قبل إلغائها'); if (!confirm('إلغاء الدفعة الحالية؟')) return; const docs = new Set(scanQueue.map(x => x.pdf?.doc).filter(Boolean)); for (const doc of docs) try { await doc.destroy(); } catch {} scanQueue = []; scanState = null; bulkWaiting = bulkReviewActive = false; results(); }
+async function cancelPendingBatch() { if (correctAllPending.controller?.signal.aborted || !confirm('إلغاء بقية الدفعة؟ ستبقى النتائج المحفوظة.')) return;
+  if(batchProcessing && correctAllPending.controller){
+    correctAllPending.controller.abort();
+    remoteStatus('جارٍ إلغاء بقية الدفعة…');
+    return;
+  } const docs = new Set(scanQueue.map(x => x.pdf?.doc).filter(Boolean)); for (const doc of docs) try { await doc.destroy(); } catch {} scanQueue = []; scanState = null; bulkWaiting = bulkReviewActive = false; results(); }
 
 async function correctAllPending() {
   if (!scanQueue.length || batchProcessing) return toast('لا توجد دفعة جاهزة للتصحيح');
+  const startingQueue=scanQueue;
   if(typeof flushLocalChanges==='function'&&!await flushLocalChanges())return toast('تعذر تثبيت الحفظ؛ بقيت الدفعة متوقفة لحماية الأوراق.');
+  if(scanQueue!==startingQueue || batchProcessing)return;
+  const controller=correctAllPending.controller=new AbortController(), signal=controller.signal;
   gradingProgress = {total:scanQueue.length, done:0, failed:0};
   batchProcessing = true; batchRunId = uid(); bulkReviewActive = false; scanIndex = 0; currentResult = null; results();
   const runButton = document.querySelector('.bulk-batch-panel .btn.gold');
@@ -583,13 +591,14 @@ async function correctAllPending() {
   const items=scanQueue.slice(),exam=getExam(),owner=window.WaraqaFirebaseUid;
   const signature=JSON.stringify(exam?.questions),pending=new Map();let cursor=0,storageStopped=false,nextUnfinished=0;for(const item of items)if(item.preparedState)item.preparedState.storageFailure=false;
   const storageProblem=()=>(typeof LocalStore!=='undefined'&&!!LocalStore.error)||items.some(item=>item.preparedState?.storageFailure);
-  const valid=()=>window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
+  const valid=()=>!signal.aborted && window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
   let stageEnd=Math.min(gradingStageSize,items.length);
   const distributed=!!window.WaraqaAuthorized && items.length>gradingStageSize;
   const prepare=index=>{
     return (async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;
+    signal.throwIfAborted();s.batchSignal=signal;
     s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%2!==0;
-    try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error}));
+    try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);signal.throwIfAborted();await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error}));
   };
   const schedule=()=>{if(!distributed && cursor<stageEnd){const index=cursor++;pending.set(index,prepare(index));}};
   // Two stages run independently. Keep decoded canvases only while processing;
@@ -618,7 +627,7 @@ async function correctAllPending() {
   schedule();schedule();
   for (scanIndex = 0; scanIndex < items.length; scanIndex++) {
     nextUnfinished=scanIndex;
-    const outcome=await pending.get(scanIndex);pending.delete(scanIndex);if(storageProblem()){storageStopped=true;break;}
+    const outcome=await pending.get(scanIndex);pending.delete(scanIndex);if(signal.aborted)break;if(storageProblem()){storageStopped=true;break;}
     try {
       if(outcome.error)throw outcome.error;
       if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');
@@ -639,9 +648,11 @@ async function correctAllPending() {
         if (nextPage !== undefined) page = nextPage;
       }
       if (Number(s.p || 0) !== page) { s.p = page; await remoteReadScan(s,e); }
+      signal.throwIfAborted();
       await persistScanDraft(s, e, true);
       done++;nextUnfinished=scanIndex+1;delete items[scanIndex].preparedState;delete items[scanIndex].preparedSignature;
     } catch (err) { failed.push(scanQueue[scanIndex]?.name || `ورقة ${scanIndex + 1}`); }
+    if(signal.aborted)break;
     if(storageProblem()){storageStopped=true;break;}
     if(scanIndex+1===stageEnd && stageEnd<items.length){
       nextUnfinished=stageEnd;
@@ -663,11 +674,16 @@ async function correctAllPending() {
       progress.lastElementChild.value = done + failed.length;
     }
   }
-  if(storageStopped){await Promise.all(pending.values());scanQueue=items.slice(nextUnfinished);gradingProgress=null;batchProcessing=false;bulkWaiting=true;scanState=null;scanIndex=0;results();if(typeof remoteStatus==='function')remoteStatus('توقف التصحيح بسبب الحفظ على الجهاز؛ بقيت الأوراق غير المكتملة في الدفعة.');toast('توقف التصحيح لحماية بياناتك. احتفظ بنسخة احتياطية؛ لا تحذف الدفعة.');return;}
+  if(storageStopped && !signal.aborted){await Promise.all(pending.values());if(!signal.aborted){correctAllPending.controller=null;scanQueue=items.slice(nextUnfinished);gradingProgress=null;batchProcessing=false;bulkWaiting=true;scanState=null;scanIndex=0;results();if(typeof remoteStatus==='function')remoteStatus('توقف التصحيح بسبب الحفظ على الجهاز؛ بقيت الأوراق غير المكتملة في الدفعة.');toast('توقف التصحيح لحماية بياناتك. احتفظ بنسخة احتياطية؛ لا تحذف الدفعة.');return;}}
   await Promise.all(pending.values());for(const doc of new Set(items.map(x=>x.pdf?.doc).filter(Boolean)))try{await doc.destroy();}catch{}
   const committed=typeof flushLocalChanges!=='function'||await flushLocalChanges();
   gradingProgress = null;
   batchProcessing = false; bulkWaiting = false; scanQueue = []; scanState = null; scanIndex = 0; if (db.results.length) resultsExamFilter = db.results.at(-1).exam || resultsExamFilter; results();
+  correctAllPending.controller=null;
+  if(signal.aborted){
+    const message=committed?'أُلغيت بقية الدفعة. احتُفظ بالنتائج المحفوظة.':'أُلغيت بقية الدفعة. تعذر تأكيد الحفظ على الجهاز.';
+    remoteStatus(message);toast(message);return;
+  }
   if(typeof remoteStatus==='function')remoteStatus(typeof LocalStore!=='undefined'&&LocalStore.error?'اكتمل التصحيح، وتعذر تثبيت الحفظ على الجهاز.':'اكتملت معالجة الدفعة؛ راجع النتائج.');
   if(!committed)return toast('تعذر تثبيت نتائج الدفعة على الجهاز. نزّل نسخة احتياطية قبل إغلاق الصفحة.');
   toast(`اكتمل التصحيح الآلي: ${ar(done)} ورقة${failed.length ? `، وتعذر معالجة ${ar(failed.length)}` : ''}`);
