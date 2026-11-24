@@ -597,14 +597,14 @@ async function correctAllPending() {
   const prepare=index=>{
     return (async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;
     signal.throwIfAborted();s.batchSignal=signal;
-    s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%4!==0;
+    s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%5!==0;
     try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);signal.throwIfAborted();await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error}));
   };
   const schedule=()=>{if(!distributed && cursor<stageEnd){const index=cursor++;pending.set(index,prepare(index));}};
-  // Four stages run independently. Keep decoded canvases only while processing;
+  // Five stages run independently. Keep decoded canvases only while processing;
   // commit in original PDF order even when a later stage finishes first.
   function startGroup(start){
-    for(let lane=0;lane<4;lane++){
+    for(let lane=0;lane<5;lane++){
       const first=start+lane*gradingStageSize;
       let previous=Promise.resolve();
       for(let index=first;index<Math.min(items.length,first+gradingStageSize);index++){
@@ -661,7 +661,7 @@ async function correctAllPending() {
         break;
       }
       gradingProgress.stage=Math.floor(stageEnd/gradingStageSize)+1;
-      if(distributed && stageEnd%(4*gradingStageSize)===0)startGroup(stageEnd);
+      if(distributed && stageEnd%(5*gradingStageSize)===0)startGroup(stageEnd);
       stageEnd=Math.min(stageEnd+gradingStageSize,items.length);
       schedule();
     }

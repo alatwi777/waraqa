@@ -30,7 +30,7 @@ async function testCancel(authorized){
  const start=source.indexOf('async function cancelPendingBatch()');
  vm.runInContext(source.slice(start,source.indexOf('async function correctAllPending()',start))+code,context);
  await context.correctAllPending();
- assert.deepEqual(commits,[0]);assert(started.length<=(authorized?4:2));assert.equal(context.scanQueue.length,0);
+ assert.deepEqual(commits,[0]);assert(started.length<=(authorized?5:2));assert.equal(context.scanQueue.length,0);
  assert.equal(context.batchProcessing,false);assert.match(toasts.at(-1),/أُلغيت/);
 }
 Promise.all([testCancel(false),testCancel(true)]).then(()=>console.log('PASS: active cancellation on both grading paths preserves committed work and prevents further submissions.')).catch(e=>{console.error(e);process.exit(1)});
