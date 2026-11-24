@@ -533,7 +533,7 @@ results = function () {
   mergeDuplicateStudentResults();
   if (currentResult && db.results.some(r => r.id === currentResult)) return reviewResult(currentResult);
   const pendingList = bulkWaiting && scanQueue.length ? `<div class="bulk-file-list" aria-label="الأوراق المضافة">${scanQueue.map((f,i)=>`<span><b>${ar(i+1)}</b> ${esc(f.name)} <small>بانتظار التصحيح</small></span>`).join('')}</div>` : '';
-  const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة جاهزة للتصحيح${scanQueue.length > gradingStageSize ? ` على ${ar(Math.ceil(scanQueue.length/gradingStageSize))} مراحل متتابعة (حتى ${ar(gradingStageSize)} ورقة لكل مرحلة)` : ''}.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div>${gradingProgress ? `<div id="batch-progress" style="flex:1 1 210px;min-width:0"><div class="note" aria-live="polite">${gradingProgressText(gradingProgress)}</div><progress aria-label="تقدّم تصحيح الدفعة" style="width:100%;accent-color:#315c80" max="${gradingProgress.total}" value="${gradingProgress.done+gradingProgress.failed}"></progress></div>` : ''}<div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}</section>`;
+  const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة جاهزة للتصحيح${scanQueue.length > gradingStageSize ? ` على ${ar(Math.ceil(scanQueue.length/gradingStageSize))} مراحل (حتى ${ar(gradingStageSize)} ورقة لكل مرحلة)` : ''}.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div>${gradingProgress ? `<div id="batch-progress" style="flex:1 1 210px;min-width:0"><div class="note" aria-live="polite">${gradingProgressText(gradingProgress)}</div><progress aria-label="تقدّم تصحيح الدفعة" style="width:100%;accent-color:#315c80" max="${gradingProgress.total}" value="${gradingProgress.done+gradingProgress.failed}"></progress></div>` : ''}<div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}</section>`;
   const examIds = [...new Set(db.results.map(r => r.exam).filter(Boolean))];
   if (!resultsExamFilter || (resultsExamFilter !== 'all' && !examIds.includes(resultsExamFilter))) resultsExamFilter = examIds.at(-1) || 'all';
   const examItems = examIds.map(id => { const e = db.exams.find(x => x.id === id) || db.results.find(x => x.exam === id)?.snapshot; return e ? [id, e.title || 'اختبار'] : null; }).filter(Boolean);
@@ -585,24 +585,24 @@ async function correctAllPending() {
   const storageProblem=()=>(typeof LocalStore!=='undefined'&&!!LocalStore.error)||items.some(item=>item.preparedState?.storageFailure);
   const valid=()=>window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
   let stageEnd=Math.min(gradingStageSize,items.length);
-  const distributed=typeof test04DispatchEnabled==='function' && test04DispatchEnabled();
+  const distributed=!!window.WaraqaAuthorized && items.length>gradingStageSize;
   const prepare=index=>{
     return (async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;
-    s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%3!==0;
+    s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%2!==0;
     try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error}));
   };
   const schedule=()=>{if(!distributed && cursor<stageEnd){const index=cursor++;pending.set(index,prepare(index));}};
-  // Three stages run independently. Keep decoded canvases only while processing;
+  // Two stages run independently. Keep decoded canvases only while processing;
   // commit in original PDF order even when a later stage finishes first.
   function startGroup(start){
-    for(let lane=0;lane<3;lane++){
+    for(let lane=0;lane<2;lane++){
       const first=start+lane*gradingStageSize;
       let previous=Promise.resolve();
       for(let index=first;index<Math.min(items.length,first+gradingStageSize);index++){
         const task=previous.then(async()=>{
           if(storageProblem()||!valid())return {error:Error('توقفت معالجة الدفعة.')};
           const result=await prepare(index);
-          if(result.s && index!==scanIndex){
+          if(result.s?.canvas && index!==scanIndex){
             const state=result.s;
             const blob=await new Promise(resolve=>state.canvas.toBlob(resolve,'image/png'));
             if(blob){state.dispatchCanvas=blob;state.canvas=null;}
@@ -650,7 +650,7 @@ async function correctAllPending() {
         break;
       }
       gradingProgress.stage=Math.floor(stageEnd/gradingStageSize)+1;
-      if(distributed && stageEnd%(3*gradingStageSize)===0)startGroup(stageEnd);
+      if(distributed && stageEnd%(2*gradingStageSize)===0)startGroup(stageEnd);
       stageEnd=Math.min(stageEnd+gradingStageSize,items.length);
       schedule();
     }
