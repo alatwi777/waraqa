@@ -1144,6 +1144,11 @@ showGate("تسجيل الدخول والاشتراك");
       };
     }
     overlay.classList.add("open");
+    const scalingUser=auth.currentUser;
+    import("./owner-scaling.mjs?v=1").then(({mountWorkers})=>{
+      if(auth.currentUser?.uid===scalingUser.uid && isAdminAccount(auth.currentUser))
+        mountWorkers(overlay,scalingUser,()=>auth.currentUser?.uid===scalingUser.uid && isAdminAccount(auth.currentUser));
+    }).catch(()=>{document.getElementById("wa-admin-message").textContent="تعذّر تحميل إعدادات عمّال التصحيح. حدّث الصفحة.";});
     mountEmailQuotaPanel(overlay);
     loadAdminLicenses();
     loadAdminRequests();
