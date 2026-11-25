@@ -4,9 +4,8 @@ let bulkReviewActive = false;
 let batchProcessing = false;
 let gradingProgress = null;
 const gradingStageSize = 15;
-function gradingProgressText({total, done, failed, stage = 1}) {
-  const label = total > gradingStageSize ? `المرحلة ${ar(stage)} من ${ar(Math.ceil(total/gradingStageSize))} · ` : '';
-  return `${label}${ar(Math.floor((done+failed)*100/total))}٪ · صُححت ${ar(done)} من ${ar(total)} · المتبقي ${ar(total-done-failed)}${failed ? ' · تعذّر تصحيح '+ar(failed) : ''}`;
+function gradingProgressText({total, done, failed}) {
+  return `${ar(Math.floor((done+failed)*100/total))}٪ · صُححت ${ar(done)} من ${ar(total)} · المتبقي ${ar(total-done-failed)}${failed ? ' · تعذّر تصحيح '+ar(failed) : ''}`;
 }
 let batchRunId = '';
 let resultHitContext = null;
@@ -533,7 +532,7 @@ results = function () {
   mergeDuplicateStudentResults();
   if (currentResult && db.results.some(r => r.id === currentResult)) return reviewResult(currentResult);
   const pendingList = bulkWaiting && scanQueue.length ? `<div class="bulk-file-list" aria-label="الأوراق المضافة">${scanQueue.map((f,i)=>`<span><b>${ar(i+1)}</b> ${esc(f.name)} <small>بانتظار التصحيح</small></span>`).join('')}</div>` : '';
-  const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة جاهزة للتصحيح${scanQueue.length > gradingStageSize ? ` على ${ar(Math.ceil(scanQueue.length/gradingStageSize))} مراحل (حتى ${ar(gradingStageSize)} ورقة لكل مرحلة)` : ''}.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div>${gradingProgress ? `<div id="batch-progress" style="flex:1 1 210px;min-width:0"><div class="note" aria-live="polite">${gradingProgressText(gradingProgress)}</div><progress aria-label="تقدّم تصحيح الدفعة" style="width:100%;accent-color:#315c80" max="${gradingProgress.total}" value="${gradingProgress.done+gradingProgress.failed}"></progress></div>` : ''}<div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}</section>`;
+  const base = `<section class="panel bulk-batch-panel"><div><strong>دفعة أوراق التصحيح</strong><p class="note">${bulkWaiting && scanQueue.length ? `${ar(scanQueue.length)} ورقة جاهزة للتصحيح.` : 'ارفع مجموعة صور أو ملف PDF من قسم التصحيح لتجهيز دفعة.'}</p></div>${gradingProgress ? `<div id="batch-progress" style="flex:1 1 210px;min-width:0"><div class="note" aria-live="polite">${gradingProgressText(gradingProgress)}</div><progress aria-label="تقدّم تصحيح الدفعة" style="width:100%;accent-color:#315c80" max="${gradingProgress.total}" value="${gradingProgress.done+gradingProgress.failed}"></progress></div>` : ''}<div class="actions">${bulkWaiting && scanQueue.length ? `<button class="btn gold" onclick="correctAllPending()" ${batchProcessing ? 'disabled' : ''}>${batchProcessing ? 'جارٍ التصحيح…' : 'تصحيح الكل'}</button><button class="btn light" onclick="startBatchReview()">مراجعة الأوراق يدويًا</button><button class="btn light small" onclick="cancelPendingBatch()">إلغاء الدفعة</button>` : `<a class="btn light" href="#scan">اختيار أوراق للتصحيح</a>`}</div>${pendingList}</section>`;
   const examIds = [...new Set(db.results.map(r => r.exam).filter(Boolean))];
   if (!resultsExamFilter || (resultsExamFilter !== 'all' && !examIds.includes(resultsExamFilter))) resultsExamFilter = examIds.at(-1) || 'all';
   const examItems = examIds.map(id => { const e = db.exams.find(x => x.id === id) || db.results.find(x => x.exam === id)?.snapshot; return e ? [id, e.title || 'اختبار'] : null; }).filter(Boolean);
@@ -594,39 +593,40 @@ async function correctAllPending() {
   const valid=()=>!signal.aborted && window.WaraqaFirebaseUid===owner&&JSON.stringify(db.exams.find(x=>x.id===exam?.id)?.questions)===signature;
   let stageEnd=Math.min(gradingStageSize,items.length);
   const distributed=!!window.WaraqaAuthorized && items.length>gradingStageSize;
-  const prepare=index=>{
+  const prepare=(index,google=false)=>{
     return (async()=>{if(!valid())throw Error('تغير الاختبار أو الحساب؛ أعد التصحيح.');const item=items[index],s=item.preparedSignature===signature&&item.preparedState?item.preparedState:await prepareScanItem(item,exam,true);item.preparedState=s;item.preparedSignature=signature;
     signal.throwIfAborted();s.batchSignal=signal;
-    s.dispatchGoogle=distributed && Math.floor(index/gradingStageSize)%5!==0;
+    s.dispatchGoogle=google;
     try{if(storageProblem())throw Error('توقف الحفظ على الجهاز.');if(!s.remoteReady||s.remoteError)await remoteReadScan(s,exam);signal.throwIfAborted();await identifyScanStudent(s,true);if(!s.student&&item.pdf&&typeof identifyBatchHeader==='function')await identifyBatchHeader(s,exam);return s;}finally{item.resultId=s.savedResultId||s.remoteRetainedId||item.resultId;}})().then(s=>({s}),error=>({error}));
   };
   const schedule=()=>{if(!distributed && cursor<stageEnd){const index=cursor++;pending.set(index,prepare(index));}};
-  // Five stages run independently. Keep decoded canvases only while processing;
-  // commit in original PDF order even when a later stage finishes first.
-  function startGroup(start){
-    for(let lane=0;lane<5;lane++){
-      const first=start+lane*gradingStageSize;
-      let previous=Promise.resolve();
-      for(let index=first;index<Math.min(items.length,first+gradingStageSize);index++){
-        const task=previous.then(async()=>{
-          if(storageProblem()||!valid())return {error:Error('توقفت معالجة الدفعة.')};
-          const result=await prepare(index);
-          if(result.s?.canvas && index!==scanIndex){
-            const state=result.s;
-            const blob=await new Promise(resolve=>state.canvas.toBlob(resolve,'image/png'));
-            if(blob){state.dispatchCanvas=blob;state.canvas=null;}
-          }
-          return result;
-        }).catch(error=>({error}));
-        pending.set(index,task);
-        previous=task;
-      }
+  // Assign the next page to the first free lane. Bound prepared pages while an
+  // earlier page is slow, since persistence must follow the original PDF order.
+  const freeLanes=[false,true,true,true,true];
+  const maxAhead=75;
+  function fillLanes(){
+    while(distributed && freeLanes.length && cursor<items.length && cursor<scanIndex+maxAhead
+        && !storageStopped && valid() && !storageProblem()){
+      const google=freeLanes.shift(),index=cursor++;
+      const task=prepare(index,google).then(async result=>{
+        const state=result.s;
+        if(state?.canvas && index!==scanIndex){
+          const blob=await new Promise(resolve=>state.canvas.toBlob(resolve,'image/png'));
+          if(blob){state.dispatchCanvas=blob;state.canvas=null;}
+        }
+        return result;
+      }).catch(error=>({error})).finally(()=>{
+        freeLanes.push(google);
+        fillLanes();
+      });
+      pending.set(index,task);
     }
   }
-  if(distributed)startGroup(0);
+  fillLanes();
   schedule();schedule();
   for (scanIndex = 0; scanIndex < items.length; scanIndex++) {
     nextUnfinished=scanIndex;
+    fillLanes();
     const outcome=await pending.get(scanIndex);pending.delete(scanIndex);if(signal.aborted)break;if(storageProblem()){storageStopped=true;break;}
     try {
       if(outcome.error)throw outcome.error;
@@ -660,8 +660,6 @@ async function correctAllPending() {
         storageStopped=true;
         break;
       }
-      gradingProgress.stage=Math.floor(stageEnd/gradingStageSize)+1;
-      if(distributed && stageEnd%(5*gradingStageSize)===0)startGroup(stageEnd);
       stageEnd=Math.min(stageEnd+gradingStageSize,items.length);
       schedule();
     }
