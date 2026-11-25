@@ -602,7 +602,9 @@ async function correctAllPending() {
   const schedule=()=>{if(!distributed && cursor<stageEnd){const index=cursor++;pending.set(index,prepare(index));}};
   // Assign the next page to the first free lane. Bound prepared pages while an
   // earlier page is slow, since persistence must follow the original PDF order.
-  const freeLanes=[false,true,true,true,true];
+  const testSlot=window.location && new URLSearchParams(window.location.search).get('tab-session');
+  const googleLanes=/^(0[1-9]|1[0-5])$/.test(testSlot) ? 9 : 4;
+  const freeLanes=[false,...Array(googleLanes).fill(true)];
   const maxAhead=75;
   function fillLanes(){
     while(distributed && freeLanes.length && cursor<items.length && cursor<scanIndex+maxAhead
