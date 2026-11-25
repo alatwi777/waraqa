@@ -35,3 +35,46 @@ function openSavedStudentPaper(resultId) {
  closeModal();currentExam=record.exam;currentResult=resultId;
  if(location.hash==='#results')results();else location.hash='results';
 }
+
+let deletingStudents=false;
+async function deleteStudentsAndPapers(id) {
+ if(deletingStudents)return;
+ if(batchProcessing || scanState?.remotePending || scanState?.saving || (typeof capturedGrading!=='undefined' && capturedGrading))
+  return toast('أوقف التصحيح قبل حذف الطلاب وأوراقهم.');
+ const roster=db.students, previous=db.results;
+ const targets=id===undefined ? roster : roster.filter(student=>student.id===id);
+ if(!targets.length)return;
+ const ids=new Set(targets.map(student=>student.id));
+ function ownsPaper(record) {
+  if(record.student)return ids.has(record.student);
+  const number=resultNumberKey(record.number);
+  if(!number)return false;
+  const matches=roster.filter(student=>resultNumberKey(student.number)===number && (!record.group || student.group===record.group));
+  return matches.length>0 && matches.every(student=>ids.has(student.id));
+ }
+ const removed=previous.filter(ownsPaper), removedSet=new Set(removed);
+ const label=id===undefined ? 'جميع الطلاب في كل المجموعات ('+ar(targets.length)+')' : 'الطالب '+targets[0].name;
+ if(!confirm('حذف '+label+' نهائيًا مع أوراقهم ودرجاتهم وصور الإجابات؟ عدد النتائج المرتبطة: '+ar(removed.length)+'. ستبقى نماذج الاختبارات المشتركة.'))return;
+ deletingStudents=true;
+ try {
+  db.students=roster.filter(student=>!ids.has(student.id));
+  db.results=previous.filter(record=>!removedSet.has(record));
+  try {if(save()===false)throw Error('save');}
+  catch {db.students=roster;db.results=previous;return toast('تعذر حفظ الحذف.');}
+  students();
+  if(typeof flushLocalChanges==='function' && !await flushLocalChanges())return toast('تعذر تأكيد حفظ الحذف. احتفظ بنسخة من بياناتك.');
+  const keys=new Set(removed.flatMap(record=>Object.values(record.pages||{})).filter(key=>typeof key==='string'));
+  for(const record of db.results)for(const key of Object.values(record.pages||{}))keys.delete(key);
+  if(keys.size){
+   const store=await idb;
+   await new Promise((resolve,reject)=>{
+    const tx=store.transaction('files','readwrite'), files=tx.objectStore('files');
+    for(const key of keys)files.delete(key);
+    tx.oncomplete=resolve;
+    tx.onerror=tx.onabort=()=>reject(tx.error);
+   });
+  }
+  toast('تم حذف الطلاب المحددين وأوراقهم.');
+ }catch{toast('تعذر إكمال تنظيف صور الأوراق من هذا المتصفح.');}
+ finally{deletingStudents=false;}
+}
