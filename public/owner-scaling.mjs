@@ -6,7 +6,7 @@ export function mountWorkers(overlay,user,isCurrentOwner){
  if(old?.dataset.busy==='true')return;
  const panel=document.createElement('section');
  panel.className='wa-worker-controls';
- panel.innerHTML=`<h3>عمّال التصحيح</h3><form class="wa-admin-form"><label>الحد الأدنى<input name="minimum" type="number" min="0" max="50" step="1" required></label><label>الحد الأقصى<input name="maximum" type="number" min="1" max="50" step="1" required></label><button type="submit" disabled>تطبيق</button><a class="wa-quota-link" target="_blank" rel="noopener" href="${consoleUrl}">تحقّق في Google Cloud</a></form><p class="wa-admin-message" role="status"></p><button type="button" class="wa-admin-form-button">تحديث القيم</button>`;
+ panel.innerHTML=`<h3>عمّال التصحيح</h3><form class="wa-admin-form"><label>الحد الأدنى<input name="minimum" type="number" min="0" max="100" step="1" required></label><label>الحد الأقصى<input name="maximum" type="number" min="1" max="100" step="1" required></label><button type="submit" disabled>تطبيق</button><a class="wa-quota-link" target="_blank" rel="noopener" href="${consoleUrl}">تحقّق في Google Cloud</a></form><p class="wa-admin-message" role="status"></p><button type="button" class="wa-admin-form-button">تحديث القيم</button>`;
  if(old)old.replaceWith(panel);
  else overlay.querySelector('.wa-admin-stats').after(panel);
  const form=panel.querySelector('form'),minimum=form.elements.minimum,maximum=form.elements.maximum;
