@@ -603,9 +603,18 @@ async function correctAllPending() {
   // Assign the next page to the first free lane. Bound prepared pages while an
   // earlier page is slow, since persistence must follow the original PDF order.
   const testSlot=window.location && new URLSearchParams(window.location.search).get('tab-session');
-  const googleLanes=/^(0[1-9]|1[0-5])$/.test(testSlot) ? 9 : 4;
+  let googleLanes=9;
+  if(distributed && !/^(0[1-9]|1[0-5])$/.test(testSlot)){
+    try{
+      const response=await fetch('https://waraqa-owner-scaling-481064076419.europe-west1.run.app/capacity',{signal:AbortSignal.any([signal,AbortSignal.timeout(12000)])});
+      if(!response.ok)throw Error();
+      const {max}=await response.json();
+      if(!Number.isInteger(max)||max<1||max>100)throw Error();
+      googleLanes=max;
+    }catch{googleLanes=4;}
+  }
   const freeLanes=[false,...Array(googleLanes).fill(true)];
-  const maxAhead=75;
+  const maxAhead=Math.max(75,freeLanes.length);
   function fillLanes(){
     while(distributed && freeLanes.length && cursor<items.length && cursor<scanIndex+maxAhead
         && !storageStopped && valid() && !storageProblem()){

@@ -11,7 +11,7 @@ let html=await readFile(resolve(root,'site/index.html'),'utf8');
 html=html.replace('<script src="cloud.js"></script>','<script src="auth-gate.js?v=owner-scaling-2"></script><script src="local-metadata.js?v=idb-journal-20261123" data-waraqa-metadata="required"></script><script src="local.js?v=idb-journal-20261123"></script>').replace('حساب ChatGPT · حفظ سحابي','هذا المتصفح · حفظ محلي').replace('☁ بيانات مرتبطة بحسابك','◉ بيانات على جهازك').replace('جارٍ فتح حسابك…','جارٍ فتح بيانات هذا المتصفح…');
 html=html.replace('app.js?v=student-paper-navigation-20261121','app.js?v=continuous-purple').replace('remote-grader.js?v=durable-jobs-20261122b','remote-grader.js?v=batch-1000');
 html=html.replace('student-papers.js?v=20261121','student-papers.js?v=student-deletion-1');
-html=html.replace('results-workflow.js?v=noor-extension-1610','results-workflow.js?v=trial-50').replace('document-batch.js?v=server-grading-20261110','document-batch.js?v=storage-stop-20261123');
+html=html.replace('results-workflow.js?v=noor-extension-1610','results-workflow.js?v=subscriber-capacity-100').replace('document-batch.js?v=server-grading-20261110','document-batch.js?v=storage-stop-20261123');
 // Avoid a cached copy of the previous result-preview script on GitHub Pages.
 html=html.replace('results-workflow.js?v=result-preview-layout-scrollfix-20261030','results-workflow.js?v=results-export-answers-excel-20261030');
 html=html.replace('style.css?v=results-actions-20261113','style.css?v=continuous-purple');
